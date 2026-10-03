@@ -1,0 +1,31 @@
+name: Alpicut Lab
+
+on:
+  push:
+    branches: [lab-run]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Keşif
+        run: node lab/discover.mjs || true
+      - name: Paketler
+        run: bash lab/packages.sh || true
+      - name: Ek testler
+        run: if [ -f lab/run.sh ]; then bash lab/run.sh || true; fi
+      - name: Sonuçları yayınla
+        run: |
+          cd lab/out
+          git init -q && git checkout -q -b lab-results
+          git config user.name "alpicut-lab" && git config user.email "lab@alpicut.local"
+          git add -A && git commit -qm "lab $GITHUB_RUN_NUMBER"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" lab-results
