@@ -1,5 +1,6 @@
 // Alpicut — çizim fonksiyonları (klip, katman, yazı, CTA, skor, altyazı, efektler)
 import { filterString } from './presets.js';
+import { layerAt, clipAt } from './kf.js';
 
 export const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
@@ -109,7 +110,8 @@ export function drawClip(ctx, clip, el, localT, len, env) {
   const { W, H, S } = env;
   if (!isReady(el)) return;
   const fit = clip.fit || 'cover';
-  let zoom = clip.zoom || 1;
+  const kv = clipAt(clip, localT);
+  let zoom = kv.zoom || 1;
   if (clip.kenburns) zoom *= 1 + 0.15 * clamp(localT / Math.max(0.1, len));
   if (fit === 'contain' && clip.bgMode === 'blur') {
     ctx.save();
@@ -123,7 +125,7 @@ export function drawClip(ctx, clip, el, localT, len, env) {
   ctx.save();
   const fs = filterString(clip.filters, S);
   if (fs !== 'none') ctx.filter = fs;
-  drawFit(ctx, el, 0, 0, W, H, fit, zoom, clip.panX || 0, clip.panY || 0);
+  drawFit(ctx, el, 0, 0, W, H, fit, zoom, kv.panX || 0, kv.panY || 0);
   ctx.restore();
 }
 
@@ -463,52 +465,172 @@ export function drawScore(ctx, L, t, env) {
 }
 
 // ---------- Katman ----------
+export const BLENDS = [
+  ['source-over', 'Normal'], ['multiply', 'Çarp'], ['screen', 'Ekran'], ['overlay', 'Bindirme'],
+  ['lighten', 'Aydınlat'], ['darken', 'Karart'], ['color-dodge', 'Renk soldurma'], ['difference', 'Fark'],
+];
+
 export function drawLayer(ctx, L, t, env, el, still = false) {
   const { W, H, S } = env;
-  // still: düzenlerken seçili katman animasyonsuz, tam haliyle görünür
+  // still: düzenlerken seçili katman giriş/çıkış animasyonsuz, tam haliyle görünür (keyframe'ler uygulanır)
   const st = still ? { alpha: 1, tx: 0, ty: 0, sc: 1, rot: 0, blur: 0, reveal: 1, glow: 0 } : animState(L, t, W, H);
   if (st.alpha <= 0.001 || st.sc <= 0.001) return null;
+  const kv = layerAt(L, t);
   ctx.save();
-  ctx.globalAlpha = clamp((L.opacity ?? 1) * st.alpha);
-  ctx.translate(L.x * W + st.tx, L.y * H + st.ty);
-  ctx.rotate(((L.rot || 0) * Math.PI) / 180 + st.rot);
-  ctx.scale(st.sc, st.sc);
+  ctx.globalAlpha = clamp(kv.opacity * st.alpha);
+  if (L.blend && L.blend !== 'source-over') ctx.globalCompositeOperation = L.blend;
+  const cx = kv.x * W + st.tx, cy = kv.y * H + st.ty;
+  const rot = (kv.rot * Math.PI) / 180 + st.rot;
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.scale(st.sc * kv.s, st.sc * kv.s);
   if (st.blur > 0.5) ctx.filter = `blur(${st.blur * S}px)`;
   let box = null;
   if (L.kind === 'text') box = drawText(ctx, L, st, env);
   else if (L.kind === 'cta') box = drawCTA(ctx, L, t, env);
   else if (L.kind === 'score') box = drawScore(ctx, L, t, env);
+  else if (L.kind === 'shape') box = drawShape(ctx, L, t, env);
   else if (L.kind === 'media') box = drawMediaLayer(ctx, L, t, env, el, st);
   ctx.restore();
-  return box;
+  if (!box) return null;
+  return { w: box.w * kv.s, h: box.h * kv.s, x: kv.x * W, y: kv.y * H, rot: kv.rot };
 }
+
+// ---------- Şekiller ----------
+export const SHAPES = [['rect', 'Kutu'], ['circle', 'Çember'], ['line', 'Çizgi'], ['arrow', 'Ok'], ['frame', 'Ekran çerçevesi']];
+
+function mixWhite(hex, k) {
+  if (!hex || hex[0] !== '#') return '#ffffff';
+  let c = hex.slice(1); if (c.length === 3) c = c.split('').map((x) => x + x).join('');
+  const n = parseInt(c, 16);
+  const m = (v) => Math.round(v + (255 - v) * k);
+  return `rgb(${m((n >> 16) & 255)},${m((n >> 8) & 255)},${m(n & 255)})`;
+}
+
+export function drawShape(ctx, L, t, env) {
+  const { W, H, S } = env;
+  let w = (L.w || 0.5) * W, h = (L.h || 0.3) * W;
+  if (L.shape === 'frame') { const ins = (L.inset ?? 0.03) * W; w = W - ins * 2; h = H - ins * 2; }
+  const sw = L.strokeW || 0;
+  const path = () => {
+    ctx.beginPath();
+    if (L.shape === 'circle') ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+    else if (L.shape === 'line') { ctx.moveTo(-w / 2, 0); ctx.lineTo(w / 2, 0); }
+    else if (L.shape === 'arrow') {
+      const hs = Math.max(sw * 2.6, 34);
+      ctx.moveTo(-w / 2, 0); ctx.lineTo(w / 2 - hs * 0.8, 0);
+    } else roundRect(ctx, -w / 2, -h / 2, w, h, L.radius || 0);
+  };
+  const arrowHead = () => {
+    const hs = Math.max(sw * 2.6, 34);
+    ctx.beginPath();
+    ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2 - hs, -hs * 0.62); ctx.lineTo(w / 2 - hs, hs * 0.62); ctx.closePath();
+    ctx.fill();
+  };
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const glow = L.glow || 0;
+  const lineLike = L.shape === 'line' || L.shape === 'arrow';
+  // dolgu
+  if (L.fillOn && !lineLike) {
+    ctx.save();
+    ctx.fillStyle = hexA(L.fillColor || '#000', L.fillOpacity ?? 0.5);
+    path(); ctx.fill();
+    ctx.restore();
+  }
+  if (sw > 0) {
+    ctx.save();
+    ctx.strokeStyle = L.color; ctx.fillStyle = L.color; ctx.lineWidth = sw;
+    if (glow > 0) { ctx.shadowColor = L.color; ctx.shadowBlur = glow * S; }
+    path(); ctx.stroke();
+    if (L.shape === 'arrow') arrowHead();
+    if (glow > 0) {
+      // neon: ikinci geçiş + açık renkli çekirdek
+      path(); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = mixWhite(L.color, 0.65); ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = Math.max(1, sw * 0.38);
+      path(); ctx.stroke();
+      if (L.shape === 'arrow') { ctx.save(); ctx.scale(0.999, 0.999); ctx.restore(); }
+    }
+    ctx.restore();
+  }
+  return { w: w + sw, h: (lineLike ? Math.max(sw * 3, 40) : h) + sw };
+}
+
+// ---------- Medya katmanı ----------
+export const CROPS = [['none', 'Orijinal'], ['square', 'Kare'], ['circle', 'Daire'], ['wide', '16:9'], ['portrait', '4:5'], ['half', 'Yarım ekran']];
+
+function cropH(L, w, sw, sh, env) {
+  switch (L.crop) {
+    case 'square': case 'circle': return w;
+    case 'wide': return w * 9 / 16;
+    case 'portrait': return w * 5 / 4;
+    case 'half': return w * (env.H / 2) / env.W;
+    default: return w * (sh / sw);
+  }
+}
+
+const maskCanvases = new Map();
 
 function drawMediaLayer(ctx, L, t, env, el, st) {
   const { W, S } = env;
-  if (!isReady(el)) return { w: L.w * W, h: L.w * W };
-  const [sw, sh] = mediaSize(el);
   const w = (L.w || 0.6) * W;
-  const h = L.crop === 'square' ? w : L.crop === 'circle' ? w : w * (sh / sw);
-  let zoom = 1;
-  if (L.kenburns) zoom = 1 + 0.15 * clamp((t - L.start) / Math.max(0.1, L.end - L.start));
+  if (!isReady(el)) return { w, h: w };
+  const [sw, sh] = mediaSize(el);
+  const h = cropH(L, w, sw, sh, env);
+  let zoom = L.zoom || 1;
+  if (L.kenburns) zoom *= 1 + 0.15 * clamp((t - L.start) / Math.max(0.1, L.end - L.start));
   const r = L.crop === 'circle' ? w / 2 : (L.radius || 0);
-  if (L.shadowOn) {
+  const m = L.mask && L.mask.type && L.mask.type !== 'none' ? L.mask : null;
+  if (L.shadowOn && !m) {
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 40 * S; ctx.shadowOffsetY = 10 * S;
     roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.fillStyle = '#000'; ctx.fill();
     ctx.restore();
   }
-  ctx.save();
-  roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.clip();
   const fs = filterString(L.filters, S);
   const blur = st.blur > 0.5 ? ` blur(${st.blur * S}px)` : '';
-  ctx.filter = (fs === 'none' ? '' : fs) + blur || 'none';
-  drawFit(ctx, el, -w / 2, -h / 2, w, h, 'cover', zoom);
-  ctx.restore();
-  if (L.borderW > 0) {
+  const filt = ((fs === 'none' ? '' : fs) + blur).trim() || 'none';
+  if (m) {
+    // maske: ekran dışı tuvalde görüntü + yumuşatılmış maske
+    const k = S * (ctx.getTransform ? Math.hypot(ctx.getTransform().a, ctx.getTransform().b) / S : 1);
+    const cw = Math.max(2, Math.ceil(w * k)), ch = Math.max(2, Math.ceil(h * k));
+    let oc = maskCanvases.get(L.id);
+    if (!oc) { oc = document.createElement('canvas'); maskCanvases.set(L.id, oc); }
+    if (oc.width !== cw || oc.height !== ch) { oc.width = cw; oc.height = ch; }
+    const o = oc.getContext('2d');
+    o.setTransform(1, 0, 0, 1, 0, 0);
+    o.globalCompositeOperation = 'source-over';
+    o.filter = 'none';
+    o.clearRect(0, 0, cw, ch);
+    o.save();
+    roundRect(o, 0, 0, cw, ch, r * k); o.clip();
+    o.filter = filt;
+    drawFit(o, el, 0, 0, cw, ch, 'cover', zoom);
+    o.restore();
+    o.globalCompositeOperation = m.invert ? 'destination-out' : 'destination-in';
+    o.filter = m.feather > 0 ? `blur(${m.feather * k}px)` : 'none';
+    o.fillStyle = '#000';
+    o.beginPath();
+    const mx = (m.x ?? 0.5) * cw, my = (m.y ?? 0.5) * ch, mw = (m.w ?? 0.8) * cw, mh = (m.h ?? 0.8) * ch;
+    if (m.type === 'ellipse') o.ellipse(mx, my, mw / 2, mh / 2, 0, 0, Math.PI * 2);
+    else roundRect(o, mx - mw / 2, my - mh / 2, mw, mh, (m.radius || 0) * k);
+    o.fill();
+    o.globalCompositeOperation = 'source-over';
+    o.filter = 'none';
+    ctx.drawImage(oc, -w / 2, -h / 2, w, h);
+  } else {
+    ctx.save();
+    roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.clip();
+    ctx.filter = filt;
+    drawFit(ctx, el, -w / 2, -h / 2, w, h, 'cover', zoom, L.panX || 0, L.panY || 0);
+    ctx.restore();
+  }
+  if (L.borderW > 0 && !m) {
     ctx.save();
     roundRect(ctx, -w / 2, -h / 2, w, h, r);
-    ctx.lineWidth = L.borderW; ctx.strokeStyle = L.borderColor || '#fff'; ctx.stroke();
+    ctx.lineWidth = L.borderW; ctx.strokeStyle = L.borderColor || '#fff';
+    if (L.borderGlow > 0) { ctx.shadowColor = L.borderColor; ctx.shadowBlur = L.borderGlow * S; ctx.stroke(); }
+    ctx.stroke();
     ctx.restore();
   }
   return { w, h };

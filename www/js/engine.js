@@ -3,7 +3,7 @@ import { RATIOS } from './presets.js';
 import { drawClip, drawTransition, drawLayer, drawSubtitles, drawFx, clamp } from './render.js';
 
 export function clipLen(c) {
-  if (c.type === 'image') return Math.max(0.2, c.dur || 3);
+  if (c.type === 'image' || c.freeze) return Math.max(0.2, c.dur || 3);
   return Math.max(0.1, (c.out - c.in) / (c.speed || 1));
 }
 
@@ -184,6 +184,13 @@ export class Engine {
       const next = lay[i + 1];
       if (active && next && next.td > 0 && t > next.start) vol *= 1 - (t - next.start) / next.td;
       if (c.mute) vol = 0;
+      if (c.freeze) {
+        // donmuş kare: oynatma yok, ses yok
+        if (el && !el.paused) el.pause();
+        if (el && active && Math.abs(el.currentTime - c.freezeAt) > 0.03 && !el.seeking) el.currentTime = c.freezeAt;
+        if (el && !active && t < L.start && L.start - t < 1.5) this._prepare(el, c.freezeAt);
+        return;
+      }
       this._syncEl(el, active, c.in + local * (c.speed || 1), c.speed || 1, vol);
       if (!active && t < L.start && L.start - t < 1.5) this._prepare(el, c.in);
     });
@@ -244,7 +251,7 @@ export class Engine {
       const box = drawLayer(ctx, l, t, env, l.kind === 'media' ? this.elFor(l) : null, still);
       if (box) this.boxes.set(l.id, box);
     });
-    drawSubtitles(ctx, P.subs, t, env);
+    if (!this.exporting || P.subs?.burn !== false) drawSubtitles(ctx, P.subs, t, env);
     drawFx(ctx, P.fx, t, this.duration(), env);
 
     if (!this.exporting) this._drawSelection(ctx, t);
@@ -253,6 +260,13 @@ export class Engine {
   _drawSelection(ctx, t) {
     const S = this.scale;
     const l = this.P.layers.find((x) => x.id === this.selectedId);
+    if (this.guides && this.P.ratio === '9:16') {
+      // kısa video güvenli alanı (platform arayüzünün kapattığı bölgeler dışı)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(250,204,21,.7)'; ctx.lineWidth = 2 / S; ctx.setLineDash([8 / S, 8 / S]);
+      ctx.strokeRect(this.W * 0.06, this.H * 0.1, this.W * 0.78, this.H * 0.68);
+      ctx.restore();
+    }
     if (this.guides) {
       ctx.save();
       ctx.strokeStyle = '#E879F9'; ctx.lineWidth = 2 / S; ctx.setLineDash([12 / S, 10 / S]);
@@ -264,8 +278,8 @@ export class Engine {
     const b = this.boxes.get(l.id);
     if (!b) return;
     ctx.save();
-    ctx.translate(l.x * this.W, l.y * this.H);
-    ctx.rotate(((l.rot || 0) * Math.PI) / 180);
+    ctx.translate(b.x, b.y);
+    ctx.rotate(((b.rot || 0) * Math.PI) / 180);
     ctx.strokeStyle = '#A855F7';
     ctx.lineWidth = 4 / S;
     ctx.setLineDash([16 / S, 10 / S]);
@@ -280,8 +294,8 @@ export class Engine {
     for (const l of list) {
       const b = this.boxes.get(l.id);
       if (!b) continue;
-      const a = -((l.rot || 0) * Math.PI) / 180;
-      const dx = x - l.x * this.W, dy = y - l.y * this.H;
+      const a = -((b.rot || 0) * Math.PI) / 180;
+      const dx = x - b.x, dy = y - b.y;
       const rx = dx * Math.cos(a) - dy * Math.sin(a), ry = dx * Math.sin(a) + dy * Math.cos(a);
       if (Math.abs(rx) <= b.w / 2 + 30 && Math.abs(ry) <= b.h / 2 + 30) return l;
     }
@@ -322,7 +336,7 @@ export class Engine {
         this.t = d;
         this.playing = false;
         this.sync(this.t);
-        this.draw();
+        this.draw(Math.max(0, d - 0.001)); // son kare siyah kalmasın
         if (this.onTime) this.onTime(this.t);
         if (this.onEnd) this.onEnd();
         return;
@@ -332,7 +346,8 @@ export class Engine {
       if (this.onTime) this.onTime(this.t);
     } else if (this._needDraw) {
       this._needDraw = false;
-      this.draw();
+      const d = this.duration();
+      this.draw(this.t >= d ? Math.max(0, d - 0.001) : this.t);
     }
   }
 
@@ -350,7 +365,7 @@ export class Engine {
     return list.find((m) => { try { return MediaRecorder.isTypeSupported(m); } catch (_) { return false; } }) || '';
   }
 
-  async export({ res = 1, fps = 30, bitrate = 10e6, onProgress, shouldCancel } = {}) {
+  async export({ res = 1, fps = 30, bitrate = 10e6, abr = 192000, onProgress, shouldCancel } = {}) {
     if (!window.MediaRecorder || !this.canvas.captureStream) throw new Error('Bu cihaz video kaydını desteklemiyor.');
     this.playing = false;
     this.ensureAudio();
@@ -360,7 +375,7 @@ export class Engine {
     const mime = Engine.pickMime();
     const stream = this.canvas.captureStream(fps);
     if (this.recDest) this.recDest.stream.getAudioTracks().forEach((tr) => stream.addTrack(tr));
-    const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: bitrate, audioBitsPerSecond: 192000 } : undefined);
+    const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: bitrate, audioBitsPerSecond: abr } : undefined);
     const chunks = [];
     rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     const done = new Promise((resolve) => { rec.onstop = resolve; });

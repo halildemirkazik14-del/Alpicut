@@ -3,12 +3,15 @@ import { app, $, h, getPath, setPath, clone, fmt, toast, selected, uid } from '.
 import { I } from './icons.js';
 import {
   FONTS, WEIGHTS, ANIM_IN, ANIM_OUT, ANIM_LOOP, TRANSITIONS, FILTER_PRESETS, DEFAULT_FILTERS,
-  TEXT_BASE, TEXT_TEMPLATES, CTA_BASE, CTA_PRESETS, SCORE_BASE, SUB_PRESETS, SUB_BASE, RATIOS,
+  TEXT_BASE, TEXT_TEMPLATES, CTA_BASE, CTA_PRESETS, SCORE_BASE, SUB_PRESETS, SUB_BASE, RATIOS, SHAPE_BASE, SHAPE_PRESETS,
 } from './presets.js';
-import { drawText, drawCTA, drawScore, ICON_NAMES } from './render.js';
+import { drawText, drawCTA, drawScore, drawShape, ICON_NAMES, BLENDS, SHAPES, CROPS } from './render.js';
 import { Engine } from './engine.js';
 import { saveVideo, isNative } from './storage.js';
-import { parseSRT, toSRT } from './srt.js';
+import { parseSRT, toSRT, toVTT } from './srt.js';
+import { LAYER_PROPS, CLIP_PROPS, EASES, propAt, hasKeys, keyAt, setKey, delKey, writeProp, allKeyTimes } from './kf.js';
+import { SFX, renderSfx } from './sfx.js';
+import { layoutClips } from './engine.js';
 
 // ---------- panel altyapısı ----------
 let cur = null;
@@ -92,7 +95,8 @@ function setRangeFill(inp) {
 export function fields(obj, list, opts = {}) {
   const frag = document.createDocumentFragment();
   const change = (f, v, final) => {
-    setPath(obj, f.path, v);
+    if (f.kf) writeProp(obj, f.kf, localT(obj), v);
+    else setPath(obj, f.path, v);
     if (f.post) f.post(obj, v);
     app.change(final);
     if (final && (f.rerender || opts.rerender)) refreshSheet();
@@ -101,7 +105,7 @@ export function fields(obj, list, opts = {}) {
     if (!f || f.hide) return;
     if (f.type === 'el') { frag.append(f.el); return; }
     if (f.type === 'hint') { frag.append(h('p', { class: 'hint', html: f.html })); return; }
-    const v = getPath(obj, f.path);
+    const v = f.kf ? propAt(obj, f.kf, localT(obj)) : getPath(obj, f.path);
     let ctl, valEl = null;
     const full = ['chips', 'textarea', 'text', 'color'].includes(f.type) || f.full;
     switch (f.type) {
@@ -152,11 +156,26 @@ export function fields(obj, list, opts = {}) {
         break;
       }
     }
-    const row = h('div', { class: `field${full ? ' full' : ''}` }, h('label', {}, f.label), ctl, valEl || (full ? null : h('span')));
+    const lbl = h('label', {}, f.label, f.kf && hasKeys(obj, f.kf) ? h('span', { class: 'kf-mark', title: 'Keyframe var' }, ' ◆') : null);
+    const row = h('div', { class: `field${full ? ' full' : ''}` }, lbl, ctl, valEl || (full ? null : h('span')));
     frag.append(row);
   });
   return frag;
 }
+
+// Öğenin kendi başlangıcına göre oynatıcı zamanı
+export function itemStart(o) {
+  if (o.start != null && o.end != null) return o.start;
+  if (o.start != null && o.out != null && o.mediaId && !o.type) return o.start; // ses
+  const L = layoutClips(app.P.clips).find((x) => x.clip === o);
+  return L ? L.start : 0;
+}
+export function itemLen(o) {
+  if (o.end != null) return o.end - o.start;
+  const L = layoutClips(app.P.clips).find((x) => x.clip === o);
+  return L ? L.len : 0;
+}
+export function localT(o) { return app.engine.t - itemStart(o); }
 
 const pct = (x) => `${Math.round(x * 100)}%`;
 const sec = (x) => `${(+x).toFixed(1)}s`;
@@ -222,11 +241,12 @@ function clipInspector(c) {
   const mdur = m?.duration || 60;
   const idx = app.P.clips.indexOf(c);
   return {
-    title: isV ? 'Video klip' : 'Fotoğraf',
-    tabs: ['Düzen', 'Geçiş', 'Filtre'],
+    title: c.freeze ? 'Donmuş kare' : isV ? 'Video klip' : 'Fotoğraf',
+    tabs: ['Düzen', 'Keyframe', 'Geçiş', 'Filtre'],
     actions: [
       { icon: I.left, label: 'Sola taşı', onClick: () => app.moveClip(-1) },
       { icon: I.right, label: 'Sağa taşı', onClick: () => app.moveClip(1) },
+      ...(isV && !c.freeze ? [{ icon: I.freeze, label: 'Kareyi dondur', onClick: () => app.freezeFrame() }] : []),
       ...commonActions('clip'),
     ],
     render: (body, tab) => {
@@ -235,16 +255,18 @@ function clipInspector(c) {
           { label: 'Yerleşim', path: 'fit', type: 'chips', options: [['cover', 'Ekranı doldur'], ['contain', 'Sığdır']], rerender: true },
           { label: 'Arka plan', path: 'bgMode', type: 'chips', options: [['blur', 'Bulanık'], ['black', 'Siyah'], ['color', 'Renk']], hide: c.fit !== 'contain', rerender: true },
           { label: 'Arka plan rengi', path: 'bgColor', type: 'color', hide: !(c.fit === 'contain' && c.bgMode === 'color') },
-          { label: 'Yakınlaştır', path: 'zoom', type: 'range', min: 0.5, max: 3, fmt: pct },
-          { label: 'Yatay konum', path: 'panX', type: 'range', min: -1, max: 1 },
-          { label: 'Dikey konum', path: 'panY', type: 'range', min: -1, max: 1 },
+          { label: 'Yakınlaştır', path: 'zoom', kf: 'zoom', type: 'range', min: 0.5, max: 3, fmt: pct },
+          { label: 'Yatay konum', path: 'panX', kf: 'panX', type: 'range', min: -1, max: 1 },
+          { label: 'Dikey konum', path: 'panY', kf: 'panY', type: 'range', min: -1, max: 1 },
           { label: 'Ken Burns zoom', path: 'kenburns', type: 'toggle' },
-          { label: 'Süre', path: 'dur', type: 'range', min: 0.5, max: 30, step: 0.1, fmt: sec, hide: isV, post: () => app.refreshTimeline() },
-          { label: 'Hız', path: 'speed', type: 'range', min: 0.25, max: 3, step: 0.05, fmt: (x) => `${(+x).toFixed(2)}x`, hide: !isV, post: () => app.refreshTimeline() },
-          { label: 'Ses seviyesi', path: 'volume', type: 'range', min: 0, max: 2, fmt: pct, hide: !isV },
-          { label: 'Sessiz', path: 'mute', type: 'toggle', hide: !isV },
-          { label: 'Kırp: başlangıç', path: 'in', type: 'range', min: 0, max: mdur, step: 0.05, fmt: sec, hide: !isV, post: (o) => { o.in = Math.min(o.in, o.out - 0.2); app.refreshTimeline(); } },
-          { label: 'Kırp: bitiş', path: 'out', type: 'range', min: 0, max: mdur, step: 0.05, fmt: sec, hide: !isV, post: (o) => { o.out = Math.max(o.out, o.in + 0.2); app.refreshTimeline(); } },
+          { type: 'hint', html: c.freeze ? `Bu klip videonun <b>${(+c.freezeAt).toFixed(2)}s</b> anındaki dondurulmuş karesi. Ses içermez.` : '', hide: !c.freeze },
+          { label: 'Süre', path: 'dur', type: 'range', min: 0.5, max: 30, step: 0.1, fmt: sec, hide: isV && !c.freeze, post: () => app.refreshTimeline() },
+          { label: 'Hız', path: 'speed', type: 'range', min: 0.25, max: 3, step: 0.05, fmt: (x) => `${(+x).toFixed(2)}x`, hide: !isV || c.freeze, post: () => app.refreshTimeline() },
+          { type: 'hint', html: 'Hız değişince ses perdesi korunur. Ters oynatma bu sürümde yok.', hide: !isV || c.freeze },
+          { label: 'Ses seviyesi', path: 'volume', type: 'range', min: 0, max: 2, fmt: pct, hide: !isV || c.freeze },
+          { label: 'Sessiz', path: 'mute', type: 'toggle', hide: !isV || c.freeze },
+          { label: 'Kırp: başlangıç', path: 'in', type: 'range', min: 0, max: mdur, step: 0.05, fmt: sec, hide: !isV || c.freeze, post: (o) => { o.in = Math.min(o.in, o.out - 0.2); app.refreshTimeline(); } },
+          { label: 'Kırp: bitiş', path: 'out', type: 'range', min: 0, max: mdur, step: 0.05, fmt: sec, hide: !isV || c.freeze, post: (o) => { o.out = Math.max(o.out, o.in + 0.2); app.refreshTimeline(); } },
         ]));
       } else if (tab === 'Geçiş') {
         if (idx === 0) { body.append(h('p', { class: 'hint', html: 'İlk klibe geçiş eklenemez. Geçiş, <b>bu klipten önceki</b> klip ile bu klip arasında uygulanır.' })); return; }
@@ -264,8 +286,85 @@ function clipInspector(c) {
           app.P.clips.forEach((x, i) => { if (i > 0) x.trans = clone(c.trans); }); app.change(true); app.refreshTimeline(); toast('Geçiş tüm kliplere uygulandı');
         } }, 'Tüm kliplere uygula'));
       } else if (tab === 'Filtre') filterTab(body, c);
+      else if (tab === 'Keyframe') kfTab(body, c, CLIP_PROPS, true);
     },
   };
+}
+
+// ---------- Bölünmüş ekran / resim içinde resim ----------
+function layoutButtons(L) {
+  const set = (o) => { Object.assign(L, o); if (L.kf) { delete L.kf.x; delete L.kf.y; delete L.kf.s; } L.sc = 1; L.rot = 0; app.change(true); refreshSheet(); };
+  const grid = h('div', { class: 'grid-3', style: { marginBottom: '6px' } },
+    h('button', { class: 'opt', onclick: () => set({ crop: 'half', w: 1, x: 0.5, y: 0.25, radius: 0, borderW: 0, shadowOn: false }) }, 'Üst yarı'),
+    h('button', { class: 'opt', onclick: () => set({ crop: 'half', w: 1, x: 0.5, y: 0.75, radius: 0, borderW: 0, shadowOn: false }) }, 'Alt yarı'),
+    h('button', { class: 'opt', onclick: () => set({ crop: 'portrait', w: 0.36, x: 0.75, y: 0.2, radius: 28, borderW: 6, borderColor: '#FFFFFF', shadowOn: true }) }, 'Resim içinde resim'),
+    h('button', { class: 'opt', onclick: () => set({ crop: 'circle', w: 0.34, x: 0.76, y: 0.78, borderW: 8, borderColor: '#A855F7', borderGlow: 30, shadowOn: true }) }, 'Yuvarlak kamera'),
+    h('button', { class: 'opt', onclick: () => set({ crop: 'wide', w: 1, x: 0.5, y: 0.5, radius: 0, borderW: 0, shadowOn: false }) }, 'Ortada yatay'),
+    h('button', { class: 'opt', onclick: () => set({ crop: 'none', w: 1, x: 0.5, y: 0.5, radius: 0, borderW: 0, shadowOn: false }) }, 'Tam genişlik'));
+  return h('div', { class: 'field full' }, h('label', {}, 'Hızlı yerleşim'), grid);
+}
+
+// ---------- Keyframe sekmesi ----------
+function kfTab(body, o, props, isClip = false) {
+  const lt = localT(o);
+  const len = itemLen(o);
+  const inside = lt >= -0.001 && lt <= len + 0.001;
+  const st = itemStart(o);
+  body.append(h('p', { class: 'hint', html: 'Oynatıcıyı bir zamana getir, <b>◆</b> ile keyframe koy. Sonra başka bir zamana git ve değeri değiştir — hareket kendiliğinden oluşur. Önizlemede sürükleyerek de keyframe yazabilirsin.' }));
+  if (!inside) { body.append(h('p', { class: 'hint', html: '<b>Oynatıcı bu öğenin dışında.</b> Keyframe eklemek için oynatıcıyı öğenin üzerine getir.' })); }
+  const times = allKeyTimes(o);
+  const go = (t) => { app.engine.seek(st + t + 0.0001); app.updateTime(); app.syncScroll(); refreshSheet(); };
+  const prev = [...times].reverse().find((t) => t < lt - 1 / 60);
+  const next = times.find((t) => t > lt + 1 / 60);
+  body.append(h('div', { class: 'btn-row three' },
+    h('button', { class: 'btn', disabled: prev == null, html: `${I.prevF} Önceki`, onclick: () => go(prev) }),
+    h('button', { class: 'btn', disabled: next == null, html: `Sonraki ${I.nextF}`, onclick: () => go(next) }),
+    h('button', { class: 'btn primary', disabled: !inside, html: `${I.diamond} Tümü`, onclick: () => {
+      props.forEach(([p]) => setKey(o, p, lt, propAt(o, p, lt))); app.change(true); refreshSheet();
+    } })));
+  props.forEach(([p, label, min, max, step]) => {
+    const v = propAt(o, p, lt);
+    const on = !!keyAt(o, p, lt);
+    const fmtv = p === 'rot' ? deg : (p === 'x' || p === 'y' || p === 'opacity' || p === 's' || p === 'zoom') ? pct : (x) => (+x).toFixed(2);
+    const val = h('span', { class: 'val' }, fmtv(v));
+    const inp = h('input', { type: 'range', min, max, step, value: v });
+    setRangeFill(inp);
+    inp.addEventListener('input', () => { const x = parseFloat(inp.value); val.textContent = fmtv(x); setRangeFill(inp); writeProp(o, p, lt, x); app.change(false); });
+    inp.addEventListener('change', () => { app.change(true); refreshSheet(); });
+    const dia = h('button', { class: `kf-btn${on ? ' on' : ''}${hasKeys(o, p) ? ' has' : ''}`, disabled: !inside, html: I.diamond, 'aria-label': `${label} keyframe` });
+    dia.addEventListener('click', () => { if (on) delKey(o, p, lt); else setKey(o, p, lt, propAt(o, p, lt)); app.change(true); refreshSheet(); });
+    body.append(h('div', { class: 'kf-row' }, h('label', {}, label), inp, val, dia));
+  });
+  const here = props.filter(([p]) => keyAt(o, p, lt));
+  if (here.length) {
+    const cur = keyAt(o, here[0][0], lt).ease || 'inout';
+    const chips = h('div', { class: 'chips' });
+    EASES.forEach(([id, lbl]) => {
+      chips.append(h('button', { class: cur === id ? 'on' : '', onclick: () => { here.forEach(([p]) => { keyAt(o, p, lt).ease = id; }); app.change(true); refreshSheet(); } }, lbl));
+    });
+    body.append(h('div', { class: 'field full' }, h('label', {}, 'Bu keyframe\'den sonraki geçiş'), chips));
+  }
+  // hazır hareketler
+  const presets = isClip ? [
+    ['Yavaş yakınlaş', () => { o.kf = { ...(o.kf || {}), zoom: [{ t: 0, v: 1, ease: 'inout' }, { t: len, v: 1.18, ease: 'inout' }] }; }],
+    ['Punch-in zoom', () => { const t0 = Math.max(0, Math.min(lt, len - 0.3)); o.kf = { ...(o.kf || {}), zoom: [{ t: t0, v: 1, ease: 'out' }, { t: t0 + 0.18, v: 1.35, ease: 'inout' }] }; }],
+    ['Sola → sağa pan', () => { o.zoom = Math.max(o.zoom || 1, 1.25); o.kf = { ...(o.kf || {}), panX: [{ t: 0, v: -1, ease: 'inout' }, { t: len, v: 1, ease: 'inout' }] }; }],
+    ['Yakından uzağa', () => { o.kf = { ...(o.kf || {}), zoom: [{ t: 0, v: 1.25, ease: 'inout' }, { t: len, v: 1, ease: 'inout' }] }; }],
+  ] : [
+    ['Soldan kayarak gel', () => { o.kf = { ...(o.kf || {}), x: [{ t: 0, v: -0.3, ease: 'out' }, { t: Math.min(0.5, len / 2), v: o.x, ease: 'inout' }] }; }],
+    ['Yavaşça büyü', () => { o.kf = { ...(o.kf || {}), s: [{ t: 0, v: 0.85, ease: 'inout' }, { t: len, v: 1.15, ease: 'inout' }] }; }],
+    ['Yavaşça belir', () => { o.kf = { ...(o.kf || {}), opacity: [{ t: 0, v: 0, ease: 'inout' }, { t: Math.min(1, len / 2), v: 1, ease: 'inout' }] }; }],
+    ['Bir tur dön', () => { o.kf = { ...(o.kf || {}), rot: [{ t: 0, v: 0, ease: 'inout' }, { t: len, v: 360, ease: 'inout' }] }; }],
+  ];
+  const pc = h('div', { class: 'chips' });
+  presets.forEach(([lbl, fn]) => pc.append(h('button', { onclick: () => { fn(); app.change(true); refreshSheet(); toast(`${lbl} uygulandı`); } }, lbl)));
+  body.append(h('div', { class: 'field full' }, h('label', {}, 'Hazır hareketler'), pc));
+  if (times.length) {
+    body.append(h('button', { class: 'btn block danger', style: { marginTop: '6px' }, html: `${I.trash} Tüm keyframe'leri sil`, onclick: () => {
+      props.forEach(([p]) => { if (hasKeys(o, p)) { const v = propAt(o, p, lt); o[p === 's' ? 'sc' : p] = v; } });
+      o.kf = {}; app.change(true); refreshSheet();
+    } }));
+  }
 }
 
 function animTab(body, L) {
@@ -287,15 +386,17 @@ function posTab(body, L) {
       : { label: 'Boyut', path: 'scale', type: 'range', min: 0.3, max: 2.5, fmt: pct };
   body.append(fields(L, [
     sizeField,
-    { label: 'Yatay', path: 'x', type: 'range', min: 0, max: 1, step: 0.005, fmt: pct },
-    { label: 'Dikey', path: 'y', type: 'range', min: 0, max: 1, step: 0.005, fmt: pct },
-    { label: 'Döndür', path: 'rot', type: 'range', min: -180, max: 180, step: 1, fmt: deg },
-    { label: 'Opaklık', path: 'opacity', type: 'range', min: 0, max: 1, fmt: pct },
+    { label: 'Yatay', path: 'x', kf: 'x', type: 'range', min: 0, max: 1, step: 0.005, fmt: pct },
+    { label: 'Dikey', path: 'y', kf: 'y', type: 'range', min: 0, max: 1, step: 0.005, fmt: pct },
+    { label: 'Ölçek', path: 'sc', kf: 's', type: 'range', min: 0.05, max: 4, fmt: pct },
+    { label: 'Döndür', path: 'rot', kf: 'rot', type: 'range', min: -180, max: 180, step: 1, fmt: deg },
+    { label: 'Opaklık', path: 'opacity', kf: 'opacity', type: 'range', min: 0, max: 1, fmt: pct },
+    { label: 'Karışım modu', path: 'blend', type: 'chips', options: BLENDS },
     { label: 'Başlangıç', path: 'start', type: 'range', min: 0, max: dmax, step: 0.05, fmt: sec, post: (o) => { o.start = Math.min(o.start, o.end - 0.2); app.refreshTimeline(); } },
     { label: 'Bitiş', path: 'end', type: 'range', min: 0, max: dmax, step: 0.05, fmt: sec, post: (o) => { o.end = Math.max(o.end, o.start + 0.2); app.refreshTimeline(); } },
   ]));
   const row = h('div', { class: 'btn-row' },
-    h('button', { class: 'btn', onclick: () => { L.x = 0.5; app.change(true); refreshSheet(); } }, 'Yatay ortala'),
+    h('button', { class: 'btn', onclick: () => { writeProp(L, 'x', localT(L), 0.5); app.change(true); refreshSheet(); } }, 'Yatay ortala'),
     h('button', { class: 'btn', onclick: () => { L.start = app.engine.t; if (L.end <= L.start + 0.2) L.end = L.start + 3; app.change(true); app.refreshTimeline(); refreshSheet(); } }, 'Burada başlat'),
     h('button', { class: 'btn', html: `${I.front} Öne getir`, onclick: () => app.layerOrder(1) }),
     h('button', { class: 'btn', html: `${I.backL} Arkaya gönder`, onclick: () => app.layerOrder(-1) }),
@@ -304,16 +405,20 @@ function posTab(body, L) {
 }
 
 function layerInspector(L) {
-  const title = { text: 'Yazı', media: 'Katman', cta: 'Sosyal medya çağrısı', score: 'Skor kartı' }[L.kind];
+  const title = { text: 'Yazı', media: 'Katman', cta: 'Sosyal medya çağrısı', score: 'Skor kartı', shape: 'Şekil' }[L.kind];
   const tabs = {
-    text: ['Metin', 'Stil', 'Animasyon', 'Konum'],
-    media: ['Düzen', 'Animasyon', 'Filtre', 'Konum'],
-    cta: ['Buton', 'Animasyon', 'Konum'],
-    score: ['Skor', 'Animasyon', 'Konum'],
+    text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'],
+    media: ['Düzen', 'Maske', 'Animasyon', 'Keyframe', 'Filtre', 'Konum'],
+    cta: ['Buton', 'Animasyon', 'Keyframe', 'Konum'],
+    score: ['Skor', 'Animasyon', 'Keyframe', 'Konum'],
+    shape: ['Şekil', 'Animasyon', 'Keyframe', 'Konum'],
   }[L.kind];
+  const actions = commonActions('layer');
+  if (L.kind === 'text') actions.unshift({ icon: I.save, label: 'Stili kaydet', onClick: () => app.saveStyle('text', L) });
   return {
-    title, tabs, actions: commonActions('layer'),
+    title, tabs, actions,
     render: (body, tab) => {
+      if (tab === 'Keyframe') return kfTab(body, L, LAYER_PROPS);
       if (tab === 'Animasyon') return animTab(body, L);
       if (tab === 'Konum') return posTab(body, L);
       if (tab === 'Filtre') return filterTab(body, L);
@@ -350,15 +455,48 @@ function layerInspector(L) {
       } else if (L.kind === 'media' && tab === 'Düzen') {
         const isV = app.engine.media.get(L.mediaId)?.kind === 'video';
         body.append(fields(L, [
-          { label: 'Kesim', path: 'crop', type: 'chips', options: [['none', 'Orijinal'], ['square', 'Kare'], ['circle', 'Daire']] },
+          { type: 'el', el: layoutButtons(L) },
+          { label: 'Kesim', path: 'crop', type: 'chips', options: CROPS },
           { label: 'Boyut', path: 'w', type: 'range', min: 0.1, max: 1.6, fmt: pct },
+          { label: 'İçerik zoom', path: 'zoom', type: 'range', min: 1, max: 3, fmt: pct },
+          { label: 'İçerik yatay', path: 'panX', type: 'range', min: -1, max: 1 },
+          { label: 'İçerik dikey', path: 'panY', type: 'range', min: -1, max: 1 },
           { label: 'Köşe yuvarlama', path: 'radius', type: 'range', min: 0, max: 300, step: 1 },
           { label: 'Çerçeve', path: 'borderW', type: 'range', min: 0, max: 30, step: 1 },
           { label: 'Çerçeve rengi', path: 'borderColor', type: 'color' },
+          { label: 'Neon parlama', path: 'borderGlow', type: 'range', min: 0, max: 80, step: 1 },
           { label: 'Gölge', path: 'shadowOn', type: 'toggle' },
           { label: 'Ken Burns zoom', path: 'kenburns', type: 'toggle' },
           { label: 'Ses seviyesi', path: 'volume', type: 'range', min: 0, max: 2, fmt: pct, hide: !isV },
           { label: 'Döngü', path: 'loop', type: 'toggle', hide: !isV },
+        ]));
+      } else if (L.kind === 'media' && tab === 'Maske') {
+        if (!L.mask) L.mask = { type: 'none', x: 0.5, y: 0.5, w: 0.8, h: 0.8, feather: 0, invert: false, radius: 0 };
+        body.append(h('p', { class: 'hint', html: 'Maske, katmanın sadece seçtiğin bölgesini gösterir. Maske açıkken kenar çerçevesi ve gölge kapanır.' }));
+        body.append(fields(L, [
+          { label: 'Maske', path: 'mask.type', type: 'chips', options: [['none', 'Yok'], ['rect', 'Dikdörtgen'], ['ellipse', 'Elips']], rerender: true },
+          { label: 'Merkez yatay', path: 'mask.x', type: 'range', min: 0, max: 1, fmt: pct, hide: L.mask.type === 'none' },
+          { label: 'Merkez dikey', path: 'mask.y', type: 'range', min: 0, max: 1, fmt: pct, hide: L.mask.type === 'none' },
+          { label: 'Genişlik', path: 'mask.w', type: 'range', min: 0.05, max: 1.5, fmt: pct, hide: L.mask.type === 'none' },
+          { label: 'Yükseklik', path: 'mask.h', type: 'range', min: 0.05, max: 1.5, fmt: pct, hide: L.mask.type === 'none' },
+          { label: 'Köşe', path: 'mask.radius', type: 'range', min: 0, max: 300, step: 1, hide: L.mask.type !== 'rect' },
+          { label: 'Kenar yumuşatma', path: 'mask.feather', type: 'range', min: 0, max: 120, step: 1, hide: L.mask.type === 'none' },
+          { label: 'Ters çevir', path: 'mask.invert', type: 'toggle', hide: L.mask.type === 'none' },
+        ]));
+      } else if (L.kind === 'shape' && tab === 'Şekil') {
+        const lineLike = L.shape === 'line' || L.shape === 'arrow';
+        body.append(fields(L, [
+          { label: 'Şekil', path: 'shape', type: 'chips', options: SHAPES, rerender: true },
+          { label: 'Genişlik', path: 'w', type: 'range', min: 0.03, max: 1.2, fmt: pct, hide: L.shape === 'frame' },
+          { label: 'Yükseklik', path: 'h', type: 'range', min: 0.03, max: 2, fmt: pct, hide: lineLike || L.shape === 'frame' },
+          { label: 'Kenar boşluğu', path: 'inset', type: 'range', min: 0, max: 0.2, step: 0.005, fmt: pct, hide: L.shape !== 'frame' },
+          { label: 'Renk', path: 'color', type: 'color', swatches: ['#FFFFFF', '#FACC15', '#38BDF8', '#A855F7', '#E879F9', '#F43F5E', '#22C55E', '#000000'] },
+          { label: 'Çizgi kalınlığı', path: 'strokeW', type: 'range', min: 0, max: 40, step: 1 },
+          { label: 'Neon parlama', path: 'glow', type: 'range', min: 0, max: 100, step: 1 },
+          { label: 'Köşe yuvarlama', path: 'radius', type: 'range', min: 0, max: 200, step: 1, hide: L.shape !== 'rect' && L.shape !== 'frame' },
+          { label: 'Dolgu', path: 'fillOn', type: 'toggle', rerender: true, hide: lineLike },
+          { label: 'Dolgu rengi', path: 'fillColor', type: 'color', hide: lineLike || !L.fillOn },
+          { label: 'Dolgu opaklığı', path: 'fillOpacity', type: 'range', min: 0, max: 1, fmt: pct, hide: lineLike || !L.fillOn },
         ]));
       } else if (L.kind === 'cta' && tab === 'Buton') {
         const chips = h('div', { class: 'chips', style: { marginBottom: '6px' } });
@@ -420,6 +558,14 @@ function subsInspector(extra = {}) {
     actions: [],
     render: (body, tab) => {
       if (tab === 'Stil') {
+        const saved = app.getStyles('subs');
+        if (saved.length) {
+          const ch = h('div', { class: 'chips' });
+          saved.forEach((st) => ch.append(h('button', { onclick: () => { S.style = { ...S.style, ...clone(st.data) }; app.change(true); refreshSheet(); } }, st.name)));
+          body.append(h('div', { class: 'field full' }, h('label', {}, 'Kayıtlı stillerim'), ch));
+        }
+        body.append(h('button', { class: 'btn block', style: { marginBottom: '6px' }, html: `${I.save} Bu stili kaydet`, onclick: () => app.saveStyle('subs', S.style) }));
+        body.append(h('p', { class: 'hint', html: 'Not: SRT/VTT dosyaları cümle zamanı içerir. Kelime vurgusu, kelimeler satır süresine <b>yaklaşık</b> dağıtılarak yapılır; gerekirse satırı bölerek zamanlamayı düzelt.' }));
         body.append(fields(S.style, [
           { label: 'Görünüm', path: 'preset', type: 'chips', options: SUB_PRESETS, rerender: true },
           { label: 'Yazı tipi', path: 'font', type: 'chips', options: FONTS },
@@ -453,6 +599,18 @@ function subsInspector(extra = {}) {
               h('button', { onclick: () => { app.engine.seek(c.start + (S.offset || 0) + 0.01); app.updateTime(); app.syncScroll(); } }, '▶'),
               h('button', { onclick: () => { c.start = Math.min(app.engine.t - (S.offset || 0), c.end - 0.1); app.change(true); app.refreshTimeline(); refreshSheet(); } }, 'Başı'),
               h('button', { onclick: () => { c.end = Math.max(app.engine.t - (S.offset || 0), c.start + 0.1); app.change(true); app.refreshTimeline(); refreshSheet(); } }, 'Sonu'),
+              h('button', { title: 'Oynatıcı konumundan ikiye böl', onclick: () => {
+                const tt = app.engine.t - (S.offset || 0);
+                if (tt <= c.start + 0.1 || tt >= c.end - 0.1) { toast('Bölmek için oynatıcıyı bu satırın içine getir'); return; }
+                const words = c.text.split(/\s+/).filter(Boolean);
+                const k = Math.max(1, Math.min(words.length - 1, Math.round(words.length * (tt - c.start) / (c.end - c.start))));
+                const n = { start: tt, end: c.end, text: words.slice(k).join(' ') || '…' };
+                c.end = tt; c.text = words.slice(0, k).join(' ') || '…';
+                S.cues.splice(i + 1, 0, n); app.change(true); app.refreshTimeline(); refreshSheet();
+              } }, 'Böl'),
+              i < S.cues.length - 1 ? h('button', { title: 'Sonraki satırla birleştir', onclick: () => {
+                const n = S.cues[i + 1]; c.end = n.end; c.text = `${c.text} ${n.text}`; S.cues.splice(i + 1, 1); app.change(true); app.refreshTimeline(); refreshSheet();
+              } }, '+Birleş') : null,
               h('button', { onclick: () => { S.cues.splice(i, 1); app.change(true); app.refreshTimeline(); refreshSheet(); } }, 'Sil')),
             ta);
           body.append(card);
@@ -464,13 +622,20 @@ function subsInspector(extra = {}) {
         ]));
         body.append(h('p', { class: 'hint', html: 'Altyazı sesle senkron değilse <b>zaman kaydırma</b> ile hepsini birlikte ileri-geri al.' }));
         body.append(h('div', { class: 'btn-row' },
-          h('button', { class: 'btn', html: `${I.upload} SRT yükle`, onclick: () => app.importSRT() }),
+          h('button', { class: 'btn', html: `${I.upload} SRT / VTT yükle`, onclick: () => app.importSRT() }),
           h('button', { class: 'btn', html: `${I.export} SRT kaydet`, onclick: async () => {
             const blob = new Blob([toSRT(S.cues)], { type: 'text/plain' });
             const r = await saveVideo(blob, `${app.P.name || 'alpicut'}.srt`, { share: true });
             toast(r.where ? `${r.where} klasörüne kaydedildi` : 'Kaydedildi');
           } }),
         ));
+        body.append(h('button', { class: 'btn block', html: `${I.export} VTT kaydet`, onclick: async () => {
+          const blob = new Blob([toVTT(S.cues)], { type: 'text/vtt' });
+          const r = await saveVideo(blob, `${app.P.name || 'alpicut'}.vtt`, { share: true });
+          toast(r.where ? `${r.where} klasörüne kaydedildi` : 'Kaydedildi');
+        } }));
+        body.append(fields(S, [{ label: 'Videoya göm', path: 'burn', type: 'toggle' }]));
+        body.append(h('p', { class: 'hint', html: '<b>Videoya göm</b> kapalıysa altyazı dışa aktarılan videoda görünmez; SRT/VTT dosyasını ayrıca platforma yükleyebilirsin.' }));
         body.append(h('button', { class: 'btn block danger', style: { marginTop: '6px' }, html: `${I.trash} Tüm altyazıları sil`, onclick: () => {
           if (!confirm('Tüm altyazılar silinsin mi?')) return;
           S.cues = []; app.change(true); app.deselect(); closeSheet(); app.refreshTimeline();
@@ -501,6 +666,26 @@ export function openTemplates() {
   openSheet({
     title: 'Yazı şablonları', tall: true,
     render: (body) => {
+      const mine = app.getStyles('text');
+      if (mine.length) {
+        body.append(h('h4', { class: 'sub-title' }, 'Benim stillerim'));
+        const g2 = h('div', { class: 'grid-tpl', style: { marginBottom: '14px' } });
+        mine.forEach((st) => {
+          const L = { ...clone(TEXT_BASE), ...clone(st.data) };
+          const cv = previewCanvas((ctx, env) => drawText(ctx, L, ST, env));
+          g2.append(h('div', { class: 'tpl' },
+            h('button', { style: { display: 'block', width: '100%' }, onclick: () => app.addLayer({ ...clone(L) }) }, cv),
+            h('span', { class: 'tpl-row' }, st.name, h('button', { class: 'tpl-del', html: I.trash, 'aria-label': 'Sil', onclick: () => { app.deleteStyle(st.id); refreshSheet(); } }))));
+        });
+        body.append(g2);
+        body.append(h('div', { class: 'btn-row' },
+          h('button', { class: 'btn', html: `${I.export} Stilleri dışa aktar`, onclick: () => app.exportStyles() }),
+          h('button', { class: 'btn', html: `${I.upload} Stil dosyası yükle`, onclick: () => app.importStyles() })));
+        body.append(h('h4', { class: 'sub-title' }, 'Hazır şablonlar'));
+      } else {
+        body.append(h('p', { class: 'hint', html: 'Bir yazıyı beğendiğin hale getirince denetçideki <b>kaydet</b> simgesiyle kendi stilin olarak saklayabilirsin.' }));
+        body.append(h('button', { class: 'btn block', style: { marginBottom: '10px' }, html: `${I.upload} Stil dosyası yükle`, onclick: () => app.importStyles() }));
+      }
       const grid = h('div', { class: 'grid-tpl' });
       TEXT_TEMPLATES.forEach((tp) => {
         const L = { ...clone(TEXT_BASE), ...clone(tp.p) };
@@ -524,6 +709,47 @@ export function openCTAs() {
         grid.append(h('button', { class: 'tpl', onclick: () => { const x = { ...L }; delete x.start; delete x.end; app.addLayer(x, 4); } }, cv, h('span', {}, p.name)));
       });
       body.append(grid);
+    },
+  });
+}
+
+export function openShapes() {
+  openSheet({
+    title: 'Şekiller ve çerçeveler', tall: true,
+    render: (body) => {
+      body.append(h('p', { class: 'hint', html: 'Oyuncuyu göstermek için ok veya çember ekle, sonra <b>Keyframe</b> sekmesiyle oyuncuyu takip ettir.' }));
+      const grid = h('div', { class: 'grid-tpl' });
+      SHAPE_PRESETS.forEach((p) => {
+        const L = { ...clone(SHAPE_BASE), ...clone(p.p) };
+        const cv = previewCanvas((ctx, env) => {
+          if (L.shape === 'frame') { const fl = { ...L, shape: 'rect', w: 0.9, h: 0.5 }; return drawShape(ctx, fl, 0, env); }
+          ctx.save(); ctx.rotate((L.rot || 0) * Math.PI / 180); const b = drawShape(ctx, L, 0, env); ctx.restore(); return b;
+        });
+        grid.append(h('button', { class: 'tpl', onclick: () => app.addLayer({ ...L }, 3) }, cv, h('span', {}, p.name)));
+      });
+      body.append(grid);
+    },
+  });
+}
+
+let sfxCtx = null;
+export function openSfx() {
+  openSheet({
+    title: 'Ses efektleri', tall: true,
+    render: (body) => {
+      body.append(h('p', { class: 'hint', html: 'Efektler uygulamanın içinde üretilir, telif sorunu yoktur. ▶ ile dinle, <b>Ekle</b> ile oynatıcı konumuna yerleştir. Kendi ses dosyan için alttaki <b>Ses</b> aracını kullan.' }));
+      SFX.forEach(([id, name, dur]) => {
+        body.append(h('div', { class: 'sfx-row' },
+          h('button', { class: 'icon-btn', html: I.play, 'aria-label': `${name} dinle`, onclick: async () => {
+            const r = await renderSfx(id);
+            try {
+              sfxCtx = sfxCtx || new (window.AudioContext || window.webkitAudioContext)();
+              const src = sfxCtx.createBufferSource(); src.buffer = r.buffer; src.connect(sfxCtx.destination); src.start();
+            } catch (_) { /* yoksay */ }
+          } }),
+          h('span', { class: 'sfx-name' }, name, h('small', {}, ` ${dur.toFixed(1)} sn`)),
+          h('button', { class: 'btn', onclick: () => app.addSfx(id, name) }, 'Ekle')));
+      });
     },
   });
 }
@@ -591,53 +817,86 @@ export function openExport() {
   modal.classList.remove('hidden');
   const [W, H] = RATIOS[app.P.ratio];
   const short = Math.min(W, H);
-  const opt = { q: 1080, fps: 30 };
+  const opt = { q: 1080, fps: 30, limit: 0 };
   const mime = Engine.pickMime();
   const fmtName = mime == null ? 'Desteklenmiyor' : (mime.includes('mp4') ? 'MP4' : 'WebM');
+  const dur = app.engine.duration();
   let cancel = false;
 
   const close = () => { modal.classList.add('hidden'); };
+  const chips = (list, key) => {
+    const c = h('div', { class: 'chips' });
+    list.forEach(([v, l]) => c.append(h('button', { class: opt[key] === v ? 'on' : '', onclick: () => { opt[key] = v; renderOpts(); } }, l)));
+    return c;
+  };
   const renderOpts = () => {
     card.textContent = '';
     card.append(h('h3', {}, 'Dışa Aktar'));
-    card.append(h('p', { class: 'hint', html: `Süre <b>${fmt(app.engine.duration())}</b> · Format <b>${fmtName}</b> · Oran <b>${app.P.ratio}</b>` }));
-    const q = h('div', { class: 'chips' });
-    [[1080, '1080p'], [720, '720p'], [540, '540p (hızlı)']].forEach(([v, l]) => q.append(h('button', { class: opt.q === v ? 'on' : '', onclick: () => { opt.q = v; renderOpts(); } }, l)));
-    const f = h('div', { class: 'chips' });
-    [[30, '30 fps'], [60, '60 fps']].forEach(([v, l]) => f.append(h('button', { class: opt.fps === v ? 'on' : '', onclick: () => { opt.fps = v; renderOpts(); } }, l)));
-    card.append(h('div', { class: 'field full' }, h('label', {}, 'Çözünürlük'), q));
-    card.append(h('div', { class: 'field full' }, h('label', {}, 'Kare hızı'), f));
+    card.append(h('p', { class: 'hint', html: `Süre <b>${fmt(dur)}</b> · Format <b>${fmtName}</b> · Oran <b>${app.P.ratio}</b>` }));
+    card.append(h('div', { class: 'field full' }, h('label', {}, 'Çözünürlük'), chips([[1080, '1080p'], [720, '720p'], [540, '540p (hızlı)']], 'q')));
+    card.append(h('div', { class: 'field full' }, h('label', {}, 'Kare hızı'), chips([[30, '30 fps'], [60, '60 fps']], 'fps')));
+    card.append(h('div', { class: 'field full' }, h('label', {}, 'Dosya boyutu sınırı'), chips([[0, 'Yok'], [10, '10 MB'], [30, '30 MB'], [50, '50 MB'], [100, '100 MB']], 'limit')));
+    if (opt.limit) {
+      const vb = targetBitrate(opt.limit, dur);
+      const low = vb < 1.2e6;
+      card.append(h('p', { class: 'hint', html: `Hedef video bitrate ≈ <b>${(vb / 1e6).toFixed(1)} Mbps</b>. Sonuç ölçülür; sınır aşılırsa daha düşük kalitede otomatik yeniden oluşturulur (en fazla 2 kez).${low ? '<br><b>Uyarı:</b> Bu süre için sınır dar, görüntü kalitesi düşebilir. 720p seçmek daha temiz sonuç verir.' : ''}` }));
+    }
     card.append(h('p', { class: 'hint', html: 'Video gerçek zamanlı oluşturulur (30 sn video ≈ 30 sn). Bu sırada ekranı kapatma ve uygulamadan çıkma.' }));
     if (fmtName === 'WebM') card.append(h('p', { class: 'hint', html: 'Not: Bu cihaz MP4 kaydını desteklemiyor, video <b>WebM</b> olarak çıkacak. YouTube kabul eder.' }));
     card.append(h('div', { class: 'btn-row' },
       h('button', { class: 'btn', onclick: close }, 'Vazgeç'),
       h('button', { class: 'btn primary', html: `${I.export} Oluştur`, onclick: start, disabled: mime == null })));
+    card.append(h('button', { class: 'btn block', style: { marginTop: '4px' }, html: `${I.media} Bu kareyi PNG kaydet`, onclick: saveFrame }));
+  };
+
+  const saveFrame = async () => {
+    const E = app.engine;
+    const old = E.scale;
+    E.exporting = true; E.resize(opt.q / short); E.draw();
+    const blob = await new Promise((r) => E.canvas.toBlob(r, 'image/png'));
+    E.exporting = false; E.resize(old); E.requestDraw(); app.fitStage();
+    const r = await saveVideo(blob, `Alpicut_kare_${fmt(E.t).replace(/[:.]/g, '-')}.png`, { share: true });
+    toast(r.where ? `${r.where} klasörüne kaydedildi` : 'Kare kaydedildi');
   };
 
   const start = async () => {
     cancel = false;
     let wake = null;
     try { wake = await navigator.wakeLock?.request('screen'); } catch (_) { /* yoksay */ }
-    card.textContent = '';
-    const bar = h('i');
-    const pctEl = h('div', { class: 'big-pct' }, '0%');
-    card.append(h('h3', {}, 'Video oluşturuluyor…'), pctEl, h('div', { class: 'progress' }, bar),
-      h('p', { class: 'hint' }, 'Ekranı açık tut. Önizlemede ilerlemeyi görebilirsin.'),
-      h('button', { class: 'btn block', onclick: () => { cancel = true; } }, 'İptal'));
     const res = opt.q / short;
-    const br = ({ 1080: 12e6, 720: 7e6, 540: 4e6 }[opt.q]) * (opt.fps === 60 ? 1.5 : 1);
-    let out = null;
-    try {
-      out = await app.engine.export({ res, fps: opt.fps, bitrate: br, onProgress: (p) => { bar.style.width = `${p * 100}%`; pctEl.textContent = `${Math.round(p * 100)}%`; }, shouldCancel: () => cancel });
-    } catch (e) {
-      console.error(e);
-      toast(`Hata: ${e.message || e}`, 4000);
+    const qbr = ({ 1080: 12e6, 720: 7e6, 540: 4e6 }[opt.q]) * (opt.fps === 60 ? 1.5 : 1);
+    let br = opt.limit ? Math.min(qbr, targetBitrate(opt.limit, dur)) : qbr;
+    const abr = opt.limit ? 128000 : 192000;
+    let out = null, attempt = 0, note = '';
+    const limitB = opt.limit * 1048576;
+    while (true) {
+      attempt++;
+      card.textContent = '';
+      const bar = h('i');
+      const pctEl = h('div', { class: 'big-pct' }, '0%');
+      card.append(h('h3', {}, attempt > 1 ? `Yeniden oluşturuluyor (${attempt}/3)…` : 'Video oluşturuluyor…'), pctEl, h('div', { class: 'progress' }, bar),
+        h('p', { class: 'hint', html: attempt > 1 ? `Önceki deneme sınırı aştı (${note}). Bitrate düşürüldü: <b>${(br / 1e6).toFixed(2)} Mbps</b>.` : 'Ekranı açık tut. Önizlemede ilerlemeyi görebilirsin.' }),
+        h('button', { class: 'btn block', onclick: () => { cancel = true; } }, 'İptal'));
+      out = null;
+      try {
+        out = await app.engine.export({ res, fps: opt.fps, bitrate: br, abr, onProgress: (p) => { bar.style.width = `${p * 100}%`; pctEl.textContent = `${Math.round(p * 100)}%`; }, shouldCancel: () => cancel });
+      } catch (e) {
+        console.error(e);
+        toast(`Hata: ${e.message || e}`, 4000);
+      }
+      if (!out || !opt.limit || out.blob.size <= limitB || attempt >= 3) break;
+      note = `${(out.blob.size / 1048576).toFixed(1)} MB`;
+      br = Math.max(250000, br * (limitB / out.blob.size) * 0.88);
     }
     try { wake && wake.release(); } catch (_) { /* yoksay */ }
     app.fitStage();
     if (!out) { close(); if (cancel) toast('İptal edildi'); return; }
     const d = new Date();
     const name = `Alpicut_${(app.P.name || 'video').replace(/[^\wğüşıöçĞÜŞİÖÇ-]+/g, '_')}_${d.getHours()}${String(d.getMinutes()).padStart(2, '0')}.${out.ext}`;
+    const sizeMB = out.blob.size / 1048576;
+    const verdict = opt.limit ? (out.blob.size <= limitB
+      ? `<br>✅ Doğrulandı: <b>${sizeMB.toFixed(1)} MB ≤ ${opt.limit} MB</b>`
+      : `<br>⚠️ 3 denemeye rağmen <b>${sizeMB.toFixed(1)} MB</b> (sınır ${opt.limit} MB). Daha düşük çözünürlük seç.`) : '';
     const doSave = async (share) => {
       card.textContent = '';
       const sb = h('i');
@@ -649,9 +908,8 @@ export function openExport() {
     };
     const showDone = (r) => {
       card.textContent = '';
-      const mb = (out.blob.size / 1048576).toFixed(1);
       card.append(h('h3', {}, 'Hazır! 🎉'),
-        h('p', { class: 'hint', html: `${name} · ${mb} MB${r.where ? `<br>Kaydedildi: <b>${r.where}</b>` : ''}` }),
+        h('p', { class: 'hint', html: `${name} · ${sizeMB.toFixed(1)} MB${verdict}${r.where ? `<br>Kaydedildi: <b>${r.where}</b>` : ''}` }),
         h('div', { class: 'btn-row' },
           h('button', { class: 'btn', onclick: close }, 'Kapat'),
           h('button', { class: 'btn primary', html: `${I.export} ${isNative() ? 'Paylaş / Kaydet' : 'Tekrar indir'}`, onclick: () => doSave(true) })));
@@ -659,6 +917,12 @@ export function openExport() {
     doSave(true);
   };
   renderOpts();
+}
+
+// Hedef boyut için video bitrate (ses payı ve kapsayıcı yükü düşülür)
+function targetBitrate(mb, dur) {
+  const bits = mb * 1048576 * 8 * 0.92;
+  return Math.max(250000, bits / Math.max(1, dur) - 128000);
 }
 
 export { uid };

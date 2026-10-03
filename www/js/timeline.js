@@ -2,11 +2,16 @@
 import { app, $, h, fmt, clone } from './state.js';
 import { layoutClips } from './engine.js';
 import { I } from './icons.js';
+import { allKeyTimes } from './kf.js';
 
 let drag = null;
 let touching = false;
 
-const KIND_ICON = { text: I.text, media: I.layer, cta: I.cta, score: I.score };
+const KIND_ICON = { text: I.text, media: I.layer, cta: I.cta, score: I.score, shape: I.shape };
+
+function diamonds(el, o, pps) {
+  allKeyTimes(o).forEach((t) => el.append(h('div', { class: 'kf-dia', style: { left: `${t * pps}px` } })));
+}
 
 function half() { return $('tlScroll').clientWidth / 2; }
 
@@ -15,6 +20,7 @@ function itemLabel(l) {
   if (l.kind === 'cta') return l.label || 'CTA';
   if (l.kind === 'score') return `${l.teamA} ${l.scoreA}-${l.scoreB} ${l.teamB}`;
   if (l.kind === 'media') return app.engine.media.get(l.mediaId)?.name || 'Katman';
+  if (l.kind === 'shape') return { rect: 'Kutu', circle: 'Çember', line: 'Çizgi', arrow: 'Ok', frame: 'Çerçeve' }[l.shape] || 'Şekil';
   return '';
 }
 
@@ -48,13 +54,14 @@ export function renderTimeline() {
     const m = engine.media.get(c.mediaId);
     const isSel = sel?.type === 'clip' && sel.id === c.id;
     const it = h('div', {
-      class: `item clip${isSel ? ' sel' : ''}`,
+      class: `item clip${isSel ? ' sel' : ''}${c.freeze ? ' frz' : ''}`,
       'data-type': 'clip', 'data-id': c.id,
       style: { left: `${H + L.start * pps}px`, width: `${Math.max(8, L.len * pps - 2)}px`, backgroundImage: m?.thumb ? `url(${m.thumb})` : '' },
     },
     h('span', { class: 'nm' }, `${c.type === 'image' ? '🖼 ' : ''}${L.len.toFixed(1)}s`),
     h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' }));
     vrow.append(it);
+    if (isSel) { const dw = h('div', { style: { position: 'absolute', left: `${H + L.start * pps}px`, top: 0, bottom: 0, width: '0' } }); diamonds(dw, c, pps); vrow.append(dw); }
     if (i > 0) {
       const on = c.trans && c.trans.type !== 'none';
       vrow.append(h('button', {
@@ -77,6 +84,7 @@ export function renderTimeline() {
       style: { left: `${H + l.start * pps}px`, width: `${Math.max(8, (l.end - l.start) * pps - 2)}px`, backgroundImage: m?.thumb ? `url(${m.thumb})` : '' },
     }, h('span', { class: 'nm', html: `${KIND_ICON[l.kind] || ''}` }, itemLabel(l)),
     h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' })));
+    if (isSel) { const dw = h('div', { style: { position: 'absolute', left: `${H + l.start * pps}px`, top: 0, bottom: 0, width: '0' } }); diamonds(dw, l, pps); row.append(dw); }
     inner.append(row);
   });
 
@@ -98,7 +106,7 @@ export function renderTimeline() {
     const row = h('div', { class: 'row' });
     const isSel = sel?.type === 'audio' && sel.id === a.id;
     row.append(h('div', {
-      class: `item k-audio${isSel ? ' sel' : ''}`, 'data-type': 'audio', 'data-id': a.id,
+      class: `item ${a.sfx ? 'k-sfx' : 'k-audio'}${isSel ? ' sel' : ''}`, 'data-type': 'audio', 'data-id': a.id,
       style: { left: `${H + a.start * pps}px`, width: `${Math.max(8, (a.out - a.in) * pps - 2)}px` },
     }, h('div', { class: 'wave' }), h('span', { class: 'nm', html: I.audio }, engine.media.get(a.mediaId)?.name || 'Ses'),
     h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' })));
@@ -216,6 +224,7 @@ export function bindTimeline() {
         obj.dur = Math.max(0.3, mode === 'l' ? o.dur - dt : o.dur + dt);
       } else if (mode === 'l') {
         obj.in = Math.min(Math.max(0, o.in + dt * sp), o.out - 0.2);
+        shiftKeys(obj, o, (obj.in - o.in) / sp);
       } else {
         obj.out = Math.max(Math.min(mdur(o.mediaId), o.out + dt * sp), o.in + 0.2);
       }
@@ -225,7 +234,7 @@ export function bindTimeline() {
     } else if (type === 'layer') {
       const len = o.end - o.start;
       if (mode === 'move') { obj.start = Math.max(0, snapT(o.start + dt)); obj.end = obj.start + len; }
-      else if (mode === 'l') obj.start = Math.min(Math.max(0, snapT(o.start + dt)), o.end - 0.2);
+      else if (mode === 'l') { obj.start = Math.min(Math.max(0, snapT(o.start + dt)), o.end - 0.2); shiftKeys(obj, o, obj.start - o.start); }
       else obj.end = Math.max(o.start + 0.2, snapT(o.end + dt));
       it.style.left = `${half() + obj.start * pps}px`;
       it.style.width = `${Math.max(8, (obj.end - obj.start) * pps - 2)}px`;
@@ -256,6 +265,15 @@ export function bindTimeline() {
   };
   inner.addEventListener('pointerup', up);
   inner.addEventListener('pointercancel', up);
+}
+
+// Kural: keyframe zamanları öğenin başına göredir. Sol uçtan kırpınca keyframe'ler içerikle birlikte kayar;
+// sağ uçtan kırpmak keyframe'lere dokunmaz.
+function shiftKeys(obj, o, d) {
+  if (!o.kf) return;
+  const k = clone(o.kf);
+  Object.values(k).forEach((arr) => arr.forEach((x) => { x.t -= d; }));
+  obj.kf = k;
 }
 
 export function setZoom(pps) {

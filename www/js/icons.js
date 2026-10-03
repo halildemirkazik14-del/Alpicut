@@ -35,6 +35,14 @@ export const I = {
   anim: s('<circle cx="15" cy="12" r="5"/><path d="M3 9h5M2 12h5M3 15h5"/>'),
   front: s('<rect x="8" y="8" width="12" height="12" rx="2" fill="currentColor" fill-opacity=".25"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/>'),
   backL: s('<rect x="4" y="4" width="12" height="12" rx="2" fill="currentColor" fill-opacity=".25"/><path d="M20 8v11a1 1 0 0 1-1 1H8"/>'),
+  save: s('<path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1z"/>'),
+  diamond: s('<path d="M12 3 21 12l-9 9-9-9z"/>'),
+  freeze: s('<path d="M12 2v20M4.9 6.5l14.2 11M19.1 6.5 4.9 17.5"/><path d="m9 3 3 2 3-2M9 21l3-2 3 2"/>'),
+  sfx: s('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>'),
+  shape: s('<circle cx="8" cy="8" r="5"/><rect x="11" y="11" width="10" height="10" rx="2"/>'),
+  first: s('<path d="M6 5v14M18 6l-8 6 8 6z"/>'),
+  prevF: s('<path d="M15 6l-6 6 6 6"/><path d="M19 6v12"/>'),
+  nextF: s('<path d="m9 6 6 6-6 6"/><path d="M5 6v12"/>'),
   upload: s('<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'),
 };
 

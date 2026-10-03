@@ -90,6 +90,8 @@ export const TEXT_TEMPLATES = [
   { id: 'neon', name: 'Neon', p: { text: 'GOOOL!', weight: 900, size: 160, color: '#F5D0FE', shadowColor: '#D946EF', shadowBlur: 40, italic: true, y: 0.35, anim: anim('zoomOut', 'fade', 'glow', 0.4) } },
   { id: 'outline', name: 'Çerçeve', p: { text: 'VAR KARARI', weight: 900, size: 130, color: 'rgba(0,0,0,0)', strokeColor: '#FFFFFF', strokeW: 6, shadowOn: false, y: 0.3, anim: anim('slideUp', 'slideDown') } },
   { id: 'question', name: 'Soru', p: { text: 'SİZCE *PENALTI MI?*', weight: 800, size: 88, accent: '#FACC15', bgOn: true, bgMode: 'line', bgColor: '#000000', bgOpacity: 0.75, bgRadius: 10, bgPad: 16, shadowOn: false, y: 0.75, anim: anim('bounce', 'fade', 'none', 0.6) } },
+  { id: 'player', name: 'Oyuncu Etiketi', p: { text: '*10* OYUNCU ADI', font: 'Barlow Condensed', weight: 800, size: 64, accent: '#FACC15', bgOn: true, bgColor: '#111111', bgOpacity: 0.85, bgRadius: 12, bgPad: 18, shadowOn: false, y: 0.45, anim: anim('pop', 'fade', 'none', 0.35) } },
+  { id: 'yellowWhite', name: 'Sarı-Beyaz Vurgu', p: { text: 'BU *POZİSYON* GOL MÜ?', weight: 900, size: 100, accent: '#FACC15', strokeW: 10, y: 0.3, anim: anim('words', 'fade', 'none', 0.8) } },
   { id: 'number', name: 'Sayaç', p: { text: '#3', weight: 900, size: 220, color: '#FFFFFF', accent: '#C084FC', strokeColor: '#7C3AED', strokeW: 14, y: 0.3, anim: anim('spin', 'zoomIn', 'none', 0.5) } },
 ];
 
@@ -127,7 +129,7 @@ export const SUB_PRESETS = [
 ];
 
 export const SUB_BASE = {
-  cues: [], offset: 0,
+  cues: [], offset: 0, burn: true,
   style: {
     preset: 'karaoke', font: 'Barlow Condensed', weight: 800, size: 84, color: '#FFFFFF', accent: '#C084FC',
     strokeColor: '#000000', strokeW: 10, upper: true, y: 0.72, maxW: 0.84, boxColor: '#000000',
@@ -135,3 +137,20 @@ export const SUB_BASE = {
 };
 
 export const FX_BASE = { vignette: 0, grain: 0, letterbox: 0, progress: false, progressColor: '#A855F7', bg: '#000000' };
+
+export const SHAPE_BASE = {
+  kind: 'shape', shape: 'rect', w: 0.5, h: 0.3, color: '#FFFFFF', strokeW: 10, radius: 20, glow: 0,
+  fillOn: false, fillColor: '#000000', fillOpacity: 0.5, inset: 0.03,
+  x: 0.5, y: 0.5, rot: 0, opacity: 1, anim: anim('pop', 'fade'),
+};
+
+export const SHAPE_PRESETS = [
+  { id: 'arrow', name: 'Ok', p: { shape: 'arrow', w: 0.35, color: '#FACC15', strokeW: 14, rot: 30 } },
+  { id: 'circle', name: 'Çember', p: { shape: 'circle', w: 0.3, h: 0.3, color: '#FACC15', strokeW: 10 } },
+  { id: 'line', name: 'Çizgi', p: { shape: 'line', w: 0.6, color: '#FFFFFF', strokeW: 10 } },
+  { id: 'box', name: 'Kutu', p: { shape: 'rect', w: 0.6, h: 0.3, color: '#FFFFFF', strokeW: 8, radius: 24 } },
+  { id: 'neonCircle', name: 'Neon çember', p: { shape: 'circle', w: 0.28, h: 0.28, color: '#E879F9', strokeW: 9, glow: 40, anim: anim('pop', 'fade', 'pulse') } },
+  { id: 'neonFrame', name: 'Neon mavi çerçeve', p: { shape: 'frame', color: '#38BDF8', strokeW: 12, glow: 45, radius: 40, inset: 0.025, anim: anim('fade', 'fade', 'glow') } },
+  { id: 'neonPurple', name: 'Neon mor çerçeve', p: { shape: 'frame', color: '#A855F7', strokeW: 12, glow: 45, radius: 40, inset: 0.025, anim: anim('fade', 'fade', 'glow') } },
+  { id: 'spot', name: 'Spot kutu', p: { shape: 'rect', w: 0.5, h: 0.5, color: '#FACC15', strokeW: 6, radius: 16, fillOn: true, fillColor: '#FACC15', fillOpacity: 0.15 } },
+];

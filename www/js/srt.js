@@ -1,10 +1,14 @@
 // SRT ayrıştırma ve üretme
 function toSec(s) {
-  const m = s.trim().replace(',', '.').match(/(\d+):(\d+):(\d+(?:\.\d+)?)/);
-  if (!m) return 0;
-  return +m[1] * 3600 + +m[2] * 60 + parseFloat(m[3]);
+  const x = s.trim().split(/\s+/)[0].replace(',', '.');
+  let m = x.match(/^(\d+):(\d+):(\d+(?:\.\d+)?)$/);
+  if (m) return +m[1] * 3600 + +m[2] * 60 + parseFloat(m[3]);
+  m = x.match(/^(\d+):(\d+(?:\.\d+)?)$/); // VTT: dd:ss.mmm
+  if (m) return +m[1] * 60 + parseFloat(m[2]);
+  return 0;
 }
 
+// SRT ve WebVTT dosyalarını okur
 export function parseSRT(text) {
   const cues = [];
   const blocks = text.replace(/\r/g, '').replace(/^﻿/, '').split(/\n\s*\n/);
@@ -28,4 +32,8 @@ function fmt(t) {
 
 export function toSRT(cues) {
   return cues.map((c, i) => `${i + 1}\n${fmt(c.start)} --> ${fmt(c.end)}\n${c.text}\n`).join('\n');
+}
+
+export function toVTT(cues) {
+  return 'WEBVTT\n\n' + cues.map((c) => `${fmt(c.start).replace(',', '.')} --> ${fmt(c.end).replace(',', '.')}\n${c.text}\n`).join('\n');
 }

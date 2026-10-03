@@ -4,9 +4,11 @@ import { I, LOGO } from './icons.js';
 import { Engine, layoutClips } from './engine.js';
 import { RATIOS, DEFAULT_FILTERS, SUB_BASE, FX_BASE, TEXT_BASE, anim } from './presets.js';
 import { renderTimeline, bindTimeline, syncScroll, setZoom } from './timeline.js';
+import { layerAt, hasKeys, setKey, writeProp, splitKeys } from './kf.js';
+import { renderSfx } from './sfx.js';
 import {
   openSheet, closeSheet, refreshSheet, isSheetOpen, openInspector, openTemplates, openCTAs,
-  openScoreMenu, openSubsMenu, openFx, openRatio, openExport,
+  openScoreMenu, openSubsMenu, openFx, openRatio, openExport, openShapes, openSfx,
 } from './sheets.js';
 import { store, lsGet, lsSet, isNative } from './storage.js';
 import { parseSRT } from './srt.js';
@@ -19,6 +21,13 @@ function init() {
   $('btnUndo').innerHTML = I.undo;
   $('btnRedo').innerHTML = I.redo;
   $('btnZoomIn').innerHTML = I.zoomIn;
+  $('btnFirst').innerHTML = I.first;
+  $('btnPrevF').innerHTML = I.prevF;
+  $('btnNextF').innerHTML = I.nextF;
+  const step = (d) => { app.pause(); app.engine.seek(Math.round((app.engine.t + d) * 30) / 30); updateTime(); syncScroll(app.engine.t, true); };
+  $('btnFirst').addEventListener('click', () => step(-1e9));
+  $('btnPrevF').addEventListener('click', () => step(-1 / 30));
+  $('btnNextF').addEventListener('click', () => step(1 / 30));
   $('btnZoomOut').innerHTML = I.zoomOut;
   $('sheetClose').innerHTML = I.check;
 
@@ -88,6 +97,8 @@ function buildToolbar() {
     ['audio', 'Ses', () => addMedia('audio')],
     ['cta', 'Çağrı', openCTAs],
     ['score', 'Skor', openScoreMenu],
+    ['shape', 'Şekil', openShapes],
+    ['sfx', 'SFX', openSfx],
     ['fx', 'Efekt', openFx],
     ['ratio', 'Oran', openRatio],
   ];
@@ -177,7 +188,7 @@ function newProject() {
   lsSet('alpicut.count', String(n));
   const P = {
     id: uid(), name: `Proje ${n}`, ratio: app.newRatio, clips: [], layers: [], audio: [],
-    subs: clone(SUB_BASE), fx: clone(FX_BASE), created: Date.now(),
+    subs: clone(SUB_BASE), fx: clone(FX_BASE), created: Date.now(), v: PROJECT_VERSION,
   };
   showEditor(P);
   saveNow();
@@ -189,6 +200,7 @@ async function openProject(id) {
     const rec = await store.getProject(id);
     if (!rec) throw new Error('Proje bulunamadı');
     const P = rec.data;
+    migrate(P);
     P.subs = P.subs || clone(SUB_BASE);
     P.fx = { ...clone(FX_BASE), ...(P.fx || {}) };
     let missing = 0;
@@ -332,12 +344,14 @@ function bindPreview() {
       if (app.engine.playing) app.pause();
       const p = norm(e);
       const hit = app.engine.hitTest(p.x, p.y);
-      g = { L: hit, p0: p, x0: hit?.x, y0: hit?.y, moved: false, wasSel: hit && app.sel?.id === hit.id };
+      const kv = hit ? layerAt(hit, app.engine.t) : null;
+      g = { L: hit, p0: p, x0: kv?.x, y0: kv?.y, moved: false, wasSel: hit && app.sel?.id === hit.id };
       if (hit && !g.wasSel) { app.sel = { type: 'layer', id: hit.id }; app.engine.selectedId = hit.id; app.engine.requestDraw(); }
     } else if (ptrs.size === 2 && g?.L) {
       const [a, b] = [...ptrs.values()];
       const ar = RATIOS[app.P.ratio][1] / RATIOS[app.P.ratio][0];
-      g.pinch = { d: Math.hypot(a.x - b.x, (a.y - b.y) * ar), ang: Math.atan2((b.y - a.y) * ar, b.x - a.x), size: g.L[sizeKey(g.L)] ?? 1, rot: g.L.rot || 0 };
+      const kv = layerAt(g.L, app.engine.t);
+      g.pinch = { d: Math.hypot(a.x - b.x, (a.y - b.y) * ar), ang: Math.atan2((b.y - a.y) * ar, b.x - a.x), size: hasKeys(g.L, 's') ? kv.s : (g.L[sizeKey(g.L)] ?? 1), rot: kv.rot };
       g.moved = true;
     }
   });
@@ -356,7 +370,8 @@ function bindPreview() {
       const gx = Math.abs(nx - 0.5) < 0.015, gy = Math.abs(ny - 0.5) < 0.012;
       if (gx) nx = 0.5;
       if (gy) ny = 0.5;
-      L.x = nx; L.y = ny;
+      const lt = app.engine.t - L.start;
+      writeProp(L, 'x', lt, nx); writeProp(L, 'y', lt, ny);
       app.engine.guides = { x: gx, y: gy };
       app.engine.requestDraw();
     } else if (ptrs.size === 2 && g.pinch) {
@@ -366,10 +381,12 @@ function bindPreview() {
       const ang = Math.atan2((b.y - a.y) * ar, b.x - a.x);
       const k = sizeKey(L);
       const v = g.pinch.size * (d / Math.max(0.01, g.pinch.d));
-      L[k] = k === 'size' ? Math.round(Math.max(16, Math.min(400, v))) : Math.max(0.05, Math.min(4, v));
+      const lt = app.engine.t - L.start;
+      if (hasKeys(L, 's')) setKey(L, 's', lt, Math.max(0.05, Math.min(4, v)));
+      else L[k] = k === 'size' ? Math.round(Math.max(16, Math.min(400, v))) : Math.max(0.05, Math.min(4, v));
       let rot = g.pinch.rot + ((ang - g.pinch.ang) * 180) / Math.PI;
       if (Math.abs(rot) < 4) rot = 0;
-      L.rot = Math.round(rot);
+      writeProp(L, 'rot', lt, Math.round(rot));
       app.engine.requestDraw();
     }
   });
@@ -558,12 +575,14 @@ function splitSel() {
     const local = t - L.start;
     if (local < 0.1 || local > L.len - 0.1) { toast('Bölmek için oynatıcıyı klibin üzerine getir'); return; }
     const n = clone(o); n.id = uid(); n.trans = { type: 'none', dur: 0.5 };
-    if (o.type === 'image') { n.dur = L.len - local; o.dur = local; } else { const st = o.in + local * (o.speed || 1); o.out = st; n.in = st; }
+    if (o.type === 'image' || o.freeze) { n.dur = L.len - local; o.dur = local; } else { const st = o.in + local * (o.speed || 1); o.out = st; n.in = st; }
+    splitKeys(o, n, local);
     P.clips.splice(P.clips.indexOf(o) + 1, 0, n);
   } else if (s.type === 'layer') {
     if (t < o.start + 0.1 || t > o.end - 0.1) { toast('Bölmek için oynatıcıyı katmanın üzerine getir'); return; }
     const n = clone(o); n.id = uid();
     if (o.kind === 'media') n.in = (o.in || 0) + (t - o.start);
+    splitKeys(o, n, t - o.start);
     o.end = t; n.start = t;
     P.layers.splice(P.layers.indexOf(o) + 1, 0, n);
   } else if (s.type === 'audio') {
@@ -623,6 +642,96 @@ function layerOrder(dir) {
   toast(dir > 0 ? 'Öne getirildi' : 'Arkaya gönderildi');
 }
 
+const PROJECT_VERSION = 2;
+function migrate(P) {
+  // eski projeleri yeni sürüme taşı
+  P.v = P.v || 1;
+  P.layers.forEach((l) => { if (l.sc == null) l.sc = 1; if (!l.kf) l.kf = {}; });
+  P.clips.forEach((c) => { if (!c.kf) c.kf = {}; });
+  if (P.subs && P.subs.burn == null) P.subs.burn = true;
+  P.v = PROJECT_VERSION;
+}
+
+function freezeFrame() {
+  const o = selected();
+  const P = app.P;
+  if (!o || o.type !== 'video' || o.freeze) return;
+  const L = layoutClips(P.clips).find((x) => x.clip === o);
+  const local = app.engine.t - L.start;
+  if (local < 0 || local > L.len) { toast('Dondurmak için oynatıcıyı klibin üzerine getir'); return; }
+  const at = Math.min(o.out - 0.04, o.in + local * (o.speed || 1));
+  const fr = { ...clone(o), id: uid(), freeze: true, freezeAt: at, dur: 2, trans: { type: 'none', dur: 0.5 }, kf: {} };
+  const i = P.clips.indexOf(o);
+  if (local > 0.1 && local < L.len - 0.1) {
+    const rest = clone(o); rest.id = uid(); rest.trans = { type: 'none', dur: 0.5 };
+    o.out = at; rest.in = at;
+    splitKeys(o, rest, local);
+    P.clips.splice(i + 1, 0, fr, rest);
+  } else if (local <= 0.1) P.clips.splice(i, 0, fr);
+  else P.clips.splice(i + 1, 0, fr);
+  commit();
+  select({ type: 'clip', id: fr.id });
+  toast('Kare donduruldu (2 sn)');
+}
+
+async function addSfx(id, name) {
+  const mid = `sfx-${id}`;
+  try {
+    if (!app.engine.media.has(mid)) {
+      let rec = await store.getMedia(mid).catch(() => null);
+      if (!rec) {
+        const r = await renderSfx(id);
+        rec = { id: mid, kind: 'audio', name: `SFX · ${name}`, blob: r.blob, duration: r.duration, w: 0, h: 0, thumb: null };
+        try { await store.putMedia(rec); } catch (_) { /* yoksay */ }
+      }
+      registerMedia(rec);
+    }
+    const m = app.engine.media.get(mid);
+    const a = { ...newAudio(m, app.engine.t), sfx: true };
+    app.P.audio.push(a);
+    commit();
+    toast(`${name} eklendi`);
+  } catch (e) { toast(`Eklenemedi: ${e.message || e}`); }
+}
+
+// ---------- kişisel stiller ----------
+function getStyles(kind) {
+  try { return JSON.parse(lsGet('alpicut.styles', '[]')).filter((x) => !kind || x.kind === kind); } catch (_) { return []; }
+}
+function putStyles(list) { lsSet('alpicut.styles', JSON.stringify(list)); }
+function saveStyle(kind, obj) {
+  const name = prompt('Stil adı', kind === 'text' ? ((obj.text || '').split('\n')[0].replace(/\*/g, '').slice(0, 24) || 'Yazı stilim') : 'Altyazı stilim');
+  if (name == null) return;
+  const data = clone(obj);
+  ['id', 'start', 'end', 'kf', 'mediaId'].forEach((k) => delete data[k]);
+  const list = getStyles();
+  list.unshift({ id: uid(), kind, name: name.trim() || 'Stilim', data });
+  putStyles(list);
+  toast('Stil kaydedildi');
+}
+function deleteStyle(id) { putStyles(getStyles().filter((x) => x.id !== id)); }
+async function exportStyles() {
+  const blob = new Blob([JSON.stringify({ app: 'alpicut', type: 'styles', v: 1, styles: getStyles() }, null, 1)], { type: 'application/json' });
+  const { saveVideo } = await import('./storage.js');
+  const r = await saveVideo(blob, 'alpicut-stillerim.json', { share: true });
+  toast(r.where ? `${r.where} klasörüne kaydedildi` : 'Kaydedildi');
+}
+async function importStyles() {
+  const files = await pickFiles('', false);
+  if (!files.length) return;
+  try {
+    const d = JSON.parse(await files[0].text());
+    if (d.app !== 'alpicut' || !Array.isArray(d.styles)) throw new Error('Alpicut stil dosyası değil');
+    const list = getStyles();
+    const ids = new Set(list.map((x) => x.id));
+    let n = 0;
+    d.styles.forEach((st) => { if (st && st.kind && st.data && !ids.has(st.id)) { list.push(st); n++; } });
+    putStyles(list);
+    toast(`${n} stil eklendi`);
+    refreshSheet();
+  } catch (e) { toast(`Yüklenemedi: ${e.message || e}`); }
+}
+
 async function importSRT() {
   const files = await pickFiles('', false);
   if (!files.length) return;
@@ -663,9 +772,11 @@ Object.assign(app, {
   },
   select, deselect,
   openInspector: (tab) => openInspector(tab),
-  addMedia, addLayer, splitSel, dupSel, delSel, moveClip, layerOrder, importSRT,
+  addMedia, addLayer, splitSel, dupSel, delSel, moveClip, layerOrder, importSRT, freezeFrame, addSfx,
+  getStyles, saveStyle, deleteStyle, exportStyles, importStyles,
   layout: () => layoutClips(app.P.clips),
   fitStage,
 });
 
 init();
+window.__alpicut = app; // hata ayıklama için
