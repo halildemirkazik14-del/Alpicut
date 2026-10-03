@@ -31,4 +31,31 @@ if (fs.existsSync(sx)) {
        .replace(/<string name="title_activity_main">[^<]*<\/string>/, '<string name="title_activity_main">Alpicut</string>');
   fs.writeFileSync(sx, s);
 }
+// WebView: kenarda esneme/parlama efektini kapat (zaman çizelgesi başında/sonunda kayma olmasın),
+const fsx = (d) => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const q = `${d}/${f.name}`; if (f.isDirectory()) { const r = fsx(q); if (r) return r; } else if (f.name === 'MainActivity.java') return q; } return null; };
+const ma = fsx('android/app/src/main/java');
+if (ma) {
+  let j = fs.readFileSync(ma, 'utf8');
+  if (!j.includes('OVER_SCROLL_NEVER')) {
+    const pkg = j.match(/package ([\w.]+);/)[1];
+    j = `package ${pkg};
+
+import android.os.Bundle;
+import android.view.View;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        try {
+            getBridge().getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
+            getBridge().getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false);
+        } catch (Exception e) { }
+    }
+}
+`;
+    fs.writeFileSync(ma, j);
+  }
+}
 console.log('Android ayarları uygulandı');

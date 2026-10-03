@@ -4,6 +4,7 @@ import { I } from './icons.js';
 import { openSheet, refreshSheet } from './sheets.js';
 import { SFX, renderSfx } from './sfx.js';
 import { store, lsGet, lsSet } from './storage.js';
+import { star as favStar, favIds, registerFav } from './favs.js';
 
 let sfxIndex = null, musicIndex = null;
 async function loadJSON(u, fb) { try { const r = await fetch(u); if (!r.ok) throw 0; return await r.json(); } catch (_) { return fb; } }
@@ -19,7 +20,7 @@ function preview(url, btn) {
 function stopPreview() { if (player) { player.pause(); if (player._btn) player._btn.innerHTML = I.play; player = null; } }
 
 const favKey = 'alpicut.favsfx';
-const favs = () => { try { return JSON.parse(lsGet(favKey, '[]')); } catch (_) { return []; } };
+const favs = () => favIds('sfx');
 
 async function addAudioBlob(id, name, blobOrUrl, opts = {}) {
   let rec = app.engine.media.get(id) ? null : await store.getMedia(id).catch(() => null);
@@ -42,15 +43,15 @@ async function addAudioBlob(id, name, blobOrUrl, opts = {}) {
 export function openSfxLibrary() {
   const st = openSfxLibrary.st || (openSfxLibrary.st = { q: '', cat: 'Favoriler', limit: 60 });
   openSheet({
-    title: 'Ses efektleri', tall: true,
+    id: 'sfx', title: 'Ses efektleri',
     onClose: stopPreview,
     render: async (body) => {
       if (!sfxIndex) { body.append(h('div', { class: 'spinner' })); sfxIndex = await loadJSON('sfx/index.json', []); refreshSheet(); return; }
       const all = [
-        ...SFX.map(([id, n, d]) => ({ id: `syn:${id}`, n, c: 'Spor & temel', d, s: 'Alpicut (uygulama içinde üretildi)' })),
+        ...SFX.map(([id, n, d, c]) => ({ id: `syn:${id}`, n, c: c || 'Spor & temel', d, s: 'Alpicut (uygulama içinde üretildi)' })),
         ...sfxIndex,
       ];
-      const cats = ['Favoriler', 'Tümü', ...new Set(all.map((x) => x.c))];
+      const cats = ['Favoriler', 'Viral & YouTuber', 'Tümü', ...new Set(all.map((x) => x.c).filter((c) => c !== 'Viral & YouTuber'))];
       if (!cats.includes(st.cat)) st.cat = 'Tümü';
       const q = h('input', { type: 'text', class: 'search', placeholder: `${all.length} ses efektinde ara…`, value: st.q });
       const chips = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
@@ -70,8 +71,7 @@ export function openSfxLibrary() {
           if (x.id.startsWith('syn:')) { const r = await renderSfx(x.id.slice(4)); preview(URL.createObjectURL(r.blob), pb); }
           else preview(`sfx/${x.id}.ogg`, pb);
         });
-        const star = h('button', { class: `font-fav${isF ? ' on' : ''}` }, isF ? '★' : '☆');
-        star.addEventListener('click', () => { const f = favs(); const i = f.indexOf(x.id); if (i >= 0) f.splice(i, 1); else f.unshift(x.id); lsSet(favKey, JSON.stringify(f)); refreshSheet(); });
+        const star = favStar('sfx', x.id, { name: x.n });
         box.append(h('div', { class: 'sfx-row sfx4' }, pb,
           h('span', { class: 'sfx-name' }, x.n, h('small', {}, ` ${x.d.toFixed(1)} sn · ${x.c}`)), star,
           h('button', { class: 'btn', onclick: async () => {
@@ -86,7 +86,7 @@ export function openSfxLibrary() {
       body.append(box);
       body.append(h('p', { class: 'hint', html: 'Tüm efektler CC0 (kamu malı) lisanslıdır: Kenney.nl, OpenGameArt.org ve Alpicut. Ticari kullanım dahil serbesttir, atıf gerekmez.' }));
       let tm = null;
-      q.addEventListener('input', () => { st.q = q.value; clearTimeout(tm); tm = setTimeout(() => { st.limit = 60; refreshSheet(); setTimeout(() => { const el = document.querySelector('#sheetBody .search'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }, 250); });
+      q.addEventListener('input', () => { st.q = q.value; clearTimeout(tm); tm = setTimeout(() => { st.limit = 60; refreshSheet(); setTimeout(() => { const el = document.querySelector('.panel.focused .search'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }, 250); });
     },
   });
 }
@@ -102,24 +102,25 @@ function cleanTitle(m) {
 export function openMusicLibrary() {
   const st = openMusicLibrary.st || (openMusicLibrary.st = { q: '', comp: 'Tümü' });
   openSheet({
-    title: 'Müzik kütüphanesi', tall: true,
+    id: 'music', title: 'Müzik kütüphanesi',
     onClose: stopPreview,
     render: async (body) => {
       if (!musicIndex) { body.append(h('div', { class: 'spinner' })); musicIndex = await loadJSON('data/music.json', []); refreshSheet(); return; }
       body.append(h('p', { class: 'hint', html: 'Telif süresi dolmuş klasik eserlerin <b>kamu malı</b> kayıtları (Wikimedia Commons, çoğu Musopen). Ticari kullanım serbesttir. Parça ilk eklendiğinde indirilir (internet gerekir), sonra cihazda kalır. Kendi müziğin için <b>Ses</b> aracını kullan.' }));
       if (!musicIndex.length) { body.append(h('p', { class: 'hint' }, 'Katalog bulunamadı.')); return; }
-      const comps = ['Tümü', ...new Set(musicIndex.map((m) => m.c))];
+      const comps = ['★ Favoriler', 'Tümü', ...new Set(musicIndex.map((m) => m.c))];
       const q = h('input', { type: 'text', class: 'search', placeholder: `${musicIndex.length} eserde ara…`, value: st.q });
       const chips = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
       comps.forEach((c) => chips.append(h('button', { class: st.comp === c ? 'on' : '', onclick: () => { st.comp = c; refreshSheet(); } }, c)));
       body.append(q, chips);
       const k = st.q.trim().toLocaleLowerCase('tr-TR');
-      const list = musicIndex.filter((m) => (st.comp === 'Tümü' || m.c === st.comp) && (!k || `${m.t} ${m.c}`.toLocaleLowerCase('tr-TR').includes(k)));
+      const fvm = favIds('music');
+      const list = musicIndex.filter((m) => (st.comp === 'Tümü' || m.c === st.comp || (st.comp === '★ Favoriler' && fvm.includes(m.u))) && (!k || `${m.t} ${m.c}`.toLocaleLowerCase('tr-TR').includes(k)));
       list.slice(0, 120).forEach((m) => {
         const pb = h('button', { class: 'icon-btn', html: I.play, 'aria-label': 'Dinle' });
         pb.addEventListener('click', () => preview(m.u, pb));
-        body.append(h('div', { class: 'mus-row' }, pb,
-          h('div', { class: 'mus-t' }, h('b', {}, cleanTitle(m)), h('small', {}, `${m.c} · ${fmt(m.d, false)} · ${m.l}${m.a ? ` · ${m.a}` : ''}`)),
+        body.append(h('div', { class: 'mus-row mus4' }, pb,
+          h('div', { class: 'mus-t' }, h('b', {}, cleanTitle(m)), h('small', {}, `${m.c} · ${fmt(m.d, false)} · ${m.l}${m.a ? ` · ${m.a}` : ''}`)), favStar('music', m.u, { name: `${m.c} – ${cleanTitle(m)}` }),
           h('button', { class: 'btn', onclick: async () => {
             stopPreview();
             const b = busy(`İndiriliyor… (${(m.z / 1048576).toFixed(1)} MB)`);
@@ -131,7 +132,19 @@ export function openMusicLibrary() {
           } }, 'Ekle')));
       });
       let tm = null;
-      q.addEventListener('input', () => { st.q = q.value; clearTimeout(tm); tm = setTimeout(() => { refreshSheet(); setTimeout(() => { const el = document.querySelector('#sheetBody .search'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }, 300); });
+      q.addEventListener('input', () => { st.q = q.value; clearTimeout(tm); tm = setTimeout(() => { refreshSheet(); setTimeout(() => { const el = document.querySelector('.panel.focused .search'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }, 300); });
     },
   });
 }
+
+registerFav('sfx', async (id, x) => {
+  if (!app.P) return;
+  if (id.startsWith('syn:')) await app.addSfx(id.slice(4), x.name);
+  else { await addAudioBlob(`sfxlib-${id}`, `SFX · ${x.name}`, `sfx/${id}.ogg`, { sfx: true }); toast(`${x.name} eklendi`); }
+});
+registerFav('music', async (u, x) => {
+  if (!app.P) return;
+  const b = busy('İndiriliyor…');
+  try { const id = `mus-${u.split('/').pop().replace(/[^\w.-]/g, '').slice(-60)}`; await addAudioBlob(id, x.name.slice(0, 80), u, { role: 'music', volume: 0.35, fadeIn: 1, fadeOut: 2 }); toast('Müzik eklendi'); }
+  catch (e) { toast('İndirilemedi'); } finally { b.close(); }
+});

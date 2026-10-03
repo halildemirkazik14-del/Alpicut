@@ -3,6 +3,7 @@ import { app, $, h, fmt, clone } from './state.js';
 import { layoutClips } from './engine.js';
 import { I } from './icons.js';
 import { allKeyTimes } from './kf.js';
+import * as WM from './wm.js';
 
 let drag = null;
 let touching = false;
@@ -37,7 +38,8 @@ export function renderTimeline() {
   const scroll = $('tlScroll'), inner = $('tlInner');
   const H = half();
   const dur = engine.duration();
-  const width = H * 2 + Math.max(dur, 1) * pps + 80;
+  // genişlik tam olarak süre kadar: en sağa kaydırınca oynatıcı tam videonun sonunda durur (kayma yok)
+  const width = H * 2 + Math.max(dur, 0.01) * pps;
   inner.style.width = `${width}px`;
   inner.textContent = '';
   const sel = app.sel;
@@ -123,6 +125,10 @@ export function renderTimeline() {
     inner.append(row);
   });
 
+  // boşluk kalmasın: zaman çizelgesi yüksekliği içeriğe göre (önizleme büyür)
+  const tl = $('timeline');
+  const want = Math.round(Math.max(150, Math.min(window.innerHeight * 0.38, inner.scrollHeight + 14)));
+  if (Math.abs(tl.offsetHeight - want) > 3) { tl.style.height = `${want}px`; requestAnimationFrame(() => app.fitStage && app.fitStage()); }
   syncScroll(engine.t, true);
 }
 
@@ -149,12 +155,18 @@ function snapT(t) {
   return t;
 }
 
+// zaman çizelgesine dokununca onu örten paneller üstteki pencere çubuğuna küçülür
+function hidePanelsOverTimeline() {
+  const r = $('timeline').getBoundingClientRect();
+  WM.list().forEach((p) => { if (p.min) return; const b = p.el.getBoundingClientRect(); if (b.bottom > r.top + 10 && b.top < r.bottom - 10) WM.minimize(p); });
+}
+
 export function bindTimeline() {
   const sc = $('tlScroll'), inner = $('tlInner');
 
   sc.addEventListener('scroll', () => {
     if (drag) return;
-    const t = sc.scrollLeft / app.pps;
+    const t = Math.max(0, Math.min(app.engine.duration(), sc.scrollLeft / app.pps));
     const E = app.engine;
     if (E.playing) {
       if (!touching) return;
@@ -167,6 +179,7 @@ export function bindTimeline() {
 
   sc.addEventListener('touchstart', (e) => {
     touching = true;
+    hidePanelsOverTimeline();
     if (e.touches.length === 2) {
       const [a, b] = e.touches;
       pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), pps: app.pps };
@@ -184,7 +197,7 @@ export function bindTimeline() {
   const end = (e) => { if (!e.touches || e.touches.length === 0) { touching = false; pinch = null; } };
   sc.addEventListener('touchend', end, { passive: true });
   sc.addEventListener('touchcancel', end, { passive: true });
-  sc.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') touching = true; });
+  sc.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') { touching = true; hidePanelsOverTimeline(); } });
   window.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') touching = false; });
 
   inner.addEventListener('click', (e) => {

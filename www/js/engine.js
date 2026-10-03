@@ -514,7 +514,7 @@ export class Engine {
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.rotate(((b.rot || 0) * Math.PI) / 180);
-    ctx.strokeStyle = '#A855F7';
+    ctx.strokeStyle = (window.__themeColor || '#A855F7');
     ctx.lineWidth = 4 / S;
     ctx.setLineDash([16 / S, 10 / S]);
     ctx.strokeRect(-b.w / 2 - 10, -b.h / 2 - 10, b.w + 20, b.h + 20);

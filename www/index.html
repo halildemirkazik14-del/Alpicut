@@ -13,7 +13,8 @@
   <!-- Ana ekran -->
   <section id="home" class="screen">
     <header class="home-head">
-      <div class="brand"><span class="brand-logo" id="brandLogo"></span><span class="brand-name">Alpi<b>cut</b></span></div>
+      <div class="brand"><span class="brand-logo" id="brandLogo"></span><span class="brand-name">ALPI<b>CUT</b><small>STUDIO</small></span></div>
+      <div class="home-acts"><button class="icon-btn" id="btnAccounts" aria-label="Yapay zekâ hesapları"></button><button class="icon-btn" id="btnTheme" aria-label="Tema"></button></div>
     </header>
     <button id="newProject" class="new-project">
       <span class="np-plus"></span>
@@ -28,7 +29,7 @@
 
   <!-- Editör -->
   <section id="editor" class="screen hidden">
-    <header class="topbar">
+    <header class="topbar" id="topbarMain">
       <button class="icon-btn" id="btnBack" aria-label="Geri"></button>
       <input id="projName" class="proj-name" spellcheck="false">
       <button class="icon-btn" id="btnUndo" aria-label="Geri al"></button>
@@ -40,7 +41,7 @@
       <button class="view-reset hidden" id="viewReset">100% · Sığdır</button>
       <div class="empty-hint" id="emptyHint">Başlamak için alttan <b>Medya</b> ekle</div>
     </section>
-    <div class="transport">
+    <div class="transport" id="transportBar">
       <span class="tc" id="timeCode">00:00.0 / 00:00.0</span>
       <div class="tr-mid">
         <button class="icon-btn sm" id="btnFirst" aria-label="Başa dön"></button>
@@ -59,17 +60,6 @@
     </section>
     <nav class="toolbar" id="toolbar"></nav>
   </section>
-
-  <!-- Alt panel -->
-  <div class="sheet" id="sheet" aria-hidden="true">
-    <div class="sheet-head">
-      <h3 id="sheetTitle"></h3>
-      <div class="sheet-actions" id="sheetActions"></div>
-      <button class="icon-btn ok" id="sheetClose" aria-label="Tamam"></button>
-    </div>
-    <div class="sheet-tabs" id="sheetTabs"></div>
-    <div class="sheet-body" id="sheetBody"></div>
-  </div>
 
   <!-- Dışa aktarma -->
   <div class="modal hidden" id="exportModal">

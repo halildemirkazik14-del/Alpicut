@@ -14,76 +14,23 @@ import { LAYER_PROPS, CLIP_PROPS, EASES, propAt, hasKeys, keyAt, setKey, delKey,
 import { SFX, renderSfx } from './sfx.js';
 import { layoutClips, SPEED_CURVES, curvePts, curveSpeed } from './engine.js';
 import { rangeControl, guessDefault } from './ctl.js';
+import { curvePicker, graphView } from './kfui.js';
+import { star, favIds, registerFav } from './favs.js';
+import { transBody, TR_CATS } from './transitions.js';
 import { GL_LIST, transGL } from './gltrans.js';
 import { SOCIAL_TEMPLATES, drawSocial, SOCIAL_FIELDS } from './social.js';
 import { fontPickerBody, isBundled, fontWeights, ensureProjectFonts } from './fonts.js';
 import { colorTab, chromaTab, audioFxTab, audioToolsTab, slipControl, fxLayerInspector, openStickers } from './ui3.js';
 
-// ---------- panel altyapısı ----------
-let cur = null;
+// ---------- panel altyapısı (yüzen pencereler: wm.js) ----------
+import * as WM from './wm.js';
 
-export function isSheetOpen() { return !!cur; }
-
-export function openSheet(cfg) {
-  const wasOpen = !!cur;
-  if (cur && cur.onClose) { const f = cur.onClose; cur.onClose = null; f(); }
-  cur = { tab: cfg.tab || (cfg.tabs && cfg.tabs[0]) || null, ...cfg };
-  $('sheetTitle').textContent = cfg.title || '';
-  const sh = $('sheet');
-  sh.classList.toggle('tall', !!cfg.tall);
-  sh.classList.add('open');
-  sh.setAttribute('aria-hidden', 'false');
-  renderActions();
-  renderTabs();
-  renderBody();
-  if (!wasOpen) { try { history.pushState({ v: 'sheet' }, ''); } catch (_) { /* yoksay */ } }
-}
-
-export function closeSheet(fromPop = false) {
-  if (!cur) return;
-  const onClose = cur.onClose;
-  cur = null;
-  const sh = $('sheet');
-  sh.classList.remove('open');
-  sh.setAttribute('aria-hidden', 'true');
-  if (onClose) onClose();
-  if (!fromPop && history.state?.v === 'sheet') { window.__skipPop = (window.__skipPop || 0) + 1; try { history.back(); } catch (_) { window.__skipPop--; } }
-}
-
-export function refreshSheet() {
-  if (!cur) return;
-  if (cur.refresh) { const r = cur.refresh(); if (r === false) { closeSheet(); return; } }
-  renderActions();
-  renderTabs();
-  renderBody();
-}
-
-function renderActions() {
-  const box = $('sheetActions');
-  box.textContent = '';
-  if (cur.onCancel) {
-    box.append(h('button', { class: 'icon-btn cancel', html: I.close, 'aria-label': 'İptal', title: 'İptal (değişiklikleri geri al)', onclick: () => { const f = cur.onCancel; cur.onClose = null; f(); closeSheet(); } }));
-  }
-  (cur.actions || []).forEach((a) => {
-    box.append(h('button', { class: `icon-btn${a.danger ? ' danger' : ''}`, html: a.icon, 'aria-label': a.label, title: a.label, onclick: a.onClick }));
-  });
-}
-
-function renderTabs() {
-  const box = $('sheetTabs');
-  box.textContent = '';
-  (cur.tabs || []).forEach((t) => {
-    box.append(h('button', { class: t === cur.tab ? 'on' : '', onclick: () => { cur.tab = t; renderTabs(); renderBody(); } }, t));
-  });
-}
-
-function renderBody() {
-  const body = $('sheetBody');
-  const st = body.scrollTop;
-  body.textContent = '';
-  cur.render(body, cur.tab);
-  body.scrollTop = st;
-}
+export function isSheetOpen() { return WM.isOpen(); }
+export function openSheet(cfg) { return WM.open(cfg); }
+export function closeSheet(fromPop = false) { WM.close(undefined, fromPop === true); }
+export function closeAllSheets() { WM.closeAll(); }
+export function refreshSheet() { WM.refresh(); }
+export function refreshLive() { WM.refreshLive(); }
 
 // ---------- alan oluşturucu ----------
 const SWATCHES = ['#FFFFFF', '#000000', '#FACC15', '#C084FC', '#8B5CF6', '#E879F9', '#F43F5E', '#22C55E', '#3B82F6', '#F97316'];
@@ -102,6 +49,7 @@ function setRangeFill(inp) {
   inp.style.setProperty('--p', `${p}%`);
 }
 
+app.__sheets = { fields: (...a) => fields(...a) };
 export function fields(obj, list, opts = {}) {
   const frag = document.createDocumentFragment();
   const change = (f, v, final) => {
@@ -209,20 +157,17 @@ export function openInspector(tab, extra = {}) {
   };
   const cfg = build(o);
   if (!cfg) return;
-  cfg.refresh = () => {
+  cfg.refresh = (p) => {
     const ob = selected();
     if (!ob) return false;
     const n = build(ob);
-    cur.render = n.render; cur.title = n.title; cur.actions = n.actions;
-    if (n.tabs && JSON.stringify(n.tabs) !== JSON.stringify(cur.tabs)) { cur.tabs = n.tabs; if (!n.tabs.includes(cur.tab)) cur.tab = n.tabs[0]; }
-    $('sheetTitle').textContent = n.title;
+    p.cfg.render = n.render; p.cfg.title = n.title; p.cfg.actions = n.actions;
+    if (n.tabs && JSON.stringify(n.tabs) !== JSON.stringify(p.cfg.tabs)) { p.cfg.tabs = n.tabs; if (!n.tabs.includes(p.tab)) p.tab = n.tabs[0]; }
     return true;
   };
+  cfg.id = 'inspector';
+  cfg.live = true;
   if (tab && cfg.tabs?.includes(tab)) cfg.tab = tab;
-  // Uygula / İptal: panelde yapılan her şey tek geri alma adımı olur
-  const token = app.beginEdit();
-  cfg.onClose = () => app.endEdit(token, true);
-  cfg.onCancel = () => app.endEdit(token, false);
   openSheet(cfg);
 }
 
@@ -253,13 +198,8 @@ function commonActions(kind) {
 
 function filterTab(body, obj) {
   if (!obj.filters) obj.filters = { ...DEFAULT_FILTERS };
-  const chips = h('div', { class: 'chips', style: { marginBottom: '8px' } });
-  FILTER_PRESETS.forEach(([id, lbl, f]) => {
-    chips.append(h('button', { class: obj.filterPreset === id ? 'on' : '', onclick: () => {
-      obj.filterPreset = id; obj.filters = { ...DEFAULT_FILTERS, ...f }; app.change(true); refreshSheet();
-    } }, lbl));
-  });
-  body.append(chips);
+  body.append(h('button', { class: 'btn block primary', style: { marginBottom: '10px' }, html: `${I.filter} Filtre kütüphanesi (64 görünüm)`, onclick: async () => { const m = await import('./filters.js'); m.openFilters(obj); } }));
+  body.append(h('div', { class: 'sub-title' }, 'Elle ayar'));
   const mark = () => { obj.filterPreset = 'custom'; };
   body.append(fields(obj, [
     { label: 'Parlaklık', path: 'filters.brightness', type: 'range', min: 0.3, max: 2, fmt: pct, post: mark },
@@ -307,49 +247,11 @@ function clipInspector(c) {
         ]));
         if (isV && !c.freeze) body.append(slipControl(c, mdur));
       } else if (tab === 'Geçiş') {
-        if (idx === 0) { body.append(h('p', { class: 'hint', html: 'İlk klibe geçiş eklenemez. Geçiş, <b>bu klipten önceki</b> klip ile bu klip arasında uygulanır.' })); return; }
-        if (!c.trans) c.trans = { type: 'none', dur: 0.5 };
-        const pick = (id) => {
-          c.trans.type = id; app.change(true); app.refreshTimeline(); refreshSheet();
-          const L = app.layout().find((x) => x.clip === c);
-          if (L && id !== 'none') { app.engine.seek(Math.max(0, L.start - 0.4)); app.updateTime(); app.play(); setTimeout(() => app.pause(), (L.td + 0.9) * 1000); }
-        };
-        const cur = GL_LIST.find((g) => g.id === c.trans.type);
-        body.append(h('p', { class: 'hint', html: `Önceki klipten bu klibe geçiş. Seçili: <b>${cur ? cur.name : (TRANSITIONS.find((x) => x[0] === c.trans.type)?.[1] || 'Yok')}</b>` }));
-        body.append(fields(c, [{ label: 'Geçiş süresi', path: 'trans.dur', type: 'range', min: 0.2, max: 2, step: 0.05, fmt: sec, def: 0.5, post: () => app.refreshTimeline() }]));
-        body.append(h('h4', { class: 'sub-title' }, 'Temel'));
-        const grid = h('div', { class: 'grid-3' });
-        TRANSITIONS.forEach(([id, lbl]) => grid.append(h('button', { class: `opt${c.trans.type === id ? ' on' : ''}`, onclick: () => pick(id) }, lbl)));
-        body.append(grid);
-        body.append(h('h4', { class: 'sub-title' }, `Sinematik (${GL_LIST.length})`));
-        const q = h('input', { type: 'text', placeholder: 'Geçiş ara…', class: 'search' });
-        const g2 = h('div', { class: 'tr-grid' });
-        const lay = app.layout();
-        const Li = lay.findIndex((x) => x.clip === c);
-        const thumbOf = (L) => { const el = L && app.engine.elFor(L.clip); const cv = document.createElement('canvas'); cv.width = 72; cv.height = 128; const x = cv.getContext('2d'); x.fillStyle = '#222'; x.fillRect(0, 0, 72, 128); try { if (el) drawFit(x, el, 0, 0, 72, 128, 'cover'); } catch (_) { /* yoksay */ } return cv; };
-        const A = thumbOf(lay[Li - 1]), B = thumbOf(lay[Li]);
-        const io = new IntersectionObserver((ents) => ents.forEach((en) => {
-          if (!en.isIntersecting) return;
-          io.unobserve(en.target);
-          const T = transGL(); const id = en.target.dataset.raw;
-          const out = T && T.render(id, A, B, 0.5, 72, 128);
-          if (out) en.target.getContext('2d').drawImage(out, 0, 0);
-        }), { root: $('sheetBody') });
-        const draw = () => {
-          g2.textContent = '';
-          const k = q.value.trim().toLocaleLowerCase('tr-TR');
-          GL_LIST.filter((t) => !k || t.name.toLocaleLowerCase('tr-TR').includes(k) || t.raw.toLowerCase().includes(k)).forEach((t) => {
-            const cv = h('canvas', { width: 72, height: 128, 'data-raw': t.raw });
-            g2.append(h('button', { class: `tr-card${c.trans.type === t.id ? ' on' : ''}`, onclick: () => pick(t.id) }, cv, h('span', {}, t.name)));
-            io.observe(cv);
-          });
-        };
-        q.addEventListener('input', draw);
-        body.append(q, g2);
-        draw();
-        body.append(h('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: () => {
-          app.P.clips.forEach((x, i) => { if (i > 0) x.trans = clone(c.trans); }); app.change(true); app.refreshTimeline(); toast('Geçiş tüm kliplere uygulandı');
-        } }, 'Tüm kliplere uygula'));
+        if (idx === 0) { body.append(h('p', { class: 'hint', html: 'İlk klibe geçiş eklenemez. Geçiş, <b>bu klipten önceki</b> klip ile bu klip arasında uygulanır. Zaman çizelgesinde kesimlerdeki <b>+</b> noktasına dokun.' })); return; }
+        const cats = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
+        ['★', ...TR_CATS].forEach((ct) => cats.append(h('button', { class: TRTAB.v === ct ? 'on' : '', onclick: () => { TRTAB.v = ct; refreshSheet(); } }, ct)));
+        body.append(cats);
+        transBody(body, c, TRTAB.v, () => refreshSheet());
       } else if (tab === 'Filtre') filterTab(body, c);
       else if (tab === 'Keyframe') kfTab(body, c, isV && !c.freeze ? [...CLIP_PROPS, ['vol', 'Ses seviyesi', 0, 2, 0.01]] : CLIP_PROPS, true);
       else if (tab === 'Renk') colorTab(body, c);
@@ -417,6 +319,8 @@ function layoutButtons(L) {
 }
 
 // ---------- Keyframe sekmesi ----------
+const GRAPH = new Set();
+const TRTAB = { v: 'Temel' };
 function kfTab(body, o, props, isClip = false) {
   const lt = localT(o);
   const len = itemLen(o);
@@ -446,12 +350,16 @@ function kfTab(body, o, props, isClip = false) {
   });
   const here = props.filter(([p]) => keyAt(o, p, lt));
   if (here.length) {
-    const cur = keyAt(o, here[0][0], lt).ease || 'inout';
-    const chips = h('div', { class: 'chips' });
-    EASES.forEach(([id, lbl]) => {
-      chips.append(h('button', { class: cur === id ? 'on' : '', onclick: () => { here.forEach(([p]) => { keyAt(o, p, lt).ease = id; }); app.change(true); refreshSheet(); } }, lbl));
-    });
-    body.append(h('div', { class: 'field full' }, h('label', {}, 'Bu keyframe\'den sonraki geçiş'), chips));
+    body.append(h('div', { class: 'sub-title' }, 'Bu keyframe\'den sonraki hareket eğrisi'));
+    body.append(curvePicker(here.map(([p]) => keyAt(o, p, lt)), (final) => { app.change(final); if (final) refreshSheet(); }));
+  } else if (times.length) {
+    body.append(h('p', { class: 'hint', html: 'Eğriyi değiştirmek için <b>Önceki/Sonraki</b> ile bir keyframe\'e git.' }));
+  }
+  if (times.length) {
+    body.append(h('div', { class: 'btn-row' },
+      h('button', { class: 'btn', html: `${I.curve} Tümünü otomatik yumuşat`, onclick: () => { Object.values(o.kf || {}).forEach((arr) => arr.forEach((k) => { k.ease = 'auto'; })); app.change(true); refreshSheet(); toast('Tüm hareketler yumuşatıldı'); } }),
+      h('button', { class: 'btn', onclick: () => { if (GRAPH.has(o.id)) GRAPH.delete(o.id); else GRAPH.add(o.id); refreshSheet(); } }, GRAPH.has(o.id) ? 'Grafiği gizle' : 'Grafik görünümü')));
+    if (GRAPH.has(o.id)) body.append(graphView(o, props, lt, len, { onSeek: (t) => go(t), onChange: (final) => { app.change(final); if (final) refreshSheet(); } }));
   }
   // hazır hareketler
   const presets = isClip ? [
@@ -811,7 +719,7 @@ async function warmTemplateFonts(list) {
 
 export function openTemplates(tab) {
   openSheet({
-    title: 'Yazı şablonları', tall: true, tabs: ['Benim', ...tplCats()], tab: tab || 'Tümü',
+    id: 'templates', title: `Yazı şablonları · ${TEXT_TEMPLATES.length}`, tabs: ['★', 'Benim', ...tplCats()], tab: tab || 'Tümü',
     render: (body, tb) => {
       if (tb === 'Benim') {
         const mine = app.getStyles('text');
@@ -830,13 +738,15 @@ export function openTemplates(tab) {
           h('button', { class: 'btn', html: `${I.upload} Stil dosyası yükle`, onclick: () => app.importStyles() })));
         return;
       }
-      const list = TEXT_TEMPLATES.filter((t) => tb === 'Tümü' || (t.cat || 'Temel') === tb).map((tp) => ({ tp, L: { ...clone(TEXT_BASE), ...clone(tp.p) } }));
+      const fvt = favIds('text');
+      const list = TEXT_TEMPLATES.filter((t) => tb === 'Tümü' || (tb === '★' ? fvt.includes(t.id) : (t.cat || 'Temel') === tb)).map((tp) => ({ tp, L: { ...clone(TEXT_BASE), ...clone(tp.p) } }));
+      if (tb === '★' && !list.length) body.append(h('p', { class: 'hint' }, 'Henüz favori şablon yok. ☆ ile ekle.'));
       const grid = h('div', { class: 'grid-tpl' });
       const draw = () => {
         grid.textContent = '';
         list.forEach(({ tp, L }) => {
           const cv = previewCanvas((ctx, env) => drawText(ctx, L, ST, env));
-          grid.append(h('button', { class: 'tpl', onclick: () => { app.addLayer({ ...clone(L) }); } }, cv, h('span', {}, tp.name)));
+          grid.append(h('div', { class: 'tpl', role: 'button', onclick: () => { app.addLayer({ ...clone(L) }); } }, cv, h('span', {}, tp.name), star('text', tp.id, { name: tp.name })));
         });
       };
       draw();
@@ -848,16 +758,20 @@ export function openTemplates(tab) {
 
 // ---------- Sosyal medya şablonları ----------
 export function openSocial(tab) {
-  const cats = [...new Set(SOCIAL_TEMPLATES.map((t) => t.cat))];
+  const cats = ['★', ...new Set(SOCIAL_TEMPLATES.map((t) => t.cat))];
   openSheet({
-    title: 'Sosyal medya şablonları', tall: true, tabs: cats, tab: tab || cats[0],
+    id: 'social', title: 'Sosyal medya şablonları', tabs: cats, tab: tab && cats.includes(tab) ? tab : cats[1],
     render: (body, tb) => {
-      body.append(h('p', { class: 'hint', html: 'Platformdan bağımsız tasarımlar. İsim, metin, sayılar, renk, açık/koyu tema ve profil fotoğrafı düzenlenebilir.' }));
+      body.append(h('p', { class: 'hint', html: 'Dokun: ekle. Eklendikten sonra isim, metin, mesajlar, sayılar, renkler ve fotoğraflar düzenlenebilir. ☆ ile favorile.' }));
       const grid = h('div', { class: 'grid-tpl' });
-      SOCIAL_TEMPLATES.filter((t) => t.cat === tb).forEach((tp) => {
-        const L = { ...clone(SOCIAL_BASE), ...clone(tp.p), start: 0, end: 5 };
-        const cv = previewCanvas((ctx, env) => drawSocial(ctx, L, 2.2, { ...env, img: (id) => app.engine.imgForMedia(id) }));
-        grid.append(h('button', { class: 'tpl', onclick: () => { const x = clone(L); delete x.start; delete x.end; app.addLayer(x, x.type === 'countdown' ? 3 : 4); } }, cv, h('span', {}, tp.name)));
+      const fv = favIds('social');
+      const list = tb === '★' ? SOCIAL_TEMPLATES.filter((t) => fv.includes(t.id)) : SOCIAL_TEMPLATES.filter((t) => t.cat === tb);
+      if (!list.length) body.append(h('p', { class: 'hint' }, 'Henüz favori şablon yok. Şablonlardaki ☆ ile ekle.'));
+      list.forEach((tp) => {
+        const dur = tp.dur || (tp.p.type === 'countdown' ? 3 : 4);
+        const L = { ...clone(SOCIAL_BASE), ...clone(tp.p), start: 0, end: dur };
+        const cv = previewCanvas((ctx, env) => drawSocial(ctx, L, Math.min(dur - 0.3, tp.p.type === 'imessage' || tp.p.type === 'whatsapp' ? 5 : 2.2), { ...env, img: (id) => app.engine.imgForMedia(id) }));
+        grid.append(h('div', { class: 'tpl', role: 'button', onclick: () => { const x = clone(L); delete x.start; delete x.end; app.addLayer(x, dur); } }, cv, h('span', {}, tp.name), star('social', tp.id, { name: tp.name })));
       });
       body.append(grid);
     },
@@ -866,36 +780,42 @@ export function openSocial(tab) {
 
 function socialTab(body, L) {
   const keys = SOCIAL_FIELDS[L.type] || [];
-  const LBL = { name: 'İsim', handle: 'Kullanıcı adı', time: 'Zaman', text: 'Metin', likes: 'Beğeni', pinned: 'Sabitlendi', dark: 'Koyu tema', avatar: 'Profil fotoğrafı', lines: 'Mesajlar (her satır “İsim: mesaj”)', side: 'Taraf', color: 'Renk', textColor: 'Yazı rengi', app: 'Uygulama adı', title: 'Başlık', accent: 'Vurgu rengi', icon: 'İkon', from: 'Başlangıç', to: 'Bitiş', label: 'Etiket', dur: 'Sayma süresi (sn)', count: 'Sayı', value: 'Puan (0–5)', options: 'Seçenekler (her satır “Seçenek|oy”)', verified: 'Onay rozeti', replies: 'Yanıt', shares: 'Paylaşım', followers: 'Takipçi', btn: 'Buton yazısı' };
+  const LBL = { name: 'İsim', handle: 'Kullanıcı adı', time: 'Saat', text: 'Metin', likes: 'Beğeni', pinned: 'Sabitlendi', dark: 'Koyu tema', avatar: 'Profil fotoğrafı', lines: 'Mesajlar (her satır “İsim: mesaj”)', side: 'Konum', color: 'Renk', textColor: 'Yazı rengi', app: 'Uygulama adı', title: 'Başlık', accent: 'Vurgu rengi', accent2: 'İkinci renk', icon: 'İkon', from: 'Başlangıç', to: 'Bitiş', label: 'Etiket', dur: 'Sayma süresi (sn)', count: 'Sayı', value: 'Puan (0–5)', options: 'Seçenekler (her satır “Seçenek|oy”)', verified: 'Onay rozeti', replies: 'Yanıt', shares: 'Paylaşım', followers: 'Takipçi', following: 'Takip edilen', posts: 'Gönderi', btn: 'Buton yazısı', doneBtn: 'Tıklandıktan sonra', subs: 'Abone sayısı', videos: 'Video sayısı', msgs: 'Mesajlar — her satır bir mesaj. “> metin” = sen (sağ), “< metin” veya “Ad: metin” = karşı taraf', every: 'Mesaj aralığı (sn)', read: '“Okundu” göster', clock: 'Saat (üst çubuk)', status: 'Alt yazı (çevrimiçi…)', tapAt: 'Butona tıklama anı (sn)', portion: 'Ekran oranı', bg: 'Arka plan', fg: 'Başlık rengi', fg2: 'Alt metin rengi', size: 'Yazı boyutu', speed: 'Kayma hızı', number: 'Forma no', pos: 'Mevki', stats: 'İstatistikler (her satır “Ad|değer”)', teamA: '1. takım', teamB: '2. takım', colorA: '1. renk', colorB: '2. renk', label1: '1. video yazısı', label2: '2. video yazısı', banner: 'Kapak görseli', v1: '1. video görseli', v2: '2. video görseli' };
+  const IMG = ['avatar', 'banner', 'v1', 'v2'];
   const list = [];
   keys.forEach((k) => {
-    if (k === 'avatar') return;
+    if (IMG.includes(k)) return;
     const lab = LBL[k] || k;
-    if (['text', 'lines', 'options'].includes(k)) list.push({ label: lab, path: k, type: 'textarea' });
-    else if (['dark', 'pinned', 'verified'].includes(k)) list.push({ label: lab, path: k, type: 'toggle' });
-    else if (['color', 'textColor', 'accent'].includes(k)) list.push({ label: lab, path: k, type: 'color' });
-    else if (k === 'side') list.push({ label: lab, path: k, type: 'chips', options: [['left', 'Gelen (sol)'], ['right', 'Giden (sağ)']] });
+    if (['text', 'lines', 'options', 'msgs', 'stats'].includes(k)) list.push({ label: lab, path: k, type: 'textarea' });
+    else if (['dark', 'pinned', 'verified', 'read'].includes(k)) list.push({ label: lab, path: k, type: 'toggle' });
+    else if (['color', 'textColor', 'accent', 'accent2', 'bg', 'fg', 'fg2', 'colorA', 'colorB'].includes(k)) list.push({ label: lab, path: k, type: 'color' });
+    else if (k === 'side') list.push({ label: lab, path: k, type: 'chips', options: L.type === 'halftext' ? [['top', 'Üst yarı'], ['bottom', 'Alt yarı']] : [['left', 'Gelen (sol)'], ['right', 'Giden (sağ)']], post: (o) => { if (o.type === 'halftext') o.y = o.side === 'bottom' ? 1 - (o.portion || 0.5) / 2 : (o.portion || 0.5) / 2; } });
     else if (k === 'icon') list.push({ label: lab, path: k, type: 'chips', options: ICON_NAMES });
     else if (k === 'value') list.push({ label: lab, path: k, type: 'range', min: 0, max: 5, step: 0.5 });
     else if (k === 'dur') list.push({ label: lab, path: k, type: 'range', min: 0.3, max: 6, step: 0.1, def: 1.6 });
-    else if (['likes', 'from', 'to', 'count', 'replies', 'shares', 'followers'].includes(k)) {
+    else if (k === 'every') list.push({ label: lab, path: k, type: 'range', min: 0.3, max: 3, step: 0.1, def: 1.1, fmt: sec });
+    else if (k === 'tapAt') list.push({ label: lab, path: k, type: 'range', min: 0.3, max: 6, step: 0.1, def: 1.4, fmt: sec });
+    else if (k === 'portion') list.push({ label: lab, path: k, type: 'range', min: 0.25, max: 0.7, step: 0.01, def: 0.5, fmt: pct, post: (o) => { o.y = o.side === 'bottom' ? 1 - o.portion / 2 : o.portion / 2; } });
+    else if (k === 'size') list.push({ label: lab, path: k, type: 'range', min: 50, max: 200, step: 2, def: 110 });
+    else if (k === 'speed') list.push({ label: lab, path: k, type: 'range', min: 60, max: 600, step: 10, def: 220 });
+    else if (['likes', 'from', 'to', 'count', 'replies', 'shares', 'followers', 'following', 'posts', 'subs', 'videos', 'number'].includes(k)) {
       list.push({ label: lab, path: k, type: 'text', post: (o) => { const n = parseFloat(String(o[k]).replace(/\./g, '').replace(',', '.')); if (!Number.isNaN(n)) o[k] = n; } });
     } else list.push({ label: lab, path: k, type: 'text' });
   });
   body.append(fields(L, list));
-  if (keys.includes('avatar')) {
-    const m = L.avatar ? app.engine.media.get(L.avatar) : null;
-    body.append(h('div', { class: 'field' }, h('label', {}, 'Profil fotoğrafı'), h('span', {}, m ? m.name : 'Baş harf'),
+  IMG.filter((k) => keys.includes(k)).forEach((k) => {
+    const m = L[k] ? app.engine.media.get(L[k]) : null;
+    body.append(h('div', { class: 'field' }, h('label', {}, LBL[k]), h('span', { style: { fontSize: '12px', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, m ? m.name : (k === 'avatar' ? 'Baş harf' : 'Yok')),
       h('div', { style: { display: 'flex', gap: '6px' } },
         h('button', { class: 'btn', onclick: async () => {
           const files = await app.pickFiles('image/*', false);
           if (!files.length) return;
           const recs = await app.importFiles(files);
-          if (recs[0]) { L.avatar = recs[0].id; app.change(true); refreshSheet(); }
+          if (recs[0]) { L[k] = recs[0].id; app.change(true); refreshSheet(); }
         } }, 'Seç'),
-        L.avatar ? h('button', { class: 'btn', onclick: () => { L.avatar = null; app.change(true); refreshSheet(); } }, 'Kaldır') : null)));
-  }
-  body.append(fields(L, [{ label: 'Boyut', path: 'scale', type: 'range', min: 0.3, max: 2.5, fmt: pct, def: 1 }]));
+        L[k] ? h('button', { class: 'btn', onclick: () => { L[k] = null; app.change(true); refreshSheet(); } }, 'Kaldır') : null)));
+  });
+  if (L.type !== 'halftext' && L.type !== 'ticker') body.append(fields(L, [{ label: 'Boyut', path: 'scale', type: 'range', min: 0.3, max: 2.5, fmt: pct, def: 1 }]));
 }
 
 // ---------- Yazı tipi seçici ----------
@@ -1157,3 +1077,7 @@ function targetBitrate(mb, dur) {
 }
 
 export { uid };
+
+registerFav('text', (id) => { const tp = TEXT_TEMPLATES.find((t) => t.id === id); if (tp && app.P) app.addLayer({ ...clone(TEXT_BASE), ...clone(tp.p) }); });
+registerFav('social', (id) => { const tp = SOCIAL_TEMPLATES.find((t) => t.id === id); if (!tp || !app.P) return; app.addLayer({ ...clone(SOCIAL_BASE), ...clone(tp.p) }, tp.dur || 4); });
+registerFav('tool', (id) => { const k = String(id).replace(/^ai:/, ''); const c = [...document.querySelectorAll('.ai-card')].find((x) => x.querySelector('b')?.textContent === k); if (c) c.click(); else window.__toast?.('Bu aracı Yapay zekâ panelinden aç'); });

@@ -1,5 +1,6 @@
 // Alpicut — sosyal medya şablonları (platformdan bağımsız, marka logosu içermez; tüm alanlar düzenlenebilir)
 import { roundRect, clamp, iconPath, hexA } from './render.js';
+import { drawSocial2, SOCIAL_TEMPLATES2, SOCIAL_FIELDS2 } from './social2.js';
 
 const F = (w, s, fam = 'Barlow') => `${w} ${s}px "${fam}", "Barlow", sans-serif`;
 const easeOut = (x) => 1 - Math.pow(1 - x, 3);
@@ -105,7 +106,7 @@ export const SOCIAL_TEMPLATES = [
   { id: 'episode', name: 'Bölüm etiketi', cat: 'Bağlantı', p: { type: 'episode', text: 'BÖLÜM 1/3', y: 0.08, anim: A('slideDown') } },
 ];
 
-export const SOCIAL_FIELDS = {
+export const SOCIAL_FIELDS_BASE = {
   comment: ['name', 'handle', 'time', 'text', 'likes', 'pinned', 'dark', 'avatar'],
   reply: ['name', 'text', 'dark', 'avatar'],
   livechat: ['lines', 'dark'],
@@ -505,6 +506,11 @@ export function drawSocial(ctx, L, t, env) {
       ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(L.text || '', 5, 18);
       break;
     }
+    default: { const r = drawSocial2(ctx, L, lt, env, T); w = r.w; h = r.h; }
   }
   return { w: w * sc, h: h * sc };
 }
+
+export { wrap, avatar, icon, verified, card, F, theme };
+SOCIAL_TEMPLATES.push(...SOCIAL_TEMPLATES2);
+export const SOCIAL_FIELDS = { ...SOCIAL_FIELDS_BASE, ...SOCIAL_FIELDS2 };

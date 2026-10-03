@@ -1,6 +1,7 @@
 // Alpicut — efekt kataloğu, ayarlama katmanı ve çıkartmalar
 import { getGrader, gradeParams, FX_SHADER } from './gl.js';
 import { roundRect, animState, clamp } from './render.js';
+import { GL_FX, PARTICLE_FX, applyGLFx, drawParticleFx } from './fxgl.js';
 
 // [id, ad, kategori, tür]
 export const FX_LIST = [
@@ -27,7 +28,11 @@ export const FX_LIST = [
   ['film', 'Eski film', 'Stil', '2d'],
   ['cinema', 'Sinema şeridi', 'Stil', '2d'],
 ];
-export const FX_CATS = ['Hareket', 'Ritim', 'Bozulma', 'Işık', 'Stil'];
+const GL_CAT = { chroma: 'Bozulma', blockglitch: 'Bozulma', sliceglitch: 'Bozulma', oldtv: 'Retro', crt: 'Retro', sepia: 'Retro', dither: 'Retro', halftone: 'Sanat', sketch: 'Sanat', cartoon: 'Sanat', emboss: 'Sanat', neonedge: 'Sanat', duotone: 'Sanat', thermal: 'Kamera', nightvision: 'Kamera', fisheye: 'Kamera', tiltshift: 'Bulanıklık', zoomblur: 'Bulanıklık', motionblur: 'Bulanıklık', dream: 'Işık', swirl: 'Bozulma', kaleido: 'Ekran', quad: 'Ekran', split3: 'Ekran', ripple: 'Bozulma', heatwave: 'Bozulma', vigpulse: 'Işık', rainbow: 'Işık', strobe: 'Işık', dolly: 'Hareket' };
+const P_CAT = { snow: 'Parçacık', rain: 'Parçacık', confetti: 'Parçacık', sparkle: 'Parçacık', hearts: 'Parçacık', bubbles: 'Parçacık', embers: 'Parçacık', glitter: 'Parçacık', money: 'Parçacık', ballrain: 'Parçacık', firerain: 'Parçacık', stars: 'Parçacık', rays: 'Işık', flare: 'Işık', bokeh: 'Işık', lightning: 'Işık', dust: 'Retro', grain: 'Retro', scanlines: 'Retro', shutter: 'Kamera', rec: 'Kamera', letterbox: 'Çerçeve', spotlight: 'Çerçeve', vignette: 'Çerçeve', frame: 'Çerçeve', redpulse: 'Işık', speedlines: 'Hareket', zoomlines: 'Hareket' };
+Object.entries(GL_FX).forEach(([id, [, n]]) => FX_LIST.push([id, n, GL_CAT[id] || 'Stil', 'gl2']));
+Object.entries(PARTICLE_FX).forEach(([id, n]) => FX_LIST.push([id, n, P_CAT[id] || 'Parçacık', 'p2']));
+export const FX_CATS = ['Hareket', 'Ritim', 'Parçacık', 'Işık', 'Bozulma', 'Retro', 'Sanat', 'Kamera', 'Ekran', 'Bulanıklık', 'Çerçeve', 'Stil'];
 
 function lastBeat(markers, t) {
   let b = null;
@@ -77,6 +82,8 @@ export function applyLayerFx(ctx, L, t, env, markers) {
       p.fx = FX_SHADER[id]; shader = p; break;
     case 'film': p.fx = FX_SHADER.noise; p.fxAmt = 0.35 * Math.min(1, amt); shader = p; break;
   }
+  if (GL_FX[id]) { ctx.restore(); applyGLFx(ctx, id, lt, amt, L); return; }
+  if (PARTICLE_FX[id]) { ctx.setTransform(S, 0, 0, S, 0, 0); drawParticleFx(ctx, id, lt, env, Math.min(1.5, amt), L); ctx.restore(); return; }
   if (shader && g) {
     const out = g.process(cv, cv.width, cv.height, shader);
     if (out) { ctx.fillStyle = '#000'; if (shader.zoom < 1 || shader.offX || shader.rot) ctx.fillRect(0, 0, cv.width, cv.height); ctx.drawImage(out, 0, 0); }

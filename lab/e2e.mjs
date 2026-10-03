@@ -132,6 +132,29 @@ await step('musicHead', async () => pg.evaluate(async () => {
   return { status: r.status, cors: r.headers.get('access-control-allow-origin'), first: m[0].t };
 }));
 
+// uçtan uca: projeye video ekle -> otomatik altyazı (telefondaki yöntem) -> jumpcut -> stüdyo ses
+await step('pipeline', () => pg.evaluate(async () => {
+  document.getElementById('newProject').click();
+  await new Promise((r) => setTimeout(r, 600));
+  const app = window.__alpicut;
+  const r = await fetch('labmedia/test.mp4');
+  if (!r.ok) return { skipped: 'test videosu yok' };
+  const recs = await app.importFiles([new File([await r.blob()], 'test.mp4', { type: 'video/mp4' })]);
+  const m = recs[0];
+  app.P.clips.push({ id: 'c1', mediaId: m.id, type: 'video', in: 0, out: m.duration, dur: 3, speed: 1, volume: 1, mute: false, fit: 'cover', bgMode: 'blur', bgColor: '#000', zoom: 1, panX: 0, panY: 0, filters: {}, filterPreset: 'none', trans: { type: 'none', dur: 0.5 }, kf: {} });
+  app.commit();
+  const ai = await import('./js/ai.js');
+  const t0 = performance.now();
+  const n = await ai.autoCaptions({ lang: 'turkish', size: 'tiny', provider: 'local', onStatus: () => {} });
+  const tCap = performance.now() - t0;
+  const cues = app.P.subs.cues.slice(0, 5).map((c) => `${c.start.toFixed(2)} ${c.text}`);
+  const before = app.engine.duration();
+  const a = await import('./js/alpico.js');
+  const j = await a.runCommand('jumpcut', {}, { quiet: true });
+  const d = await a.runCommand('denoise', { preset: 'hiss' }, { quiet: true });
+  return { n, tCap: Math.round(tCap), cues, before: +before.toFixed(2), after: +app.engine.duration().toFixed(2), jumpcut: j?.summary || j?.error, denoise: d?.summary || d?.error, issues: a.doctorIssues().map((x) => x.text) };
+}));
+
 // arayüz: şablon ve geçiş ekranları
 await step('ui', async () => {
   await pg.click('#newProject'); await pg.waitForTimeout(500);

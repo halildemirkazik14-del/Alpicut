@@ -3,15 +3,21 @@
 import { app, h, clone, fmt, toast, busy, uid, selected } from './state.js';
 import { I } from './icons.js';
 import { fields, openSheet, closeSheet, refreshSheet } from './sheets.js';
+import * as WM from './wm.js';
+const curPanel = () => WM.cur();
+const WMrefresh = (p) => { if (p) WM.refresh(p); };
+const WMclose = (p) => { if (p) WM.close(p); };
 import { layoutClips } from './engine.js';
 import { decodeMono } from './audiotools.js';
 import { SUB_BASE } from './presets.js';
 import { lsGet, lsSet } from './storage.js';
+import { PROVIDERS, getKey, setKey, getModel, setModel, hasKey, testKey, openExternal, chatProvider, setChatProvider, ask, transcribeOpenAI, agent } from './aiapi.js';
+import { toWav } from './studio.js';
 
 const SR16 = 16000;
 
 // ================= proje sesini 16 kHz tek kanala karıştır =================
-async function mixProjectAudio(opts = {}) {
+export async function mixProjectAudio(opts = {}) {
   const P = app.P;
   const E = app.engine;
   const dur = E.duration();
@@ -88,66 +94,115 @@ function buildCues(words, maxWords = 5, maxDur = 2.6) {
   return cues;
 }
 
+// Programlı otomatik altyazı (Alpi-co ve panel kullanır). Dönen: satır sayısı
+export async function autoCaptions({ lang = 'turkish', size, provider, maxWords = 4, music = false, fix = false, onStatus = () => {}, onPct = () => {} } = {}) {
+  const P = app.P;
+  if (!P) throw new Error('Proje yok');
+  provider = provider || lsGet('alpicut.asrProv', hasKey('openai') ? 'openai' : 'local');
+  size = size || lsGet('alpicut.asrSize', (navigator.deviceMemory || 4) <= 4 ? 'tiny' : 'base');
+  onStatus('Ses hazırlanıyor…'); onPct(2);
+  const mix = await mixProjectAudio({ includeMusic: music });
+  if (mix.peak < 0.005) throw new Error('Projede konuşma sesi bulunamadı');
+  let words = [], segment = false;
+  if (provider === 'openai') {
+    onStatus('OpenAI Whisper ile yazıya dökülüyor…'); onPct(20);
+    // 16 kHz WAV (25 MB sınırı ≈ 13 dk); uzun videoyu parçala
+    const per = 600 * SR16;
+    for (let o = 0; o < mix.data.length; o += per) {
+      const part = mix.data.subarray(o, Math.min(mix.data.length, o + per));
+      const j = await transcribeOpenAI(toWav(part, SR16), lang);
+      const off = o / SR16;
+      (j.words || []).forEach((w) => words.push({ t: String(w.word).trim(), s: w.start + off, e: w.end + off }));
+      onPct(20 + (o / mix.data.length) * 70);
+    }
+  } else {
+    const files = {};
+    const res = await runWhisper(mix.data, size, lang, (m) => {
+      if (m.type === 'download') {
+        files[m.file] = [m.loaded, m.total];
+        const L = Object.values(files).reduce((x, y) => x + y[0], 0), T = Object.values(files).reduce((x, y) => x + y[1], 0);
+        onPct(2 + (L / Math.max(1, T)) * 58); onStatus(`Model indiriliyor (ilk sefer)… ${(L / 1048576).toFixed(0)} / ${(T / 1048576).toFixed(0)} MB`);
+      } else if (m.type === 'status') { onStatus(m.text); if (/çevriliyor/.test(m.text)) onPct(65); }
+    });
+    // belleği boşalt (telefonda uygulamanın kapanmasını önler)
+    try { worker?.terminate(); } catch (_) { /* yoksay */ }
+    worker = null;
+    segment = !!res.segment;
+    (res.chunks || []).forEach((c) => {
+      const [st0, e0] = c.timestamp || [];
+      const text = (c.text || '').trim();
+      if (!text || st0 == null) return;
+      if (segment) {
+        const ws = text.split(/\s+/); const end = e0 ?? st0 + 2; const tot = ws.reduce((x, w) => x + w.length + 1, 0);
+        let acc = st0;
+        ws.forEach((w) => { const d = ((w.length + 1) / tot) * (end - st0); words.push({ t: w, s: acc, e: acc + d }); acc += d; });
+      } else words.push({ t: text, s: st0, e: e0 ?? st0 + 0.3 });
+    });
+  }
+  words = words.filter((w) => w.t && !/^\[.*\]$/.test(w.t) && isFinite(w.s) && isFinite(w.e)).sort((x, y) => x.s - y.s);
+  // halüsinasyon: aynı kelimenin art arda çok tekrarı
+  words = words.filter((w, i) => !(i >= 3 && [1, 2, 3].every((k) => words[i - k].t === w.t)));
+  if (!words.length) throw new Error('Konuşma algılanamadı');
+  let cues = buildCues(words, maxWords);
+  if (fix && chatProvider()) {
+    onStatus('Yapay zekâ yazım ve noktalamayı düzeltiyor…'); onPct(92);
+    try {
+      const out = await ask(`Aşağıdaki otomatik altyazı satırlarındaki yazım, Türkçe karakter ve noktalama hatalarını düzelt. Anlamı ve kelime sayısını mümkün olduğunca koru. Satır sayısı AYNI kalsın. Sadece "numara) metin" biçiminde döndür.\n\n${cues.map((c, i) => `${i + 1}) ${c.text}`).join('\n')}`, { maxTokens: 4000 });
+      const map = {};
+      out.split('\n').forEach((l) => { const m = l.match(/^\s*(\d+)\)\s*(.*)$/); if (m) map[+m[1]] = m[2].trim(); });
+      cues = cues.map((c, i) => {
+        const t = map[i + 1];
+        if (!t) return c;
+        const ws = t.split(/\s+/);
+        const nw = ws.length === c.words.length ? c.words.map((w, k) => ({ ...w, t: ws[k] })) : ws.map((w, k) => ({ t: w, s: c.start + ((c.end - c.start) * k) / ws.length, e: c.start + ((c.end - c.start) * (k + 1)) / ws.length }));
+        return { ...c, text: t, words: nw };
+      });
+    } catch (e) { toast(`Düzeltme atlandı: ${e.message}`, 3500); }
+  }
+  if (!P.subs) P.subs = clone(SUB_BASE);
+  P.subs.cues = cues;
+  P.subs.offset = 0;
+  P.subs.words = cues.flatMap((c) => c.words || []);
+  P.subs.source = provider === 'openai' ? 'openai' : segment ? 'asr-segment' : 'asr-word';
+  app.commit();
+  onPct(100);
+  return cues.length;
+}
+
 export function openAutoCaptions() {
-  const st = { size: lsGet('alpicut.asrSize', 'base'), lang: lsGet('alpicut.asrLang', 'turkish'), music: false, maxWords: 4, running: false, log: '', pct: 0 };
+  const st = { prov: lsGet('alpicut.asrProv', hasKey('openai') ? 'openai' : 'local'), size: lsGet('alpicut.asrSize', (navigator.deviceMemory || 4) <= 4 ? 'tiny' : 'base'), lang: lsGet('alpicut.asrLang', 'turkish'), music: false, maxWords: 4, fix: !!chatProvider(), running: false, log: '', pct: 0 };
   openSheet({
-    title: 'Otomatik altyazı', tall: true,
+    id: 'captions', title: 'Otomatik altyazı',
     render: (body) => {
-      body.append(h('p', { class: 'hint', html: 'Konuşma <b>telefonunun içinde</b> yapay zekâ (Whisper) ile yazıya dökülür; ses hiçbir sunucuya gönderilmez. İlk kullanımda model bir kez indirilir (internet gerekir), sonra internetsiz çalışır. Kelimeler gerçek zamanlarıyla gelir; kelime vurgulu altyazı tam senkron olur.' }));
       if (st.running) {
-        const bar = h('i', { style: { width: `${st.pct}%` } });
-        body.append(h('div', { class: 'big-pct' }, `${Math.round(st.pct)}%`), h('div', { class: 'progress' }, bar), h('p', { class: 'hint' }, st.log));
+        body.append(h('div', { class: 'big-pct' }, `${Math.round(st.pct)}%`), h('div', { class: 'progress' }, h('i', { style: { width: `${st.pct}%` } })), h('p', { class: 'hint', style: { textAlign: 'center' } }, st.log));
+        body.append(h('p', { class: 'hint', style: { textAlign: 'center' } }, 'Bu paneli küçültüp (–) çalışmaya devam edebilirsin.'));
         return;
       }
       body.append(fields(st, [
+        { label: 'Yöntem', path: 'prov', type: 'chips', options: [['local', 'Telefonda (ücretsiz, internetsiz)'], ['openai', `OpenAI Whisper (en doğru)${hasKey('openai') ? '' : ' · anahtar gerekli'}`]], rerender: true },
         { label: 'Dil', path: 'lang', type: 'chips', options: ASR_LANGS },
-        { label: 'Model', path: 'size', type: 'chips', options: ASR_SIZES },
+        { label: 'Model', path: 'size', type: 'chips', options: ASR_SIZES, hide: st.prov !== 'local' },
         { label: 'Satır başına en çok kelime', path: 'maxWords', type: 'range', min: 1, max: 10, step: 1, def: 4 },
         { label: 'Müzik izlerini de dinle', path: 'music', type: 'toggle' },
+        { label: `Claude/ChatGPT ile yazımı düzelt${chatProvider() ? '' : ' (hesap bağlı değil)'}`, path: 'fix', type: 'toggle', hide: !chatProvider() },
       ]));
-      body.append(h('p', { class: 'hint', html: 'Not: Video kliplerin sesi ve <b>Konuşma</b> grubundaki ses dosyaları (seslendirme) dinlenir. Uzun videolarda işlem birkaç dakika sürebilir.' }));
+      body.append(h('p', { class: 'hint', html: st.prov === 'local'
+        ? 'Konuşma <b>telefonunda</b> yazıya dökülür; ses hiçbir yere gönderilmez. İlk kullanımda model bir kez indirilir. "Hızlı" model düşük bellekli telefonlar içindir; daha doğru sonuç için <b>OpenAI</b> yöntemini kullan.'
+        : 'Ses (sadece konuşma, 16 kHz) OpenAI\'ye gönderilir ve kelime zamanlı altyazı döner. Kendi API anahtarınla çalışır. Not: Claude ses dinleyemez; Claude yalnızca yazım düzeltmede kullanılır.' }));
+      if (st.prov === 'openai' && !hasKey('openai')) { body.append(h('button', { class: 'btn block primary', html: `${I.key} OpenAI hesabını bağla`, onclick: () => openAccounts('openai') })); return; }
       body.append(h('button', { class: 'btn block primary', html: `${I.ai} Altyazıyı oluştur`, onclick: async () => {
-        lsSet('alpicut.asrSize', st.size); lsSet('alpicut.asrLang', st.lang);
+        lsSet('alpicut.asrSize', st.size); lsSet('alpicut.asrLang', st.lang); lsSet('alpicut.asrProv', st.prov);
         st.running = true; st.log = 'Ses hazırlanıyor…'; st.pct = 2; refreshSheet();
-        const files = {};
+        const panel = curPanel();
         try {
-          const mix = await mixProjectAudio({ includeMusic: st.music });
-          if (mix.peak < 0.005) throw new Error('Projede konuşma sesi bulunamadı');
-          const res = await runWhisper(mix.data, st.size, st.lang, (m) => {
-            if (m.type === 'download') {
-              files[m.file] = [m.loaded, m.total];
-              const L = Object.values(files).reduce((a, x) => a + x[0], 0), T = Object.values(files).reduce((a, x) => a + x[1], 0);
-              st.pct = 2 + (L / Math.max(1, T)) * 60; st.log = `Model indiriliyor… ${(L / 1048576).toFixed(0)} / ${(T / 1048576).toFixed(0)} MB`;
-            } else if (m.type === 'status') { st.log = m.text; if (/çevriliyor/.test(m.text)) st.pct = Math.max(st.pct, 65); }
-            refreshSheet();
-          });
-          let words = [];
-          (res.chunks || []).forEach((c) => {
-            const [s, e] = c.timestamp || [];
-            const text = (c.text || '').trim();
-            if (!text || s == null) return;
-            if (res.segment) {
-              // cümle zamanı: kelimelere orantılı dağıt
-              const ws = text.split(/\s+/); const end = e ?? s + 2; const tot = ws.reduce((a, w) => a + w.length + 1, 0);
-              let acc = s;
-              ws.forEach((w) => { const d = ((w.length + 1) / tot) * (end - s); words.push({ t: w, s: acc, e: acc + d }); acc += d; });
-            } else words.push({ t: text, s, e: e ?? s + 0.3 });
-          });
-          words = words.filter((w) => w.t && !/^\[.*\]$/.test(w.t));
-          if (!words.length) throw new Error('Konuşma algılanamadı');
-          const P = app.P;
-          if (!P.subs) P.subs = clone(SUB_BASE);
-          P.subs.cues = buildCues(words, st.maxWords);
-          P.subs.offset = 0;
-          P.subs.words = words;
-          P.subs.source = res.segment ? 'asr-segment' : 'asr-word';
-          app.commit();
-          closeSheet();
-          toast(`${P.subs.cues.length} altyazı satırı oluşturuldu${res.segment ? ' (yaklaşık kelime zamanı)' : ''}`, 3500);
+          const n = await autoCaptions({ lang: st.lang, size: st.size, provider: st.prov, maxWords: st.maxWords, music: st.music, fix: st.fix, onStatus: (t) => { st.log = t; WMrefresh(panel); }, onPct: (p) => { st.pct = p; } });
+          WMclose(panel);
+          toast(`${n} altyazı satırı oluşturuldu`, 3500);
           setTimeout(() => app.select({ type: 'subs', id: 'subs' }, 'Stil'), 250);
         } catch (e) {
-          st.running = false; refreshSheet();
-          toast(/fetch|network|Failed/i.test(e.message) ? 'Model indirilemedi — internet bağlantısını kontrol et' : (e.message || 'Altyazı oluşturulamadı'), 4500);
+          st.running = false; WMrefresh(panel);
+          toast(/fetch|network|Failed/i.test(e.message) ? 'Model indirilemedi — internet bağlantısını kontrol et' : (e.message || 'Altyazı oluşturulamadı'), 5000);
         }
       } }));
     },
@@ -289,56 +344,9 @@ export async function smartReframe(c) {
   } catch (e) { toast(e.message || 'Analiz edilemedi', 4000); } finally { b.close(); }
 }
 
-// ================= Metinden sese (Piper) =================
-export const TTS_VOICES = [
-  ['tr_TR-dfki-medium', 'Türkçe · Erkek (dfki)'], ['tr_TR-fahrettin-medium', 'Türkçe · Erkek 2'], ['tr_TR-fettah-medium', 'Türkçe · Erkek 3'],
-  ['en_US-hfc_female-medium', 'İngilizce · Kadın'], ['en_US-ryan-medium', 'İngilizce · Erkek'], ['en_GB-alba-medium', 'İngilizce (UK) · Kadın'],
-  ['de_DE-thorsten-medium', 'Almanca · Erkek'], ['es_ES-davefx-medium', 'İspanyolca · Erkek'], ['fr_FR-siwis-medium', 'Fransızca · Kadın'], ['ar_JO-kareem-medium', 'Arapça · Erkek'],
-];
-
-let ttsLib = null;
-async function tts() {
-  if (!ttsLib) ttsLib = import('../vendor/piper/piper-tts-web.js');
-  return ttsLib;
-}
-
-export function openTTS(prefill) {
-  const st = { text: prefill || '', voice: lsGet('alpicut.voice', 'tr_TR-dfki-medium'), speed: 1, running: false, log: '' };
-  openSheet({
-    title: 'Metinden sese', tall: true,
-    render: (body) => {
-      body.append(h('p', { class: 'hint', html: 'Yazdığın metni doğal bir sesle okur (Piper, cihaz üzerinde). Her ses ilk kullanımda bir kez indirilir (~60 MB). Oluşan ses <b>Konuşma</b> grubuna normal bir ses klibi olarak eklenir.' }));
-      if (st.running) { body.append(h('div', { class: 'spinner' }), h('p', { class: 'hint', style: { textAlign: 'center' } }, st.log)); return; }
-      body.append(fields(st, [
-        { label: 'Metin', path: 'text', type: 'textarea' },
-        { label: 'Ses', path: 'voice', type: 'chips', options: TTS_VOICES },
-      ]));
-      if (app.P.subs?.cues?.length) body.append(h('button', { class: 'btn block', style: { marginBottom: '8px' }, onclick: () => { st.text = app.P.subs.cues.map((c) => c.text).join(' '); refreshSheet(); } }, 'Altyazı metnini kullan'));
-      body.append(h('button', { class: 'btn block primary', html: `${I.sfx} Sesi oluştur ve ekle`, onclick: async () => {
-        if (!st.text.trim()) { toast('Önce metin yaz'); return; }
-        lsSet('alpicut.voice', st.voice);
-        st.running = true; st.log = 'Ses modeli hazırlanıyor…'; refreshSheet();
-        try {
-          const T = await tts();
-          const wav = await T.predict({ text: st.text.trim(), voiceId: st.voice }, (p) => {
-            if (p && p.total) { st.log = `Ses indiriliyor… ${Math.round((p.loaded / p.total) * 100)}%`; refreshSheet(); }
-          });
-          const file = new File([wav], `Seslendirme_${st.voice.split('-')[1] || 'tts'}.wav`, { type: 'audio/wav' });
-          const recs = await app.importFiles([file], true);
-          if (recs[0]) {
-            app.P.audio.push({ id: uid(), mediaId: recs[0].id, start: app.engine.t, in: 0, out: recs[0].duration || 3, volume: 1, fadeIn: 0, fadeOut: 0, role: 'voice' });
-            app.commit();
-            toast('Seslendirme eklendi');
-          }
-          closeSheet();
-        } catch (e) {
-          st.running = false; refreshSheet();
-          toast(/fetch|network|Failed/i.test(e.message || '') ? 'Ses indirilemedi — internet bağlantısını kontrol et' : (e.message || 'Ses oluşturulamadı'), 4500);
-        }
-      } }));
-    },
-  });
-}
+// ================= Metinden sese: tts.js =================
+export { openTTS } from './tts.js';
+import { openTTS } from './tts.js';
 
 // ================= Yapay zekâ asistanı (kullanıcının kendi API anahtarı ile) =================
 const AI_TASKS = [
@@ -350,36 +358,15 @@ const AI_TASKS = [
   ['script', 'Senaryo yaz', 'Aşağıdaki konu için 30-45 saniyelik, ilk 2 saniyesi çok güçlü bir kısa video seslendirme metni yaz. Türkçe.'],
 ];
 
-async function callAI(prompt) {
-  const key = lsGet('alpicut.aiKey', '');
-  const prov = lsGet('alpicut.aiProv', 'anthropic');
-  const model = lsGet('alpicut.aiModel', '');
-  if (!key) throw new Error('Önce API anahtarını gir');
-  if (prov === 'anthropic') {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: model || 'claude-sonnet-5-5', max_tokens: 1500, messages: [{ role: 'user', content: prompt }] }),
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error?.message || `Hata ${r.status}`);
-    return j.content.map((c) => c.text || '').join('');
-  }
-  const r = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: model || 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }] }),
-  });
-  const j = await r.json();
-  if (!r.ok) throw new Error(j.error?.message || `Hata ${r.status}`);
-  return j.choices[0].message.content;
-}
+async function callAI(prompt) { return ask(prompt, { maxTokens: 1800 }); }
 
 export function openAssistant() {
   const st = { task: 'hooks', topic: '', out: '', running: false, key: lsGet('alpicut.aiKey', ''), prov: lsGet('alpicut.aiProv', 'anthropic'), model: lsGet('alpicut.aiModel', '') };
   openSheet({
     title: 'Yapay zekâ asistanı', tall: true, tabs: ['Asistan', 'Ayarlar'],
     render: (body, tab) => {
-      if (tab === 'Ayarlar' || !lsGet('alpicut.aiKey', '')) {
+      if (tab === 'Ayarlar' || !chatProvider()) { accountsBody(body); return; }
+      if (false) {
         body.append(h('p', { class: 'hint', html: 'Asistan isteğe bağlıdır ve <b>kendi API anahtarınla</b> çalışır (kullanımı sağlayıcı faturalandırır). Anahtar yalnızca bu telefonda saklanır. Gönderilen veri: seçtiğin görev, yazdığın konu ve gerekiyorsa altyazı metni — video veya ses gönderilmez.' }));
         body.append(fields(st, [
           { label: 'Sağlayıcı', path: 'prov', type: 'chips', options: [['anthropic', 'Anthropic (Claude)'], ['openai', 'OpenAI']] },
@@ -432,21 +419,151 @@ export function openAssistant() {
   });
 }
 
+// ================= Hesaplar (Claude / ChatGPT / ElevenLabs) =================
+export function accountsBody(body, focus) {
+  body.append(h('p', { class: 'hint', html: 'Claude ve ChatGPT, üçüncü taraf uygulamalara "hesapla giriş yap" imkânı vermiyor; bağlantı <b>API anahtarı</b> ile yapılır. Anahtar yalnızca bu telefonda saklanır, istekler doğrudan sağlayıcıya gider. Kullanım ücretini sağlayıcı faturalandırır (Claude Pro / ChatGPT Plus aboneliği API kredisi içermez).' }));
+  Object.entries(PROVIDERS).forEach(([id, pr]) => {
+    const st = { key: getKey(id), model: getModel(id) };
+    const on = hasKey(id);
+    const card = h('div', { class: `acc-card${on ? ' on' : ''}${focus === id ? ' focus' : ''}` });
+    card.append(h('div', { class: 'acc-head' }, h('span', { class: 'acc-logo' }, id === 'anthropic' ? 'C' : id === 'openai' ? 'G' : 'E'), h('b', {}, pr.name), h('span', { class: `acc-state${on ? ' on' : ''}` }, on ? 'Bağlı' : 'Bağlı değil')));
+    const use = { anthropic: 'Alpi-co sohbet, otomatik kurgu, başlık/hashtag, altyazı düzeltme', openai: 'Alpi-co, otomatik kurgu, en doğru altyazı (Whisper), duygulu seslendirme', eleven: 'En doğal, duygulu Türkçe seslendirme' }[id];
+    card.append(h('p', { class: 'hint', style: { margin: '4px 0 8px' } }, use));
+    const inp = h('input', { type: 'password', placeholder: pr.keyHint, value: st.key, autocomplete: 'off', spellcheck: 'false' });
+    card.append(inp);
+    const mdl = h('div', { class: 'chips scroll', style: { margin: '8px 0' } });
+    pr.models.forEach(([m, n]) => mdl.append(h('button', { class: st.model === m ? 'on' : '', onclick: () => { setModel(id, m); refreshSheet(); } }, n)));
+    card.append(mdl);
+    const row = h('div', { class: 'btn-row three' },
+      h('button', { class: 'btn', onclick: () => openExternal(pr.keyUrl) }, 'Anahtar al'),
+      h('button', { class: 'btn', onclick: async (e) => { setKey(id, inp.value); const b = e.currentTarget; b.textContent = 'Deneniyor…'; try { const r = await testKey(id); toast(`✓ ${pr.name}: ${r}`, 3500); } catch (er) { toast(er.message, 5000); } refreshSheet(); } }, 'Kaydet + dene'),
+      on ? h('button', { class: 'btn danger', onclick: () => { setKey(id, ''); refreshSheet(); } }, 'Kaldır') : h('button', { class: 'btn primary', onclick: () => { setKey(id, inp.value); toast('Kaydedildi'); refreshSheet(); } }, 'Kaydet'));
+    card.append(row);
+    body.append(card);
+  });
+  if (hasKey('anthropic') && hasKey('openai')) {
+    const st = { p: chatProvider() };
+    body.append(fields(st, [{ label: 'Alpi-co ve otomatik kurgu için', path: 'p', type: 'chips', options: [['anthropic', 'Claude'], ['openai', 'ChatGPT']], post: (o) => setChatProvider(o.p) }]));
+  }
+  body.append(h('details', { class: 'acc-help' }, h('summary', {}, 'Anahtar nasıl alınır?'), h('ol', {},
+    h('li', {}, '"Anahtar al"a dokun; sağlayıcının sitesi tarayıcıda açılır.'),
+    h('li', {}, 'Hesabınla giriş yap (Claude için console.anthropic.com, ChatGPT için platform.openai.com).'),
+    h('li', {}, 'Faturalandırma/kredi ekle (birkaç dolar uzun süre yeter).'),
+    h('li', {}, '"Create key / Yeni anahtar" ile anahtar oluştur, kopyala.'),
+    h('li', {}, 'Buraya yapıştırıp "Kaydet + dene"ye dokun.'))));
+}
+
+export function openAccounts(focus) {
+  openSheet({ id: 'accounts', title: 'Yapay zekâ hesapları', render: (body) => accountsBody(body, focus) });
+}
+
+// ================= Otomatik kurgu (Claude / ChatGPT tüm kurguyu yapar) =================
+const STYLES = [
+  ['shorts', 'Viral Shorts / Reels', 'Hızlı tempo, güçlü hook, jumpcut, punch zoom, vurgu sesleri, büyük kelime vurgulu altyazı, sonda abone ol.'],
+  ['football', 'Futbol analizi', 'Spiker enerjisi, önemli anlarda zoom ve whoosh/boom, skor/isim vurguları, heyecanlı hook.'],
+  ['ai', 'Yapay zekâ videosu', 'Sinematik, gizemli, glitch/flash geçişler, minimal yazılar, dramatik müzik.'],
+  ['vlog', 'Vlog', 'Doğal akış, yumuşak geçişler, sıcak filtre, sakin müzik, az yazı.'],
+  ['podcast', 'Podcast / konuşma', 'Sessizlikleri kes, ses temizliği, altyazı, önemli cümlelerde yazı.'],
+  ['edu', 'Eğitim / bilgi', 'Net, anlaşılır; madde başlıkları yazı olarak, sade geçişler.'],
+];
+
+export function openAutoEdit() {
+  const st = { style: lsGet('alpicut.aeStyle', 'shorts'), target: 0, notes: '', caps: true, clean: true, music: true, running: false, log: [], before: null, summary: '' };
+  openSheet({
+    id: 'autoedit', title: 'Otomatik kurgu',
+    render: (body) => {
+      const prov = chatProvider();
+      if (!prov) {
+        body.append(h('div', { class: 'acc-empty' }, h('span', { html: I.wand }), h('b', {}, 'Tüm kurguyu yapay zekâ yapsın'),
+          h('p', { class: 'hint' }, 'Videonu ve konuşmayı analiz eder; jumpcut, altyazı, hook başlık, zoom, ses efekti, geçiş ve müziği kendisi ekler. Bunun için Claude veya ChatGPT hesabını (API anahtarı) bağla.'),
+          h('button', { class: 'btn primary block', html: `${I.key} Claude / ChatGPT bağla`, onclick: () => openAccounts() }),
+          h('p', { class: 'hint' }, 'Hesap bağlamadan da Alpi-co\'ya "jumpcut yap", "altyazı ekle" gibi komutlar verebilirsin.')));
+        return;
+      }
+      if (st.running) {
+        body.append(h('div', { class: 'spinner' }));
+        const lg = h('div', { class: 'ae-log' }); st.log.slice(-12).forEach((l) => lg.append(h('div', {}, l))); body.append(lg);
+        return;
+      }
+      if (st.summary) {
+        body.append(h('div', { class: 'ai-out' }, st.summary));
+        body.append(h('div', { class: 'btn-row' },
+          st.before ? h('button', { class: 'btn', html: `${I.undo} Hepsini geri al`, onclick: () => { app.restoreTo(st.before); st.before = null; st.summary = ''; refreshSheet(); toast('Otomatik kurgu geri alındı'); } }) : h('span'),
+          h('button', { class: 'btn primary', onclick: () => { app.play(); } }, 'Önizle')));
+        body.append(h('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: () => { st.summary = ''; refreshSheet(); } }, 'Yeniden ayarla'));
+        return;
+      }
+      if (!app.P.clips.length) { body.append(h('p', { class: 'hint' }, 'Önce Medya ile video ekle.')); return; }
+      const grid = h('div', { class: 'ae-styles' });
+      STYLES.forEach(([id, n, d]) => grid.append(h('button', { class: `ae-style${st.style === id ? ' on' : ''}`, onclick: () => { st.style = id; lsSet('alpicut.aeStyle', id); refreshSheet(); } }, h('b', {}, n), h('small', {}, d))));
+      body.append(grid);
+      body.append(fields(st, [
+        { label: 'Hedef süre (0 = serbest)', path: 'target', type: 'range', min: 0, max: 180, step: 5, def: 0, fmt: (x) => (x ? `${x} sn` : 'serbest') },
+        { label: 'Önce altyazı oluştur (konuşmayı anlaması için)', path: 'caps', type: 'toggle' },
+        { label: 'Önce ses temizliği', path: 'clean', type: 'toggle' },
+        { label: 'Fon müziği ekleyebilir', path: 'music', type: 'toggle' },
+        { label: 'Ek isteğin (ör. "golü 2 kez göster, başlık: TARİHİ GOL")', path: 'notes', type: 'textarea' },
+      ]));
+      body.append(h('p', { class: 'hint', html: `Kurguyu <b>${PROVIDERS[prov].name}</b> yapacak. Gönderilen: proje özeti ve konuşmanın yazısı (video gönderilmez). Her şey tek dokunuşla geri alınabilir.` }));
+      body.append(h('button', { class: 'btn block primary', html: `${I.wand} Kurguyu yap`, onclick: () => runAutoEdit(st) }));
+    },
+  });
+}
+
+async function runAutoEdit(st) {
+  const panel = curPanel();
+  st.running = true; st.log = ['Başlıyor…']; st.before = app.snap; WMrefresh(panel);
+  const log = (t) => { st.log.push(t); WMrefresh(panel); };
+  const { COMMANDS, runCommand } = await import('./alpico.js');
+  try {
+    if (st.clean) { log('Ses temizleniyor…'); await runCommand('denoise', { preset: 'podcast' }, { quiet: true }); }
+    if (st.caps && !(app.P.subs?.cues?.length)) {
+      log('Konuşma yazıya dökülüyor…');
+      try { await autoCaptions({ lang: lsGet('alpicut.asrLang', 'turkish'), onStatus: (t) => { st.log[st.log.length - 1] = t; WMrefresh(panel); } }); } catch (e) { log(`Altyazı atlandı: ${e.message}`); }
+    }
+    const style = STYLES.find((x) => x[0] === st.style);
+    const tools = Object.entries(COMMANDS).filter(([n]) => !['seek'].includes(n)).map(([name, c]) => ({ name, description: c.desc, parameters: c.params }));
+    const sys = `Sen profesyonel bir kısa video editörüsün ve Alpicut uygulamasını araçlarla kontrol ediyorsun. Türkçe düşün.
+Görev: kullanıcının videosunu baştan sona kurgula. Stil: ${style[1]} — ${style[2]}
+${st.target ? `Hedef süre yaklaşık ${st.target} saniye; gerekirse delete_range ile zayıf/tekrarlı kısımları çıkar.` : ''}
+${st.music ? 'Uygunsa add_music ile fon müziği ekle (seviye 0.2-0.3) ve duck_music aç.' : 'Müzik ekleme.'}
+Adımlar: 1) project_info ve get_transcript çağır. 2) jumpcut (konuşma varsa). 3) Transkripti tekrar oku (zamanlar değişti). 4) İlk 2 sn'ye güçlü hook yazısı (add_text, style hook, *vurgu* için yıldız kullan). 5) Önemli anlara zoom punch ve uygun add_sfx (whoosh, boom, ding, pop). 6) Kesimlere uygun geçiş. 7) Gerekirse filtre. 8) Sona add_cta subscribe. 9) check_project ile kontrol et ve sorunları düzelt.
+Aşırıya kaçma: her 3-5 saniyede en fazla bir vurgu. Son mesajında yaptıklarını madde madde, kısa özetle.`;
+    const history = [{ role: 'user', content: `Kurguyu yap.${st.notes ? ` Ek istek: ${st.notes}` : ''}` }];
+    const reply = await agent({ system: sys, history, tools, maxSteps: 14,
+      exec: async (name, args) => { log(`▸ ${name} ${Object.keys(args || {}).length ? JSON.stringify(args).slice(0, 60) : ''}`); const r = await runCommand(name, args, { quiet: true }); if (r?.summary) log(`  ✓ ${r.summary}`); if (r?.ok === false) log(`  ✗ ${r.error}`); return r ? { ...r, before: undefined } : { ok: false }; },
+      onStep: (s) => { if (s.type === 'text' && s.text) log(s.text.slice(0, 120)); },
+    });
+    st.summary = reply || 'Kurgu tamamlandı.';
+  } catch (e) {
+    st.summary = `Kurgu yarıda kaldı: ${e.message || e}\n\nYapılan değişiklikler geri alınabilir.`;
+  }
+  if (st.before === app.snap) st.before = null;
+  st.running = false; WMrefresh(panel);
+}
+
 // ================= Yapay zekâ merkezi =================
 export function openAIHub() {
   openSheet({
-    title: 'Yapay zekâ araçları', tall: true,
-    render: (body) => {
-      const card = (ic, t, d, fn, tag) => h('button', { class: 'ai-card', onclick: fn }, h('span', { class: 'ai-ic', html: I[ic] }), h('span', { class: 'ai-t' }, h('b', {}, t), h('small', {}, d)), tag ? h('em', {}, tag) : null);
+    id: 'aihub', title: 'Yapay zekâ araçları',
+    render: async (body) => {
+      const { star } = await import('./favs.js');
+      const card = (ic, t, d, fn, tag) => { const c = h('div', { class: 'ai-card', role: 'button' }, h('span', { class: 'ai-ic', html: I[ic] }), h('span', { class: 'ai-t' }, h('b', {}, t), h('small', {}, d)), tag ? h('em', {}, tag) : star('tool', `ai:${t}`, { name: t })); c.addEventListener('click', fn); return c; };
+      const target = (tab) => () => { if (app.aiTarget) app.aiTarget(tab); };
       body.append(
-        card('subtitle', 'Otomatik altyazı', 'Konuşmayı kelime kelime zamanlı altyazıya çevir', openAutoCaptions, 'cihazda'),
-        card('edit', 'Metinden kurgu', 'Metindeki kelimeleri silerek videoyu kes; dolgu kelimeleri temizle', openTranscript, 'cihazda'),
-        card('adjust', 'Arka plan silme', 'Seçili klip/katmanda kişiyi ayır', () => { const o = selected(); if (!o || !(app.sel.type === 'clip' || o.kind === 'media')) { toast('Önce bir video klibe veya katmana dokun'); return; } app.openInspector('Arka plan'); }, 'cihazda'),
-        card('ratio', 'Akıllı dikey kadraj', 'Yatay videoda yüzü takip ederek 9:16 kadrajla', () => { const o = selected(); if (!o || app.sel.type !== 'clip') { toast('Önce yatay bir video klibe dokun'); return; } closeSheet(); smartReframe(o); }, 'cihazda'),
-        card('mic', 'Metinden sese', 'Yazdığın metni doğal sesle seslendir', () => openTTS(), 'cihazda'),
-        card('silence', 'Sessizlikleri kes', 'Uzun duraklamaları bul ve çıkar', () => { const o = selected(); if (!o || !(app.sel.type === 'clip' || app.sel.type === 'audio')) { toast('Önce konuşma içeren bir klibe veya sese dokun'); return; } app.openSilenceFor(o); }, 'cihazda'),
-        card('sfx', 'Gürültü giderme', 'Seste uğultu ve arka plan gürültüsünü temizle', () => { const o = selected(); if (!o || !(app.sel.type === 'clip' || app.sel.type === 'audio')) { toast('Önce bir klibe veya sese dokun'); return; } app.studioClean(o); }, 'cihazda'),
-        card('ai', 'Yapay zekâ asistanı', 'Hook, başlık, hashtag, çeviri, bölüm, senaryo', openAssistant, 'API anahtarı'),
+        card('bot', 'Alpi-co asistan', 'Sohbet ederek düzenle: "jumpcut yap", "altyazı ekle"…', async () => { const m = await import('./alpico.js'); m.openAlpico(); }, chatProvider() ? 'bağlı' : 'internetsiz'),
+        card('wand', 'Otomatik kurgu', 'Claude / ChatGPT tüm kurguyu kendisi yapsın', openAutoEdit, chatProvider() ? 'hazır' : 'hesap'),
+        card('subtitle', 'Otomatik altyazı', 'Kelime kelime zamanlı altyazı (telefonda veya OpenAI)', openAutoCaptions),
+        card('scissors', 'Jumpcut', 'Konuşmadaki boşlukları tek dokunuşla kes', async () => { const m = await import('./alpico.js'); m.runCommand('jumpcut', {}); }),
+        card('adjust', 'Arka plan silme', 'Yeşil perde olmadan kişiyi ayır', target('Arka plan')),
+        card('color', 'Chroma key', 'Yeşil/mavi perdeyi sil', target('Chroma')),
+        card('mic', 'Seslendirme stüdyosu', 'Metni doğal sesle oku (Türkçe, ElevenLabs, OpenAI)', () => openTTS()),
+        card('sfx', 'Stüdyo ses / hışırtı giderici', 'Gürültü, uğultu, hışırtıyı temizle', async () => { const m = await import('./alpico.js'); m.runCommand('denoise', { preset: 'hiss' }); }),
+        card('edit', 'Metinden kurgu', 'Kelimeleri silerek videoyu kes', openTranscript),
+        card('ratio', 'Akıllı dikey kadraj', 'Yatay videoda yüzü takip et', () => { if (app.aiReframe) app.aiReframe(); }),
+        card('doctor', 'Proje kontrolü', 'Hataları bul ve tek dokunuşla düzelt', async () => { const m = await import('./alpico.js'); m.openDoctor(); }),
+        card('ai', 'Başlık / hashtag / senaryo', 'Hook, açıklama, bölüm, çeviri', openAssistant, chatProvider() ? '' : 'hesap'),
+        card('key', 'Hesaplar', 'Claude, ChatGPT, ElevenLabs bağlantıları', () => openAccounts()),
       );
     },
   });

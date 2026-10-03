@@ -1,5 +1,6 @@
 // Alpicut — font yönetimi: paketli (çevrimdışı) fontlar + Google Fonts kataloğu (isteğe bağlı yükleme)
-import { h, toast } from './state.js';
+import { h, toast, app, selected } from './state.js';
+import { favIds, star as favStar, registerFav } from './favs.js';
 
 // Uygulamayla birlikte gelen (internetsiz çalışan) fontlar
 export const BUNDLED = [
@@ -72,8 +73,7 @@ export async function ensureProjectFonts(P) {
 }
 
 const CATS = [['all', 'Tümü'], ['offline', 'İnternetsiz'], ['sans-serif', 'Sans'], ['serif', 'Serif'], ['display', 'Gösterişli'], ['handwriting', 'El yazısı'], ['monospace', 'Mono']];
-const favs = () => { try { return JSON.parse(localStorage.getItem('alpicut.favfonts') || '[]'); } catch (_) { return []; } };
-const setFavs = (f) => { try { localStorage.setItem('alpicut.favfonts', JSON.stringify(f)); } catch (_) { /* yoksay */ } };
+const favs = () => favIds('font');
 
 // Font seçici paneli (sheets.openSheet ile açılır)
 export function fontPickerBody(body, current, onPick, refresh) {
@@ -98,9 +98,7 @@ export function fontPickerBody(body, current, onPick, refresh) {
     list.textContent = '';
     const io = new IntersectionObserver((ents) => ents.forEach((en) => { if (en.isIntersecting) { io.unobserve(en.target); previewFont(en.target.dataset.f); } }));
     items.slice(0, st.limit).forEach((x) => {
-      const isFav = fv.includes(x.f);
-      const star = h('button', { class: `font-fav${isFav ? ' on' : ''}`, 'aria-label': 'Favori' }, isFav ? '★' : '☆');
-      star.addEventListener('click', (e) => { e.stopPropagation(); const f = favs(); const i = f.indexOf(x.f); if (i >= 0) f.splice(i, 1); else f.unshift(x.f); setFavs(f); render(); });
+      const star = favStar('font', x.f, { name: x.f });
       const row = h('button', { class: `font-row${x.f === current ? ' on' : ''}`, 'data-f': x.f },
         h('span', { class: 'font-name', style: { fontFamily: `"${x.f}", sans-serif` } }, x.f),
         h('small', {}, bundledSet.has(x.f) ? 'internetsiz' : x.c),
@@ -128,3 +126,11 @@ export function fontWeights(family) {
   const meta = catalog?.find((x) => x.f === family);
   return meta?.w?.length ? meta.w : [400, 500, 600, 700, 800, 900];
 }
+
+registerFav('font', async (f) => {
+  const o = app.P && selected();
+  if (!o || o.kind !== 'text') { toast('Önce bir yazıya dokun, sonra favori fontu seç'); return; }
+  await getCatalog();
+  if (!(await ensureFont(f))) { toast('Font indirilemedi'); return; }
+  o.font = f; app.commit(); toast(`Font: ${f}`);
+});

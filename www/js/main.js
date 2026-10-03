@@ -7,17 +7,25 @@ import { renderTimeline, bindTimeline, syncScroll, setZoom } from './timeline.js
 import { layerAt, hasKeys, setKey, writeProp, splitKeys } from './kf.js';
 import { renderSfx } from './sfx.js';
 import { lutStore } from './gl.js';
-import { openAIHub, smartReframe, prepareProjectAI } from './ai.js';
+import { openAIHub, smartReframe, prepareProjectAI, openAutoCaptions, openTranscript, openTTS, openAutoEdit, openAccounts } from './ai.js';
+import { openAlpico, runCommand, openDoctor } from './alpico.js';
+import { openFavorites } from './favs.js';
+import { openMic } from './recorder.js';
+import { openFilters } from './filters.js';
+import { openTransitions } from './transitions.js';
+const openFilterLayer = () => openFilters(null);
+import { themePickerBody } from './theme.js';
+import * as WM from './wm.js';
 import { openSfxLibrary, openMusicLibrary } from './library.js';
 import { processVoice, STUDIO_PRESETS } from './studio.js';
 import { ensureProjectFonts, getCatalog } from './fonts.js';
 import { PROJECT_TEMPLATES } from './templates.js';
 import {
-  openMixer, openMic, openEffects, openStickers, addAdjustLayer, openBrand, openCover, openSilence, findBeats, normalizeItem,
+  openMixer, openEffects, openStickers, addAdjustLayer, openBrand, openCover, openSilence, findBeats, normalizeItem,
   openVersions, exportPackage, importPackage, openRelink,
 } from './ui3.js';
 import {
-  openSheet, closeSheet, refreshSheet, isSheetOpen, openInspector, openTemplates, openCTAs,
+  openSheet, closeSheet, closeAllSheets, refreshSheet, refreshLive, isSheetOpen, openInspector, openTemplates, openCTAs,
   openScoreMenu, openSubsMenu, openFx, openRatio, openExport, openShapes, openSfx, openSocial,
 } from './sheets.js';
 import { store, lsGet, lsSet, isNative } from './storage.js';
@@ -26,6 +34,10 @@ import { parseSRT } from './srt.js';
 // ---------- başlat ----------
 function init() {
   $('brandLogo').innerHTML = LOGO;
+  $('btnTheme').innerHTML = I.palette;
+  $('btnTheme').addEventListener('click', () => openThemePicker());
+  $('btnAccounts').innerHTML = I.key;
+  $('btnAccounts').addEventListener('click', () => openAccounts());
   document.querySelector('.np-plus').innerHTML = I.plus;
   $('btnBack').innerHTML = I.back;
   $('btnUndo').innerHTML = I.undo;
@@ -39,7 +51,6 @@ function init() {
   $('btnPrevF').addEventListener('click', () => step(-1 / 30));
   $('btnNextF').addEventListener('click', () => step(1 / 30));
   $('btnZoomOut').innerHTML = I.zoomOut;
-  $('sheetClose').innerHTML = I.check;
 
   app.newRatio = lsGet('alpicut.ratio', '9:16');
   renderRatioPick();
@@ -67,19 +78,18 @@ function init() {
     try { const rec = await importPackage(files[0]); toast(`“${rec.name}” içe aktarıldı`); renderHome(); }
     catch (e) { toast(e.message || 'Açılamadı', 3500); } finally { b.close(); }
   });
-  $('btnBack').addEventListener('click', () => { if (isSheetOpen()) closeSheet(); goHome(); });
+  $('btnBack').addEventListener('click', () => { closeAllSheets(); goHome(); });
   $('btnPlay').addEventListener('click', () => (app.engine.playing ? app.pause() : app.play()));
   $('btnUndo').addEventListener('click', undo);
   $('btnRedo').addEventListener('click', redo);
   $('btnZoomIn').addEventListener('click', () => setZoom(app.pps * 1.5));
   $('btnZoomOut').addEventListener('click', () => setZoom(app.pps / 1.5));
-  $('btnExport').addEventListener('click', () => { if (isSheetOpen()) closeSheet(); openExport(); });
-  $('sheetClose').addEventListener('click', () => closeSheet());
+  $('btnExport').addEventListener('click', () => { closeAllSheets(); openExport(); });
   $('projName').addEventListener('change', () => { app.P.name = $('projName').value.trim() || 'Adsız proje'; commit(); });
 
   window.addEventListener('popstate', () => {
     if (window.__skipPop > 0) { window.__skipPop--; return; }
-    if (isSheetOpen()) { closeSheet(true); return; }
+    if (isSheetOpen()) { closeSheet(true); if (isSheetOpen()) { try { history.pushState({ v: 'sheet' }, ''); } catch (_) { /* yoksay */ } } return; }
     if (!$('exportModal').classList.contains('hidden')) { try { history.pushState({ v: 'editor' }, ''); } catch (_) { /* yoksay */ } return; }
     if (!$('editor').classList.contains('hidden')) goHome(true);
   });
@@ -123,6 +133,47 @@ function selLabel() {
   return `${KIND_NAME[o.kind] || 'Katman'} · ${nm || ''}`;
 }
 
+const TOOL_CATS = [
+  { id: 'alpico', name: 'Alpi-co', icon: 'bot', cls: 'ai', direct: () => openAlpico() },
+  { id: 'ai', name: 'Yapay zekâ', icon: 'ai', tools: () => [
+    ['wand', 'Otomatik kurgu', () => openAutoEdit(), 'ai'], ['subtitle', 'Otomatik altyazı', () => openAutoCaptions()], ['scissors', 'Jumpcut', () => runCommand('jumpcut', {})],
+    ['adjust', 'Arka plan sil', () => aiTarget('Arka plan')], ['color', 'Chroma key', () => aiTarget('Chroma')], ['mic', 'Seslendirme', () => openTTS()],
+    ['edit', 'Metinden kurgu', () => openTranscript()], ['ratio', 'Akıllı kadraj', () => aiReframe()], ['doctor', 'Proje kontrolü', () => openDoctor()], ['key', 'Hesaplar', () => openAccounts()],
+  ] },
+  { id: 'text', name: 'Metin', icon: 'text', tools: () => [
+    ['text', 'Yazı ekle', () => addLayer(clone(TEXT_BASE))], ['template', 'Şablonlar', () => openTemplates()], ['subtitle', 'Altyazı', openSubsMenu],
+    ['cta', 'Çağrı butonu', openCTAs], ['score', 'Skor kartı', openScoreMenu],
+  ] },
+  { id: 'audio', name: 'Ses', icon: 'audio', tools: () => [
+    ['audio', 'Müzik', openMusicLibrary], ['sfx', 'Ses efekti', openSfxLibrary], ['mic', 'Kayıt stüdyosu', openMic], ['bot', 'Seslendirme', () => openTTS()],
+    ['upload', 'Ses dosyası', () => addMedia('audio')], ['mixer', 'Mikser', openMixer], ['beat', 'Ses dalgası', addWave],
+  ] },
+  { id: 'fx', name: 'Efekt', icon: 'fx', tools: () => [
+    ['fx', 'Efektler', () => openEffects()], ['filter', 'Filtreler', () => openFilterLayer()], ['trans', 'Geçişler', () => openTransitions()], ['adjust', 'Renk katmanı', addAdjustLayer], ['anim', 'Genel ayar', openFx], ['sticker', 'Çıkartma', () => openStickers()], ['shape', 'Şekil', openShapes],
+  ] },
+  { id: 'social', name: 'Sosyal', icon: 'bubble', tools: () => [
+    ['bubble', 'Sosyal şablon', () => openSocial()], ['cta', 'Abone / beğeni', () => openSocial('Abone & beğen')], ['chat', 'Sohbet', () => openSocial('Sohbet')], ['brand', 'Marka kiti', openBrand],
+  ] },
+  { id: 'edit', name: 'Düzen', icon: 'edit', tools: () => [
+    ['layer', 'Katman ekle', () => addMedia('layer')], ['ratio', 'Oran', openRatio], ['marker', 'İşaret', toggleMarker], ['check', 'Çoklu seç', startMulti], ['cover', 'Kapak', openCover], ['palette', 'Tema', () => openThemePicker()],
+  ] },
+  { id: 'fav', name: 'Favoriler', icon: 'star', direct: () => openFavorites() },
+];
+
+function addWave() { addLayer({ kind: 'wave', style: 'mirror', bars: 36, w: 0.8, h: 0.16, color: '#A855F7', color2: '#22D3EE', glow: true, x: 0.5, y: 0.6, rot: 0, sc: 1, opacity: 1, kf: {}, anim: anim('fade', 'fade') }, 5); }
+
+// Yapay zekâ araçları hedefi: seçili klip yoksa oynatıcının altındaki klibi seç
+function targetClip() {
+  const o = selected();
+  if (o && (app.sel.type === 'clip' || o.kind === 'media')) return o;
+  const L = layoutClips(app.P.clips).find((x) => app.engine.t >= x.start && app.engine.t < x.end) || layoutClips(app.P.clips)[0];
+  if (!L) return null;
+  select({ type: 'clip', id: L.clip.id }, false);
+  return L.clip;
+}
+function aiTarget(tab) { const o = targetClip(); if (!o) { toast('Önce Medya ile bir video ekle'); return; } openInspector(tab); }
+function aiReframe() { const o = targetClip(); if (!o || app.sel.type !== 'clip') { toast('Önce Medya ile bir video ekle'); return; } smartReframe(o); }
+
 function renderToolbar() {
   const bar = $('toolbar');
   bar.textContent = '';
@@ -141,35 +192,20 @@ function renderToolbar() {
   }
   if (!s || !o) {
     bar.classList.remove('ctx');
+    const cat = app.tbCat && TOOL_CATS.find((c) => c.id === app.tbCat);
+    bar.classList.toggle('sub', !!cat);
+    if (cat) {
+      bar.append(h('button', { class: 'tool back', onclick: () => { app.tbCat = null; renderToolbar(); } }, h('span', { class: 'ti', html: I.back }), 'Geri'));
+      bar.append(h('span', { class: 'tb-label' }, cat.name));
+      cat.tools().forEach(([ic, label, fn, cls]) => tool(ic, label, fn, cls));
+      return;
+    }
     tool('media', 'Medya', () => addMedia('clip'), 'primary');
-    tool('ai', 'Yapay zekâ', openAIHub, 'ai');
-    tool('layer', 'Katman', () => addMedia('layer'));
-    tool('text', 'Yazı', () => addLayer(clone(TEXT_BASE)));
-    tool('template', 'Şablon', () => openTemplates());
-    tool('subtitle', 'Altyazı', openSubsMenu);
-    tool('audio', 'Müzik', openMusicLibrary);
-    tool('sfx', 'Ses efekti', openSfxLibrary);
-    tool('upload', 'Ses dosyası', () => addMedia('audio'));
-    tool('mic', 'Kayıt', openMic);
-    tool('fx', 'Efektler', () => openEffects());
-    tool('sticker', 'Çıkartma', () => openStickers());
-    tool('shape', 'Şekil', openShapes);
-    tool('cta', 'Çağrı', openCTAs);
-    tool('bubble', 'Sosyal', () => openSocial());
-    tool('score', 'Skor', openScoreMenu);
-    tool('beat', 'Ses dalgası', () => addLayer({ kind: 'wave', style: 'mirror', bars: 36, w: 0.8, h: 0.16, color: '#A855F7', color2: '#22D3EE', glow: true, x: 0.5, y: 0.6, rot: 0, sc: 1, opacity: 1, kf: {}, anim: anim('fade', 'fade') }, 5));
-    tool('adjust', 'Renk katmanı', addAdjustLayer);
-    tool('mixer', 'Mikser', openMixer);
-    tool('marker', 'İşaret', toggleMarker);
-    tool('brand', 'Marka', openBrand);
-    tool('cover', 'Kapak', openCover);
-    tool('anim', 'Genel', openFx);
-    tool('ratio', 'Oran', openRatio);
-    tool('check', 'Çoklu seç', startMulti);
+    TOOL_CATS.forEach((c) => tool(c.icon, c.name, () => { if (c.direct) { c.direct(); return; } app.tbCat = c.id; renderToolbar(); bar.scrollLeft = 0; }, `tool-cat ${c.cls || ''}`));
     return;
   }
   bar.classList.add('ctx');
-  bar.append(h('button', { class: 'tool back', onclick: () => { if (isSheetOpen()) closeSheet(); deselect(); } }, h('span', { class: 'ti', html: I.back }), 'Bitti'));
+  bar.append(h('button', { class: 'tool back', onclick: () => deselect() }, h('span', { class: 'ti', html: I.back }), 'Bitti'));
   bar.append(h('div', { class: 'sel-chip' }, selLabel()));
   if (o.locked) { tool('unlock', 'Kilidi aç', () => { o.locked = false; commit(); renderToolbar(); }); return; }
   if (s.type === 'clip') {
@@ -184,9 +220,9 @@ function renderToolbar() {
     if (isV) tool('sfx', 'Ses', insp('Ses'));
     if (isV) tool('mic', 'Stüdyo ses', () => studioClean(o));
     tool('diamond', 'Keyframe', insp('Keyframe'));
-    tool('plus', 'Geçiş', insp('Geçiş'));
+    tool('trans', 'Geçiş', insp('Geçiş'));
     tool('fx', 'Efekt', () => openEffects());
-    tool('anim', 'Filtre', insp('Filtre'));
+    tool('filter', 'Filtre', () => openFilters(o));
     if (isV) tool('freeze', 'Dondur', freezeFrame);
     if (isV) tool('silence', 'Sessizlik', () => openSilence(o, 'clip'));
     tool('beat', 'Ritimde böl', splitOnBeats);
@@ -204,7 +240,7 @@ function renderToolbar() {
     tabs.forEach((t) => tool(icon[t], t, insp(t)));
     tool('split', 'Böl', splitSel);
     tool(o.hidden ? 'eyeOff' : 'eye', o.hidden ? 'Göster' : 'Gizle', () => { o.hidden = !o.hidden; commit(); renderToolbar(); });
-    tool('lock', 'Kilitle', () => { o.locked = true; commit(); renderToolbar(); if (isSheetOpen()) refreshSheet(); });
+    tool('lock', 'Kilitle', () => { o.locked = true; commit(); renderToolbar(); refreshLive(); });
     tool('copy', 'Kopyala', dupSel);
     tool('trash', 'Sil', delSel, 'danger');
   } else if (s.type === 'audio') {
@@ -226,6 +262,10 @@ function renderToolbar() {
     tool('edit', 'Ayarlar', insp('Ayarlar'));
     tool('trash', 'Tümünü sil', delSel, 'danger');
   }
+}
+
+function openThemePicker() {
+  openSheet({ id: 'theme', title: 'Tema ve renkler', render: (body) => themePickerBody(body, () => refreshSheet()) });
 }
 
 // ---------- ana ekran ----------
@@ -444,11 +484,12 @@ function restore(snap) {
   renderTimeline();
   updateTime();
   updateUndo();
-  refreshSheet();
+  refreshLive();
   renderToolbar();
   scheduleSave();
 }
 
+function restoreTo(snap) { if (!snap || snap === app.snap) return; app.undo.push(app.snap); app.redo = []; restore(snap); }
 function undo() { if (!app.undo.length) return; app.redo.push(app.snap); restore(app.undo.pop()); }
 function redo() { if (!app.redo.length) return; app.undo.push(app.snap); restore(app.redo.pop()); }
 function updateUndo() { $('btnUndo').disabled = !app.undo.length; $('btnRedo').disabled = !app.redo.length; }
@@ -595,7 +636,7 @@ function bindPreview() {
     const now = performance.now();
     if (now - lastTap < 320) { lastTap = 0; resetView(); return; }
     lastTap = now;
-    deselect(); if (isSheetOpen()) closeSheet();
+    deselect();
   };
   wrap.addEventListener('pointerup', up);
   wrap.addEventListener('pointercancel', up);
@@ -617,6 +658,7 @@ function deselect() {
   app.engine.requestDraw();
   renderTimeline();
   renderToolbar();
+  refreshLive();
 }
 
 // ---------- düzenleme oturumu (Uygula / İptal) ----------
@@ -955,7 +997,6 @@ function delSel() {
   else if (s.type === 'layer') P.layers.splice(P.layers.indexOf(o), 1);
   else if (s.type === 'audio') P.audio.splice(P.audio.indexOf(o), 1);
   else if (s.type === 'subs') P.subs.cues = [];
-  closeSheet();
   deselect();
   app.engine.seek(Math.min(app.engine.t, app.engine.duration()));
   commit();
@@ -1014,7 +1055,7 @@ function ungroup(G) {
   });
   const i = P.layers.indexOf(G);
   P.layers.splice(i, 1, ...kids);
-  closeSheet(); deselect();
+  deselect();
   commit();
   toast('Grup çözüldü');
 }
@@ -1301,7 +1342,7 @@ Object.assign(app, {
     app.stopAt = b;
     updateTime();
   },
-  select, deselect,
+  select, deselect, restoreTo, undo, redo, aiTarget, aiReframe,
   openInspector: (tab) => openInspector(tab),
   addMedia, addLayer, splitSel, dupSel, delSel, moveClip, layerOrder, importSRT, freezeFrame, addSfx,
   beginEdit, endEdit, cutSourceRanges, pickColor, relinkMedia, pickFiles, importFiles, renderToolbar,

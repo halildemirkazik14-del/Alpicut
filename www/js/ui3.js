@@ -11,6 +11,7 @@ import { anim, RATIOS, FONTS, TEXT_BASE, TEXT_TEMPLATES } from './presets.js';
 import { store, lsGet, lsSet, saveVideo } from './storage.js';
 import { drawText } from './render.js';
 import { processVoice, STUDIO_PRESETS } from './studio.js';
+import { star, favIds, registerFav } from './favs.js';
 
 const pct = (x) => `${Math.round(x * 100)}%`;
 const sgn = (x) => `${x > 0 ? '+' : ''}${(+x).toFixed(2)}`;
@@ -485,27 +486,19 @@ export function openEffects(tabInit) {
   snap.width = app.engine.canvas.width; snap.height = app.engine.canvas.height;
   snap.getContext('2d').drawImage(app.engine.canvas, 0, 0);
   openSheet({
-    title: 'Efektler', tall: true, tabs: ['Son', 'Favoriler', ...FX_CATS], tab: tabInit || (recents().length ? 'Son' : 'Hareket'),
+    id: 'effects', title: `Efektler · ${FX_LIST.length}`, tabs: ['Son', '★', ...FX_CATS], tab: tabInit || (recents().length ? 'Son' : 'Hareket'),
     render: (body, tab) => {
       const s = app.sel && selected();
       const target = s && app.sel.type === 'clip' ? s : null;
       body.append(h('p', { class: 'hint', html: target ? 'Efekt <b>seçili klibin</b> süresine yerleşir.' : 'Efekt oynatıcı konumuna 2 saniyelik olarak eklenir; süresini zaman çizelgesinden uzatabilirsin. Efekt, altındaki tüm katmanları etkiler.' }));
       let list = FX_LIST;
-      if (tab === 'Favoriler') list = FX_LIST.filter((f) => favs().includes(f[0]));
+      if (tab === '★') list = FX_LIST.filter((f) => favIds('fx').includes(f[0]));
       else if (tab === 'Son') list = recents().map((id) => FX_LIST.find((f) => f[0] === id)).filter(Boolean);
       else list = FX_LIST.filter((f) => f[2] === tab);
-      if (!list.length) { body.append(h('p', { class: 'hint' }, tab === 'Favoriler' ? 'Henüz favori yok. Kartlardaki ☆ ile ekle.' : 'Henüz kullanılmış efekt yok.')); return; }
+      if (!list.length) { body.append(h('p', { class: 'hint' }, tab === '★' ? 'Henüz favori yok. Kartlardaki ☆ ile ekle.' : 'Henüz kullanılmış efekt yok.')); return; }
       const grid = h('div', { class: 'fx-grid' });
       list.forEach(([id, name, cat, kind]) => {
-        const fav = favs().includes(id);
-        const star = h('button', { class: `fx-fav${fav ? ' on' : ''}`, html: I.star, 'aria-label': 'Favori' });
-        star.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const f = favs(); const i = f.indexOf(id);
-          if (i >= 0) f.splice(i, 1); else f.unshift(id);
-          lsSet('alpicut.favfx', JSON.stringify(f)); refreshSheet();
-        });
-        const card = h('div', { class: 'fx-card', role: 'button', tabindex: '0' }, fxPreview(id, snap), star,
+        const card = h('div', { class: 'fx-card', role: 'button', tabindex: '0' }, fxPreview(id, snap), star('fx', id, { name }),
           h('span', {}, name), kind === 'motion' || cat === 'Ritim' ? h('small', {}, cat === 'Ritim' ? 'ritim işareti gerekir' : 'hareket') : null);
         card.addEventListener('click', () => addFx(id, target));
         grid.append(card);
@@ -515,6 +508,7 @@ export function openEffects(tabInit) {
   });
 }
 
+registerFav('fx', (id) => { const s = app.sel && selected(); addFx(id, s && app.sel.type === 'clip' ? s : null); });
 function addFx(id, target) {
   const r = recents().filter((x) => x !== id); r.unshift(id); lsSet('alpicut.recentfx', JSON.stringify(r.slice(0, 12)));
   let start = app.engine.t, end = start + 2;

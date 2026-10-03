@@ -1,7 +1,10 @@
 // Alpicut — keyframe sistemi
 // Her iz: [{t (katman/klip başına göre sn), v, ease}] — ease bir sonraki keyframe'e kadar geçerlidir
 
-export const EASES = [['linear', 'Doğrusal'], ['inout', 'Yumuşak'], ['in', 'Hızlanarak'], ['out', 'Yavaşlayarak'], ['hold', 'Sabit (atla)']];
+export const EASES = [
+  ['auto', 'Otomatik yumuşak'], ['inout', 'Yumuşak'], ['linear', 'Doğrusal'], ['in', 'Hızlanarak'], ['out', 'Yavaşlayarak'],
+  ['sine', 'Sinüs'], ['expo', 'Sert hızlan-yavaşla'], ['back', 'Geri esneme'], ['elastic', 'Elastik'], ['bounce', 'Zıplama'], ['bez', 'Özel eğri'], ['hold', 'Sabit (atla)'],
+];
 
 export const LAYER_PROPS = [
   ['x', 'Yatay', 0, 1, 0.005],
@@ -17,15 +20,41 @@ export const CLIP_PROPS = [
   ['panY', 'Dikey kaydır', -1, 1, 0.01],
 ];
 
-const ease = (e, p) => {
+// cubic-bezier(x1,y1,x2,y2) zamanlama eğrisi (CSS ile aynı)
+function bezier(x1, y1, x2, y2, x) {
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+  const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  let t = x;
+  for (let i = 0; i < 8; i++) { const xt = ((ax * t + bx) * t + cx) * t - x; const d = (3 * ax * t + 2 * bx) * t + cx; if (Math.abs(xt) < 1e-5 || Math.abs(d) < 1e-6) break; t -= xt / d; }
+  t = Math.max(0, Math.min(1, t));
+  return ((ay * t + by) * t + cy) * t;
+}
+export function easeFn(e, p, k) {
   switch (e) {
     case 'in': return p * p * p;
     case 'out': return 1 - Math.pow(1 - p, 3);
     case 'inout': return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+    case 'sine': return -(Math.cos(Math.PI * p) - 1) / 2;
+    case 'expo': return p === 0 ? 0 : p === 1 ? 1 : p < 0.5 ? Math.pow(2, 20 * p - 10) / 2 : (2 - Math.pow(2, -20 * p + 10)) / 2;
+    case 'back': { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); }
+    case 'elastic': return p === 0 ? 0 : p === 1 ? 1 : Math.pow(2, -10 * p) * Math.sin((p * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1;
+    case 'bounce': { const n = 7.5625, d = 2.75; let x = p; if (x < 1 / d) return n * x * x; if (x < 2 / d) return n * (x -= 1.5 / d) * x + 0.75; if (x < 2.5 / d) return n * (x -= 2.25 / d) * x + 0.9375; return n * (x -= 2.625 / d) * x + 0.984375; }
+    case 'bez': { const b = (k && k.bz) || [0.25, 0.1, 0.25, 1]; return bezier(b[0], b[1], b[2], b[3], p); }
     case 'hold': return 0;
-    default: return p;
+    case 'linear': return p;
+    default: return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
   }
-};
+}
+const ease = (e, p, k) => easeFn(e, p, k);
+
+// "Otomatik yumuşak": komşu keyframe'lere göre eğim (monoton kübik Hermite — taşma yapmaz)
+function autoTangent(keys, i) {
+  const a = keys[i - 1], b = keys[i], c = keys[i + 1];
+  if (!a || !c) return 0;
+  const d0 = (b.v - a.v) / Math.max(1e-6, b.t - a.t), d1 = (c.v - b.v) / Math.max(1e-6, c.t - b.t);
+  if (d0 * d1 <= 0) return 0;
+  return (2 * d0 * d1) / (d0 + d1);
+}
 
 export function evalTrack(keys, lt) {
   if (!keys || !keys.length) return undefined;
@@ -35,8 +64,14 @@ export function evalTrack(keys, lt) {
   for (let i = 0; i < keys.length - 1; i++) {
     const a = keys[i], b = keys[i + 1];
     if (lt >= a.t && lt <= b.t) {
-      const p = (lt - a.t) / Math.max(1e-6, b.t - a.t);
-      return a.v + (b.v - a.v) * ease(a.ease || 'inout', p);
+      const dt = Math.max(1e-6, b.t - a.t);
+      const p = (lt - a.t) / dt;
+      if ((a.ease || 'inout') === 'auto') {
+        const m0 = autoTangent(keys, i) * dt, m1 = autoTangent(keys, i + 1) * dt;
+        const p2 = p * p, p3 = p2 * p;
+        return (2 * p3 - 3 * p2 + 1) * a.v + (p3 - 2 * p2 + p) * m0 + (-2 * p3 + 3 * p2) * b.v + (p3 - p2) * m1;
+      }
+      return a.v + (b.v - a.v) * ease(a.ease || 'inout', p, a);
     }
   }
   return last.v;

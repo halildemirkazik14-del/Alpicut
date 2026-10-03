@@ -36,11 +36,21 @@ jobs:
       - name: Fontlar, yapay zekâ kütüphaneleri, ses efektleri, müzik kataloğu
         run: node scripts/fetch-assets.mjs
 
+      - name: Test medyası
+        continue-on-error: true
+        timeout-minutes: 10
+        run: bash lab/make-media.sh
+
       - name: Uçtan uca test (gerçek tarayıcı, internet açık)
         continue-on-error: true
+        timeout-minutes: 30
         run: |
           npx playwright install --with-deps chromium > /dev/null
           node lab/e2e.mjs | tee e2e.txt
+          node lab/smoke.mjs lab/out/smoke | tee -a e2e.txt
+
+      - name: Test dosyalarını APK dışında bırak
+        run: rm -rf www/labmedia
 
       - name: Android projesini oluştur
         run: npx cap add android
