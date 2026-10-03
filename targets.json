@@ -1,0 +1,9 @@
+[ {
+   "description": "{\"attached\":true,\"empty\":false,\"height\":616,\"never_attached\":false,\"screenX\":0,\"screenY\":24,\"visible\":true,\"width\":320}",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_internal_file/@2d54072eb2f350d37f3f304c4ba0fafcddbd7e82/inspector.html?ws=127.0.0.1:9222/devtools/page/3CA2EF974E02D3BF9B18C46096347CA6",
+   "id": "3CA2EF974E02D3BF9B18C46096347CA6",
+   "title": "Alpicut",
+   "type": "page",
+   "url": "https://localhost/",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/3CA2EF974E02D3BF9B18C46096347CA6"
+} ]

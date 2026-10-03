@@ -1,0 +1,9 @@
+Starting: Intent { cmp=com.alpicut.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.alpicut.app/.MainActivity
+TotalTime: 6094
+WaitTime: 6110
+Complete
+pid=2989
+sock=webview_devtools_remote_2989

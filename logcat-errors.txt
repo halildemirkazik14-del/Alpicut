@@ -1,0 +1,400 @@
+10-03 18:40:00.340 D/Capacitor( 2989): Handling local request: https://localhost/fonts/fonts.css
+10-03 18:40:00.342 D/Capacitor( 2989): Handling local request: https://localhost/css/app.css
+10-03 18:40:00.343 D/Capacitor( 2989): Handling local request: https://localhost/js/main.js
+10-03 18:40:00.428 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-800-normal.woff2
+10-03 18:40:00.435 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-latin-600-normal.woff2
+10-03 18:40:00.441 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-latin-400-normal.woff2
+10-03 18:40:00.457 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-semi-condensed-latin-700-normal.woff2
+10-03 18:40:00.463 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-latin-ext-400-normal.woff2
+10-03 18:40:00.472 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-semi-condensed-latin-ext-700-normal.woff2
+10-03 18:40:00.664 D/Capacitor( 2989): Handling local request: https://localhost/js/state.js
+10-03 18:40:00.672 D/Capacitor( 2989): Handling local request: https://localhost/js/icons.js
+10-03 18:40:00.681 D/Capacitor( 2989): Handling local request: https://localhost/js/engine.js
+10-03 18:40:00.694 D/Capacitor( 2989): Handling local request: https://localhost/js/presets.js
+10-03 18:40:00.696 D/Capacitor( 2989): Handling local request: https://localhost/js/timeline.js
+10-03 18:40:00.699 D/Capacitor( 2989): Handling local request: https://localhost/js/kf.js
+10-03 18:40:00.707 D/Capacitor( 2989): Handling local request: https://localhost/js/sfx.js
+10-03 18:40:00.722 D/Capacitor( 2989): Handling local request: https://localhost/js/gl.js
+10-03 18:40:00.729 D/Capacitor( 2989): Handling local request: https://localhost/js/ai.js
+10-03 18:40:00.735 D/Capacitor( 2989): Handling local request: https://localhost/js/alpico.js
+10-03 18:40:00.748 D/Capacitor( 2989): Handling local request: https://localhost/js/favs.js
+10-03 18:40:00.750 D/Capacitor( 2989): Handling local request: https://localhost/js/recorder.js
+10-03 18:40:00.754 D/Capacitor( 2989): Handling local request: https://localhost/js/filters.js
+10-03 18:40:00.759 D/Capacitor( 2989): Handling local request: https://localhost/js/transitions.js
+10-03 18:40:00.765 D/Capacitor( 2989): Handling local request: https://localhost/js/theme.js
+10-03 18:40:00.775 D/Capacitor( 2989): Handling local request: https://localhost/js/wm.js
+10-03 18:40:00.777 D/Capacitor( 2989): Handling local request: https://localhost/js/library.js
+10-03 18:40:00.779 D/Capacitor( 2989): Handling local request: https://localhost/js/studio.js
+10-03 18:40:00.783 D/Capacitor( 2989): Handling local request: https://localhost/js/fonts.js
+10-03 18:40:00.805 D/Capacitor( 2989): Handling local request: https://localhost/js/templates.js
+10-03 18:40:00.812 D/Capacitor( 2989): Handling local request: https://localhost/js/ui3.js
+10-03 18:40:00.816 D/Capacitor( 2989): Handling local request: https://localhost/js/sheets.js
+10-03 18:40:00.821 D/Capacitor( 2989): Handling local request: https://localhost/js/storage.js
+10-03 18:40:00.824 D/Capacitor( 2989): Handling local request: https://localhost/js/srt.js
+10-03 18:40:03.240 D/Capacitor( 2989): Handling local request: https://localhost/js/render.js
+10-03 18:40:03.245 D/Capacitor( 2989): Handling local request: https://localhost/js/fxlib.js
+10-03 18:40:03.251 D/Capacitor( 2989): Handling local request: https://localhost/js/gltrans.js
+10-03 18:40:03.261 D/Capacitor( 2989): Handling local request: https://localhost/js/audiotools.js
+10-03 18:40:03.263 D/Capacitor( 2989): Handling local request: https://localhost/js/aiapi.js
+10-03 18:40:03.273 D/Capacitor( 2989): Handling local request: https://localhost/js/social.js
+10-03 18:40:03.278 D/Capacitor( 2989): Handling local request: https://localhost/js/tts.js
+10-03 18:40:03.293 D/Capacitor( 2989): Handling local request: https://localhost/js/ctl.js
+10-03 18:40:03.320 D/Capacitor( 2989): Handling local request: https://localhost/js/kfui.js
+10-03 18:40:03.393 D/Capacitor( 2989): Handling local request: https://localhost/js/fxgl.js
+10-03 18:40:03.423 D/Capacitor( 2989): Handling local request: https://localhost/js/gltrans-data.js
+10-03 18:40:03.436 D/Capacitor( 2989): Handling local request: https://localhost/js/social2.js
+10-03 18:40:03.512 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-latin-ext-600-normal.woff2
+10-03 18:40:03.514 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-latin-700-normal.woff2
+10-03 18:40:03.521 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-latin-ext-700-normal.woff2
+10-03 18:40:03.527 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-semi-condensed-latin-500-normal.woff2
+10-03 18:40:03.535 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-semi-condensed-latin-ext-500-normal.woff2
+10-03 18:40:03.537 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-semi-condensed-latin-600-normal.woff2
+10-03 18:40:03.541 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-semi-condensed-latin-ext-600-normal.woff2
+10-03 18:40:03.573 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-semi-condensed-latin-600-italic.woff2
+10-03 18:40:03.579 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-semi-condensed-latin-ext-600-italic.woff2
+10-03 18:40:03.585 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-600-normal.woff2
+10-03 18:40:03.590 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-ext-600-normal.woff2
+10-03 18:40:03.597 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-700-normal.woff2
+10-03 18:40:03.600 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-ext-700-normal.woff2
+10-03 18:40:03.610 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-ext-800-normal.woff2
+10-03 18:40:03.624 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-900-normal.woff2
+10-03 18:40:03.627 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-800-italic.woff2
+10-03 18:40:03.634 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-ext-800-italic.woff2
+10-03 18:40:03.646 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-900-italic.woff2
+10-03 18:40:03.664 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-ext-900-italic.woff2
+10-03 18:40:03.668 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-condensed-latin-ext-900-normal.woff2
+10-03 18:40:03.680 D/Capacitor( 2989): Handling local request: https://localhost/data/gfonts.json
+10-03 18:40:04.521 D/Capacitor( 2989): Handling local request: https://localhost/favicon.ico
+10-03 18:40:04.610 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gm/androidx.work.impl.background.systemjob.SystemJobService in 1000ms for connection
+10-03 18:40:04.610 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gm/com.android.email.job.UpgradeJob$UpgradeJobService in 11000ms for connection
+10-03 18:40:04.610 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gm/com.android.email.job.MigrateDaJob$MigrateDaJobService in 21000ms for connection
+10-03 18:40:04.610 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gm/com.android.email.job.BootCompletedJob$BootCompletedJobService in 31000ms for connection
+10-03 18:40:05.342 I/org.webrtc.Logging( 4013): CrashStartupListener: Checking conference crashes for 0 account(s).
+10-03 18:40:13.609 D/Capacitor( 2989): Handling local request: https://localhost/fonts/files/barlow-latin-500-normal.woff2
+10-03 18:40:17.196 D/Capacitor( 2989): Handling local request: https://localhost/labmedia/test.mp4
+10-03 18:40:17.210 D/Capacitor( 2989): Handling local request: https://localhost/labmedia/wide.mp4
+10-03 18:40:20.352 I/AiAiEcho( 1573): Settings changed for uri: content://settings/secure/dropbox:data_app_crash
+10-03 18:40:27.674 W/Capacitor/Console( 2989): File: https://localhost/js/engine.js - Line 616 - Msg: Clamping calculated audio bitrate (192000bps) to the maximum (128000bps)
+10-03 18:40:29.483 I/AiAiEcho( 1573): Settings changed for uri: content://settings/secure/dropbox:data_app_crash
+10-03 18:40:40.635 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:40:45.816 D/Capacitor( 2989): Handling local request: https://localhost/js/webmfix.js
+10-03 18:40:46.344 D/Capacitor( 2989): Handling local request: https://localhost/js/asr-worker.js
+10-03 18:40:46.349 D/Capacitor( 2989): Handling local request: https://localhost/vendor/transformers/transformers.js
+10-03 18:40:50.345 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:40:52.077 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:40:57.340 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:40:59.964 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:01.227 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:01.849 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:02.487 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.settings.intelligence/.modules.routines.impl.ComputeNewInferencesJobService in 1000ms for connection
+10-03 18:41:02.488 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.settings.intelligence/.modules.routines.impl.PruneDatabaseJobService in 10999ms for connection
+10-03 18:41:02.488 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.settings.intelligence/.modules.routines.impl.RoutinesJobIntentService in 20999ms for connection
+10-03 18:41:02.851 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:03.796 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:04.613 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:04.928 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:05.287 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:06.448 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:08.377 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:15.746 W/Capacitor/Console( 2989): File: https://localhost/ - Line 0 - Msg: Failed to create WebGPU Context Provider
+10-03 18:41:15.986 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:17.286 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:18.924 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:20.149 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:22.109 I/lowmemorykiller(  131): lmkd data connection established
+10-03 18:41:22.139 I/lowmemorykiller(  131): Using psi monitors for memory pressure detection
+10-03 18:41:22.139 I/lowmemorykiller(  131): Properties reinitilized
+10-03 18:41:22.139 I/lowmemorykiller( 5413): lmkd updated properties successfully
+10-03 18:41:22.139 I/lowmemorykiller(  131): lmkd data connection dropped
+10-03 18:41:22.139 I/lowmemorykiller(  131): closing lmkd data connection
+10-03 18:41:23.863 I/NamespaceManager( 1379): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:23.968 I/NamespaceManager( 1379): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:25.215 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.wallet.service.PaymentService in 1000ms for connection
+10-03 18:41:25.216 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.icing.service.IndexService in 10999ms for connection
+10-03 18:41:25.216 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.icing.service.IndexWorkerService in 20999ms for start-requested
+10-03 18:41:25.217 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.chimera.GmsIntentOperationService in 30998ms for start-requested
+10-03 18:41:25.217 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.chimera.GmsBoundBrokerService in 40998ms for connection
+10-03 18:41:25.217 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.chimera.container.ExternalFileApkService in 50998ms for start-requested
+10-03 18:41:25.218 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.chimera.GmsApiService in 60998ms for connection
+10-03 18:41:25.293 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.nearby.exposurenotification.service.ExposureMatchingService in 70924ms for start-requested
+10-03 18:41:25.294 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/com.google.android.location.network.NetworkLocationService in 80922ms for connection
+10-03 18:41:25.295 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.nearby.sharing.ReceiveSurfaceService in 90920ms for start-requested
+10-03 18:41:25.296 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.nearby.messages.service.NearbyMessagesService in 100919ms for start-requested
+10-03 18:41:25.297 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/com.google.android.location.fused.FusedLocationService in 110918ms for connection
+10-03 18:41:25.300 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.location.persistent.LocationPersistentService in 120915ms for start-requested
+10-03 18:41:25.302 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.location.geocode.GeocodeService in 130915ms for connection
+10-03 18:41:25.309 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.auth.setup.devicesignals.LockScreenService in 140906ms for start-requested
+10-03 18:41:25.309 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService in 150906ms for start-requested
+10-03 18:41:25.310 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.gcm.nts.SchedulerService in 160905ms for start-requested
+10-03 18:41:25.315 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.common.stats.GmsCoreStatsService in 170900ms for start-requested
+10-03 18:41:25.316 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.nearby.exposurenotification.service.ExposureNotificationInternalService in 180899ms for start-requested
+10-03 18:41:25.316 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.deviceconnection.service.DeviceConnectionWatcherService in 190899ms for start-requested
+10-03 18:41:25.316 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.chimera.PersistentBoundBrokerService in 200899ms for connection
+10-03 18:41:25.316 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/com.google.android.contextmanager.service.ContextManagerService in 210899ms for start-requested
+10-03 18:41:25.316 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/com.google.android.location.reporting.service.ReportingAndroidService in 220899ms for connection
+10-03 18:41:25.317 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.chimera.PersistentApiService in 230898ms for connection
+10-03 18:41:25.317 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.thunderbird.EmergencyPersistentService in 240898ms for start-requested
+10-03 18:41:25.317 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/com.google.android.location.internal.server.HardwareArProviderService in 250898ms for connection
+10-03 18:41:25.318 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.gcm.GcmService in 260897ms for start-requested
+10-03 18:41:25.318 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.chimera.PersistentIntentOperationService in 270897ms for start-requested
+10-03 18:41:25.319 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.chimera.PersistentDirectBootAwareApiService in 280896ms for connection
+10-03 18:41:25.319 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.clearcut.debug.ClearcutDebugDumpService in 290896ms for start-requested
+10-03 18:41:25.319 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.presencemanager.service.PresenceManagerPresenceReportService in 300896ms for start-requested
+10-03 18:41:25.319 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/com.google.android.location.internal.server.GoogleLocationService in 310896ms for start-requested
+10-03 18:41:25.319 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.geotimezone.GeoTimeZoneService in 320896ms for connection
+10-03 18:41:25.562 W/ActivityManager(  517): Rescheduling restart of crashed service com.google.android.gms/.wallet.service.PaymentService in 653ms for other
+10-03 18:41:25.562 W/ActivityManager(  517): Rescheduling restart of crashed service com.google.android.gms/.icing.service.IndexService in 10653ms for other
+10-03 18:41:25.579 W/ActivityManager(  517): Rescheduling restart of crashed service com.google.android.gms/.icing.service.IndexWorkerService in 20653ms for other
+10-03 18:41:25.579 W/ActivityManager(  517): Rescheduling restart of crashed service com.google.android.gms/.chimera.GmsIntentOperationService in 30653ms for other
+10-03 18:41:25.580 W/ActivityManager(  517): Rescheduling restart of crashed service com.google.android.gms/.chimera.GmsBoundBrokerService in 40653ms for other
+10-03 18:41:25.580 W/ActivityManager(  517): Rescheduling restart of crashed service com.google.android.gms/.chimera.container.ExternalFileApkService in 50653ms for other
+10-03 18:41:25.581 W/ActivityManager(  517): Rescheduling restart of crashed service com.google.android.gms/.chimera.GmsApiService in 60653ms for other
+10-03 18:41:26.503 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.gms/.chimera.UiIntentOperationService in 1000ms for start-requested
+10-03 18:41:28.020 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:28.091 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:28.686 I/NamespaceManager( 5519): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:36.115 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:36.208 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:36.245 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:36.330 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:36.343 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:36.401 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:36.740 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:36.808 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:36.970 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:37.338 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:37.351 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:41:37.471 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:37.981 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.083 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.112 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.212 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.325 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.367 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.412 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.536 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.569 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.676 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.692 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.753 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.796 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.807 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.828 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.864 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.878 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.887 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.894 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.928 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:38.976 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.011 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.064 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.123 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.192 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.305 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.442 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.469 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.594 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.602 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.622 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.650 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.676 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.705 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.719 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.767 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.798 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.827 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.862 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.902 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.956 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.972 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:39.983 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.006 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.028 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.037 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.063 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.082 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.128 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.139 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.170 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.217 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.229 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.274 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.314 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.366 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.399 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.438 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.500 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.518 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.572 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.600 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.611 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.626 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.640 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.662 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.676 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.703 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.734 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.744 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.753 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.761 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.772 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.802 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.842 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.875 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.908 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.939 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:40.972 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.032 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.058 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.102 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.171 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.205 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.221 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.238 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.280 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.320 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.345 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.373 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.392 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.432 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.463 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.501 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.511 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.519 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.531 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.547 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.572 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.588 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.601 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.625 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.642 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.670 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.698 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.707 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.726 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.863 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.875 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.909 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.930 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.946 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.969 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.977 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:41.998 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.007 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.017 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.035 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.057 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.077 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.086 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.104 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.165 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.284 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.372 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.451 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.482 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.505 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.536 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.575 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.592 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.619 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.652 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.686 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.699 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.725 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.753 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.780 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.810 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.820 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.845 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.854 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.863 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.883 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.890 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.899 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.934 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.972 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.985 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:42.997 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.013 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.026 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.034 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.043 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.052 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.069 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.080 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.089 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.101 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.112 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.122 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.135 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.157 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.168 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.183 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.203 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.213 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.227 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.236 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.244 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.253 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.262 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.272 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.282 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.292 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.302 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.312 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.321 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.328 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.336 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.345 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.352 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.361 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.370 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.382 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.391 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.398 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.406 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.500 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.520 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.527 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.537 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.546 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.554 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.563 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.571 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.580 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.598 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.621 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.631 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.641 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.658 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.672 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.685 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.695 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.704 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.717 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.725 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.735 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.745 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.751 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.757 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.763 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.770 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.781 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.788 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.797 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.805 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.811 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.832 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.839 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:41:43.847 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:44:16.642 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:44:16.713 I/NamespaceManager( 5457): Package com.google.android.crashrecovery name not found! Using module version.
+10-03 18:44:16.966 I/lowmemorykiller(  131): lmkd data connection established
+10-03 18:44:16.999 I/lowmemorykiller(  131): Using psi monitors for memory pressure detection
+10-03 18:44:16.999 I/lowmemorykiller(  131): Properties reinitilized
+10-03 18:44:16.999 I/lowmemorykiller( 6126): lmkd updated properties successfully
+10-03 18:44:16.999 I/lowmemorykiller(  131): lmkd data connection dropped
+10-03 18:44:16.999 I/lowmemorykiller(  131): closing lmkd data connection
+10-03 18:46:47.306 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:46:47.317 W/A       ( 1641): Can't format flag AndroidGsaVelourJars__velour_crashtest_jar__name to integer.
+10-03 18:50:41.361 W/ActivityManager(  517): Scheduling restart of crashed service com.google.android.webview/org.chromium.android_webview.services.MetricsBridgeService in 1000ms for connection

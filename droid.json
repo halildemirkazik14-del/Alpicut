@@ -1,0 +1,112 @@
+{
+ "steps": {
+  "env": {
+   "ok": true,
+   "ua": "Mozilla/5.0 (Linux; Android 14; sdk_gphone64_x86_64 Build/UE1A.230829.050; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/113.0.5672.136 Mobile Safari/537.36",
+   "webgl": true,
+   "webgl2": true,
+   "gpu": true,
+   "sab": "undefined",
+   "coi": false,
+   "mem": 4,
+   "cores": 2,
+   "mr": [
+    "video/webm;codecs=vp9,opus",
+    "video/webm",
+    "audio/webm;codecs=opus"
+   ],
+   "w": 320,
+   "h": 616,
+   "dpr": 1,
+   "native": true,
+   "plugins": [
+    "CapacitorCookies",
+    "WebView",
+    "Filesystem",
+    "Share",
+    "CapacitorHttp"
+   ],
+   "caches": "object",
+   "worker": "function",
+   "ms": 152
+  },
+  "newProject": {
+   "ok": true,
+   "editor": true,
+   "ms": 3904
+  },
+  "import": {
+   "ok": true,
+   "n": 2,
+   "total": 17,
+   "ms": 4058
+  },
+  "playback": {
+   "ok": true,
+   "before": 0,
+   "advanced": 2.06,
+   "brightness": 0,
+   "hidden": false,
+   "readyStates": [
+    1,
+    4
+   ],
+   "mid": -1,
+   "ms": 4079
+  },
+  "timelineEnd": {
+   "ok": true,
+   "dur": 17,
+   "t": 17,
+   "over": 0,
+   "ms": 411
+  },
+  "export": {
+   "ok": true,
+   "size": 1868331,
+   "ext": "webm",
+   "ms": 18421,
+   "dur": 17,
+   "videoDur": 17,
+   "brightness": 71.7
+  },
+  "captions": {
+   "ok": false,
+   "error": "Runtime.evaluate zaman aşımı",
+   "ms": 900095
+  },
+  "playbackAfterCaptions": {
+   "ok": false,
+   "error": "Runtime.evaluate zaman aşımı",
+   "ms": 120038
+  },
+  "jumpcut": {
+   "ok": false,
+   "error": "Runtime.evaluate zaman aşımı",
+   "ms": 300071
+  },
+  "bgRemoval": {
+   "ok": false,
+   "error": "Runtime.evaluate zaman aşımı",
+   "ms": 300034
+  },
+  "studio": {
+   "ok": false,
+   "error": "Runtime.evaluate zaman aşımı",
+   "ms": 600004
+  },
+  "tts": {
+   "ok": false,
+   "error": "Runtime.evaluate zaman aşımı",
+   "ms": 600094
+  }
+ },
+ "errors": [
+  "CDP bağlantısı kapandı (sayfa çökmüş/yeniden yüklenmiş olabilir)"
+ ],
+ "logs": [
+  "log-error: Failed to load resource: the server responded with a status of 404 (Not Found) https://localhost/favicon.ico",
+  "log-warning: Clamping calculated audio bitrate (192000bps) to the maximum (128000bps) https://localhost/js/engine.js",
+  "log-warning: Failed to create WebGPU Context Provider https://localhost/"
+ ]
+}
