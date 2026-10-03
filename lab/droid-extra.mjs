@@ -12,15 +12,28 @@ export async function run({ ev, step, tapEl, tapXY, shot, sleep, R }) {
   await sleep(800); shot('10-editor');
   const health = () => ev(async () => {
     const app = window.__alpicut; const E = app.engine;
-    E.seek(1); await new Promise((r) => setTimeout(r, 500));
+    const br = () => { const c = document.createElement('canvas'); c.width = 16; c.height = 16; const x = c.getContext('2d'); x.drawImage(E.canvas, 0, 0, 16, 16); const d = x.getImageData(0, 0, 16, 16).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return +(s / 768).toFixed(1); };
+    E.seek(1); await new Promise((r) => setTimeout(r, 800)); E.draw();
+    const before = br();
     const t0 = E.t; app.play(); await new Promise((r) => setTimeout(r, 2000)); const t1 = E.t; app.pause();
     await new Promise((r) => setTimeout(r, 400));
     const c = document.createElement('canvas'); c.width = 16; c.height = 16; const x = c.getContext('2d');
     x.drawImage(E.canvas, 0, 0, 16, 16); const d = x.getImageData(0, 0, 16, 16).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
-    return { advanced: +(t1 - t0).toFixed(2), brightness: +(s / 768).toFixed(1), hidden: document.hidden };
+    let mid = -1; return { before, advanced: +(t1 - t0).toFixed(2), brightness: +(s / 768).toFixed(1), hidden: document.hidden, readyStates: [...E.els.values()].map((e) => e.readyState), mid };
   });
   await step('playback', health);
+  shot('10b-after-play');
   await step('timelineEnd', () => ev(async () => { const app = window.__alpicut; const sc = document.getElementById('tlScroll'); sc.scrollLeft = 1e7; await new Promise((r) => setTimeout(r, 400)); const o = { dur: app.engine.duration(), t: app.engine.t, over: sc.scrollWidth - sc.clientWidth - Math.round(app.engine.duration() * app.pps) }; sc.scrollLeft = 0; return o; }));
+
+  await step('export', () => ev(async () => {
+    const app = window.__alpicut; document.querySelectorAll('.panel .p-btn.close').forEach((x) => x.click());
+    
+    const t0 = performance.now(); const r = await app.engine.export({ res: 0.5, fps: 30, bitrate: 4e6 });
+    const v = document.createElement('video'); v.muted = true; v.src = URL.createObjectURL(r.blob); await new Promise((q) => { v.onloadeddata = q; v.onerror = q; setTimeout(q, 8000); });
+    v.currentTime = 1; await new Promise((q) => { v.onseeked = q; setTimeout(q, 4000); });
+    const c = document.createElement('canvas'); c.width = 16; c.height = 16; const x = c.getContext('2d'); let br = -1; try { x.drawImage(v, 0, 0, 16, 16); const d = x.getImageData(0, 0, 16, 16).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; br = +(s / 768).toFixed(1); } catch (e) { br = String(e.message); }
+    return { size: r?.blob.size, ext: r?.ext, ms: Math.round(performance.now() - t0), dur: app.engine.duration(), videoDur: v.duration, brightness: br };
+  }, null, 600000));
 
   await step('captions', () => ev(async () => {
     const ai = await import('./js/ai.js'); const t0 = performance.now(); const st = [];
@@ -44,7 +57,7 @@ export async function run({ ev, step, tapEl, tapXY, shot, sleep, R }) {
   await step('studio', () => ev(async () => {
     const S = await import('./js/studio.js');
     const blob = await (await fetch('labmedia/noisy.wav')).blob();
-    const meas = async (b) => { const ac = new OfflineAudioContext(1, 48000, 48000); const a = await ac.decodeAudioData(await b.arrayBuffer()); const x = a.getChannelData(0); const rms = (s, e) => { let q = 0; const i0 = Math.floor(s * 48000), i1 = Math.min(x.length, Math.floor(e * 48000)); for (let i = i0; i < i1; i++) q += x[i] * x[i]; return +(10 * Math.log10(q / Math.max(1, i1 - i0) + 1e-12)).toFixed(1); }; return { speech: rms(1, 4), tail: rms(a.duration - 1.2, a.duration - 0.2) }; };
+    const meas = async (b) => { const ac = new OfflineAudioContext(1, 48000, 48000); const a = await ac.decodeAudioData(await b.arrayBuffer()); const x = a.getChannelData(0); const rms = (s, e) => { let q = 0; const i0 = Math.floor(s * 48000), i1 = Math.min(x.length, Math.floor(e * 48000)); for (let i = i0; i < i1; i++) q += x[i] * x[i]; return +(10 * Math.log10(q / Math.max(1, i1 - i0) + 1e-12)).toFixed(1); }; return { speech: rms(3, 6), silenceStart: rms(0.2, 1.6), silenceEnd: rms(a.duration - 1.6, a.duration - 0.2) }; };
     const out = { before: await meas(blob) };
     for (const k of ['podcast', 'hiss']) { const t0 = performance.now(); try { out[k] = { ...(await meas(await S.processVoice(blob, S.STUDIO_PRESETS[k]))), ms: Math.round(performance.now() - t0) }; } catch (e) { out[k] = String(e.message || e); } }
     return out;
@@ -84,24 +97,18 @@ export async function run({ ev, step, tapEl, tapXY, shot, sleep, R }) {
         await sleep(400);
       }
     }
-    // Alpi-co + 3 panel
-    await ev(async () => { const a = await import('./js/alpico.js'); a.openAlpico(); const s = await import('./js/sheets.js'); s.openSocial(); window.__alpicut.openInspector && window.__alpicut.select({ type: 'clip', id: window.__alpicut.P.clips[0].id }, 'Keyframe'); });
-    await sleep(1200); shot('30-three-panels');
+    return res;
+  });
+  await step('threePanels', async () => {
+    const res = {};
+    await ev(async () => { const a = await import('./js/alpico.js'); a.openAlpico(); }); await sleep(1500); shot('30-p1');
+    await ev(async () => { const s = await import('./js/sheets.js'); s.openSocial(); }); await sleep(1500); shot('31-p2');
+    await ev(() => window.__alpicut.select({ type: 'clip', id: window.__alpicut.P.clips[0].id }, 'Keyframe')); await sleep(1500); shot('32-p3');
     const box = await ev(() => { const r = document.getElementById('previewWrap').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 20 }; });
     await tapXY(box.x, box.y);
     res.afterPreviewTap = await ev(() => document.querySelectorAll('.panel').length);
     return res;
   });
-
-  await step('export', () => ev(async () => {
-    const app = window.__alpicut; document.querySelectorAll('.panel .p-btn.close').forEach((x) => x.click());
-    app.P.subs.cues = app.P.subs.cues.slice(0, 3);
-    const t0 = performance.now(); const r = await app.engine.export({ res: 0.5, fps: 30, bitrate: 4e6 });
-    const v = document.createElement('video'); v.muted = true; v.src = URL.createObjectURL(r.blob); await new Promise((q) => { v.onloadeddata = q; v.onerror = q; setTimeout(q, 8000); });
-    v.currentTime = 1; await new Promise((q) => { v.onseeked = q; setTimeout(q, 4000); });
-    const c = document.createElement('canvas'); c.width = 16; c.height = 16; const x = c.getContext('2d'); let br = -1; try { x.drawImage(v, 0, 0, 16, 16); const d = x.getImageData(0, 0, 16, 16).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; br = +(s / 768).toFixed(1); } catch (e) { br = String(e.message); }
-    return { size: r?.blob.size, ext: r?.ext, ms: Math.round(performance.now() - t0), dur: app.engine.duration(), videoDur: v.duration, brightness: br };
-  }, null, 600000));
 
   await step('mic', () => ev(async () => {
     const Rm = await import('./js/recorder.js');

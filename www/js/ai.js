@@ -79,6 +79,37 @@ function runWhisper(audio, size, language, onMsg) {
   });
 }
 
+// enerjiye göre konuşma bölgeleri -> en çok maxLen sn'lik parçalar (sessizliklerden bölünür)
+function speechChunks(x, sr, maxLen = 25) {
+  const win = Math.round(sr * 0.03), n = Math.floor(x.length / win);
+  const db = new Float32Array(n);
+  for (let i = 0; i < n; i++) { let q = 0; for (let k = i * win; k < (i + 1) * win; k++) q += x[k] * x[k]; db[i] = 10 * Math.log10(q / win + 1e-12); }
+  const sorted = Array.from(db).sort((a, b) => a - b);
+  const floor = sorted[Math.floor(n * 0.1)] ?? -80, peak = sorted[Math.floor(n * 0.95)] ?? -20;
+  const thr = Math.max(floor + 8, Math.min(peak - 25, -42));
+  const voiced = Array.from(db, (v) => v > thr);
+  // kısa boşlukları doldur (0.35 sn), kısa sesleri at (0.12 sn)
+  const fill = Math.round(0.35 / 0.03), minOn = Math.round(0.12 / 0.03);
+  const regs = [];
+  let st = -1, gap = 0;
+  for (let i = 0; i <= n; i++) {
+    const v = i < n && voiced[i];
+    if (v) { if (st < 0) st = i; gap = 0; } else if (st >= 0) { gap++; if (gap > fill || i === n) { const e = i - gap + 1; if (e - st >= minOn) regs.push([st, e]); st = -1; gap = 0; } }
+  }
+  if (!regs.length) return [{ s: 0, e: x.length / sr }];
+  // bölgeleri maxLen'e kadar birleştir, kenarlara pay
+  const out = [];
+  let cur = null;
+  regs.forEach(([a, b]) => {
+    const s = Math.max(0, a * 0.03 - 0.25), e = Math.min(x.length / sr, b * 0.03 + 0.35);
+    if (cur && e - cur.s <= maxLen) cur.e = e; else { if (cur) out.push(cur); cur = { s, e }; }
+  });
+  if (cur) out.push(cur);
+  // tek parça maxLen'den uzunsa zorla böl
+  return out.flatMap((p) => { const r = []; for (let t = p.s; t < p.e; t += maxLen) r.push({ s: t, e: Math.min(p.e, t + maxLen) }); return r; });
+}
+function normPeak(a) { let p = 0; for (let i = 0; i < a.length; i++) { const v = Math.abs(a[i]); if (v > p) p = v; } const k = p > 1e-4 ? Math.min(8, 0.9 / p) : 1; const o = new Float32Array(a.length); for (let i = 0; i < a.length; i++) o[i] = a[i] * k; return o; }
+
 // kelimelerden altyazı satırları oluştur
 function buildCues(words, maxWords = 5, maxDur = 2.6) {
   const cues = [];
@@ -116,28 +147,37 @@ export async function autoCaptions({ lang = 'turkish', size, provider, maxWords 
       onPct(20 + (o / mix.data.length) * 70);
     }
   } else {
+    // Konuşma bölgelerine göre ≤25 sn parçalar (doğru zamanlama, daha az uydurma, daha az bellek)
+    const pieces = speechChunks(mix.data, SR16, 25);
     const files = {};
-    const res = await runWhisper(mix.data, size, lang, (m) => {
-      if (m.type === 'download') {
-        files[m.file] = [m.loaded, m.total];
-        const L = Object.values(files).reduce((x, y) => x + y[0], 0), T = Object.values(files).reduce((x, y) => x + y[1], 0);
-        onPct(2 + (L / Math.max(1, T)) * 58); onStatus(`Model indiriliyor (ilk sefer)… ${(L / 1048576).toFixed(0)} / ${(T / 1048576).toFixed(0)} MB`);
-      } else if (m.type === 'status') { onStatus(m.text); if (/çevriliyor/.test(m.text)) onPct(65); }
-    });
+    let done = 0;
+    for (const pc of pieces) {
+      const audio = normPeak(mix.data.subarray(Math.floor(pc.s * SR16), Math.floor(pc.e * SR16)));
+      const res = await runWhisper(audio, size, lang, (m) => {
+        if (m.type === 'download') {
+          files[m.file] = [m.loaded, m.total];
+          const L = Object.values(files).reduce((x, y) => x + y[0], 0), T = Object.values(files).reduce((x, y) => x + y[1], 0);
+          onPct(2 + (L / Math.max(1, T)) * 50); onStatus(`Model indiriliyor (ilk sefer)… ${(L / 1048576).toFixed(0)} / ${(T / 1048576).toFixed(0)} MB`);
+        } else if (m.type === 'status' && /çevriliyor/.test(m.text)) onStatus(`Konuşma yazıya dökülüyor… (${done + 1}/${pieces.length})`);
+      });
+      segment = segment || !!res.segment;
+      (res.chunks || []).forEach((c) => {
+        const [st0, e0] = c.timestamp || [];
+        const text = (c.text || '').trim();
+        if (!text || st0 == null) return;
+        const s0 = st0 + pc.s, e1 = (e0 ?? st0 + (res.segment ? 2 : 0.3)) + pc.s;
+        if (res.segment) {
+          const ws = text.split(/\s+/); const tot = ws.reduce((x, w) => x + w.length + 1, 0);
+          let acc = s0;
+          ws.forEach((w) => { const d = ((w.length + 1) / tot) * (e1 - s0); words.push({ t: w, s: acc, e: acc + d }); acc += d; });
+        } else words.push({ t: text, s: s0, e: Math.min(e1, pc.e + 0.2) });
+      });
+      done++;
+      onPct(55 + (done / pieces.length) * 37);
+    }
     // belleği boşalt (telefonda uygulamanın kapanmasını önler)
     try { worker?.terminate(); } catch (_) { /* yoksay */ }
     worker = null;
-    segment = !!res.segment;
-    (res.chunks || []).forEach((c) => {
-      const [st0, e0] = c.timestamp || [];
-      const text = (c.text || '').trim();
-      if (!text || st0 == null) return;
-      if (segment) {
-        const ws = text.split(/\s+/); const end = e0 ?? st0 + 2; const tot = ws.reduce((x, w) => x + w.length + 1, 0);
-        let acc = st0;
-        ws.forEach((w) => { const d = ((w.length + 1) / tot) * (end - st0); words.push({ t: w, s: acc, e: acc + d }); acc += d; });
-      } else words.push({ t: text, s: st0, e: e0 ?? st0 + 0.3 });
-    });
   }
   words = words.filter((w) => w.t && !/^\[.*\]$/.test(w.t) && isFinite(w.s) && isFinite(w.e)).sort((x, y) => x.s - y.s);
   // halüsinasyon: aynı kelimenin art arda çok tekrarı

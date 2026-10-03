@@ -21,6 +21,6 @@ timeout 300 ffmpeg -loglevel error -y -loop 1 -framerate 30 -t $D -i "$OUT/portr
 timeout 120 ffmpeg -loglevel error -y -f lavfi -i testsrc2=size=1280x720:rate=30 -f lavfi -i "sine=frequency=330:duration=4" -t 4 \
   -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac "$OUT/wide.mp4"
 # gürültülü konuşma (stüdyo ses testi)
-timeout 120 ffmpeg -loglevel error -y -i /tmp/speech.wav -f lavfi -i "anoisesrc=color=white:amplitude=0.03:duration=12" \
-  -filter_complex "[0:a]aresample=48000[s];[1:a]aresample=48000[n];[s][n]amix=inputs=2:duration=first:normalize=0" -ac 1 "$OUT/noisy.wav"
+timeout 120 ffmpeg -loglevel error -y -i /tmp/speech.wav -f lavfi -i "anoisesrc=color=white:amplitude=0.03:duration=30" \
+  -filter_complex "[0:a]aresample=48000,adelay=2000|2000,apad=pad_dur=2[s];[1:a]aresample=48000[n];[s][n]amix=inputs=2:duration=first:normalize=0" -ac 1 "$OUT/noisy.wav"
 ls -la "$OUT"

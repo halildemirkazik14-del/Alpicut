@@ -47,3 +47,21 @@ export const PROJECT_TEMPLATES = [
       C('subscribe', 50, 58, { y: 0.85 }),
     ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), size: 64, y: 0.86 } }, fx: clone(FX_BASE) }) },
 ];
+
+// ---- v1.4 ek proje şablonları ----
+import { SOCIAL_TEMPLATES } from './social.js';
+const SO = (id, start, end, extra = {}) => ({ kind: 'social', x: 0.5, y: 0.5, rot: 0, sc: 1, opacity: 1, scale: 1, dark: false, accent: '#8B5CF6', ...clone(SOCIAL_TEMPLATES.find((x) => x.id === id).p), ...extra, id: uid(), start, end, kf: {} });
+PROJECT_TEMPLATES.push(
+  { id: 'chatstory', name: 'Mesajlaşma hikâyesi', desc: 'iPhone tarzı sohbet ekranı, mesajlar tek tek gelir; metinleri değiştir', ratio: '9:16', icon: '💬',
+    build: () => ({ dur: 12, layers: [T('v_pov', 0, 3, { text: 'POV: *grup sohbeti* karıştı', y: 0.1 }), SO('imsg', 0.5, 12, { y: 0.55, scale: 0.88 })], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), bg: '#111' } }) },
+  { id: 'whatsapp', name: 'WhatsApp grup komedisi', desc: 'WhatsApp tarzı grup sohbeti + vurgu sesleri için hazır', ratio: '9:16', icon: '🟢',
+    build: () => ({ dur: 12, layers: [SO('wa', 0, 12, { y: 0.5, scale: 0.92 })], subs: clone(SUB_BASE), fx: clone(FX_BASE) }) },
+  { id: 'channel', name: 'Kanal tanıtımı', desc: 'YouTube kanal kartviziti, abone tıklama animasyonu, bitiş ekranı', ratio: '9:16', icon: '📺',
+    build: () => ({ dur: 12, layers: [SO('ytcard', 0.3, 6, { y: 0.45 }), T('v_yellowbox', 0, 3, { text: 'KANALIMA *HOŞ GELDİN*', y: 0.15 }), SO('ytend', 6.5, 12)], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), bg: '#0B0B10' } }) },
+  { id: 'halfsplit', name: 'Yarım ekran yazılı video', desc: 'Üst yarıda büyük başlık, alt yarıda video (Reels tarzı)', ratio: '9:16', icon: '🔳',
+    build: () => ({ dur: 15, layers: [SO('halfTop', 0, 15)], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), y: 0.85 } }, fx: clone(FX_BASE) }) },
+  { id: 'matchday', name: 'Maç günü / derbi', desc: 'VS kartı, oyuncu kartı, haber bandı, geri sayım', ratio: '9:16', icon: '🏟️',
+    build: () => ({ dur: 15, layers: [SO('versus', 0, 4), SO('player', 4, 9), SO('ticker', 0, 15), T('s_derby', 9, 12)], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), vignette: 0.3 } }) },
+  { id: 'interview', name: 'Röportaj / yorumcu', desc: 'Alt bant isim/unvan, kelime vurgulu altyazı, abone bandı', ratio: '9:16', icon: '🎤',
+    build: () => ({ dur: 30, layers: [SO('lower', 1, 6), C('subscribe', 25, 29)], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), preset: 'karaoke', accent: '#FACC15' } }, fx: clone(FX_BASE) }) },
+);

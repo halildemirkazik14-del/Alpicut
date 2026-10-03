@@ -184,7 +184,8 @@ await step('effects', () => pg.evaluate(async () => {
   x.fillStyle = '#446'; x.fillRect(0, 0, 270, 480);
   const bad = [];
   for (const [id] of F.FX_LIST) { try { x.setTransform(0.25, 0, 0, 0.25, 0, 0); F.applyLayerFx(x, { kind: 'fx', effect: id, start: 0, end: 3, amount: 1, speed: 1, anim: { in: 'none', out: 'none', loop: 'none', inDur: 0.3, outDur: 0.3 } }, 1, { W: 1080, H: 1920, S: 0.25 }, []); } catch (e) { bad.push(`${id}: ${e.message}`); } }
-  return { n: F.FX_LIST.length, bad };
+  const G = (await import('./js/fxgl.js')).fxgl();
+  return { n: F.FX_LIST.length, bad, glBroken: G ? [...G.broken] : 'webgl yok', glProgs: G ? G.progs.size : 0 };
 }));
 
 // sfx: hepsi oluşsun
