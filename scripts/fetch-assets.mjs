@@ -153,6 +153,42 @@ function niceName(f) {
       log('sfx', src.slug, manifest.length);
     } catch (e) { report.errors.push(`sfx ${src.slug}: ${e.message}`); }
   }
+  // Wikimedia Commons'tan kamu malı / CC0 "viral" sesler (alkış, tribün, korna, davul…)
+  {
+    const TERMS = [['applause', 'Alkış'], ['crowd cheering', 'Tribün coşkusu'], ['stadium crowd', 'Stadyum'], ['air horn', 'Korna'], ['drum roll', 'Davul'], ['laughter', 'Kahkaha'], ['cash register', 'Kasa'], ['camera shutter', 'Deklanşör'], ['buzzer', 'Buzzer'], ['explosion sound', 'Patlama'], ['gong', 'Gong'], ['fanfare', 'Fanfar'], ['referee whistle', 'Düdük'], ['boing', 'Boing'], ['swoosh', 'Swoosh'], ['heartbeat', 'Kalp atışı'], ['thunder', 'Gök gürültüsü'], ['kids cheering', 'Çocuk sevinci'], ['typewriter', 'Daktilo'], ['clock ticking', 'Saat']];
+    const OK = /^(public domain|pdm|pdm-owner|cc0|cc-zero)/i;
+    let added = 0; const seenU = new Set();
+    for (const [term, label] of TERMS) {
+      const u = `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=25&gsrsearch=${encodeURIComponent(`${term} filetype:audio`)}&prop=imageinfo&iiprop=url|size|mime|extmetadata|metadata`;
+      const r = await get(u); if (!r) continue;
+      let j; try { j = await r.json(); } catch (_) { continue; }
+      let k = 0;
+      for (const pg of Object.values(j.query?.pages || {})) {
+        const ii = pg.imageinfo?.[0]; if (!ii || !/ogg|opus|mpeg|flac|wav/.test(ii.mime) || seenU.has(ii.url)) continue;
+        const lic2 = ((ii.extmetadata || {}).LicenseShortName?.value || '').trim();
+        if (!OK.test(lic2)) continue;
+        const len = +((ii.metadata || []).find((m) => m.name === 'length')?.value || 0);
+        if (len > 25 || ii.size > 6 * 1048576) continue;
+        seenU.add(ii.url);
+        const tmp = `${TMP}/wm_${added}${path.extname(ii.url) || '.ogg'}`;
+        if (!(await download(ii.url, tmp))) continue;
+        const id = `wm_${(++n).toString(36)}`;
+        const out = `${W}/sfx/${id}.ogg`;
+        try {
+          execSync(`ffmpeg -loglevel error -y -i "${tmp}" -t 15 -ac 1 -ar 48000 -c:a libopus -b:a 64k -af "loudnorm=I=-16:TP=-1.5" "${out}"`);
+          const dur = parseFloat(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 "${out}"`).toString()) || 0;
+          if (dur < 0.2) { fs.unlinkSync(out); continue; }
+          const nm2 = pg.title.replace(/^File:/, '').replace(/\.\w+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+          manifest.push({ id, n: `${label} · ${nm2}`, c: 'Viral & YouTuber', d: +dur.toFixed(2), s: `Wikimedia Commons · ${lic2}` });
+          lic.push(`Wikimedia Commons — ${pg.title} — ${lic2} — https://commons.wikimedia.org/wiki/${encodeURIComponent(pg.title)}`);
+          added++; k++;
+        } catch (_) { /* yoksay */ }
+        if (k >= 4) break;
+      }
+    }
+    report.sfxCommons = added;
+    log('sfx commons', added);
+  }
   fs.writeFileSync(`${W}/sfx/index.json`, JSON.stringify(manifest));
   mk(`${W}/licenses`);
   fs.writeFileSync(`${W}/licenses/sfx.txt`, `Alpicut ses efektleri — tamamı CC0 (kamu malı) kaynaklardan:\n\n${lic.join('\n')}\n`);

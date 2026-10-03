@@ -37,7 +37,7 @@ export async function run({ ev, step, tapEl, tapXY, shot, sleep, R }) {
 
   await step('captions', () => ev(async () => {
     const ai = await import('./js/ai.js'); const t0 = performance.now(); const st = [];
-    const n = await ai.autoCaptions({ lang: 'turkish', size: 'tiny', provider: 'local', onStatus: (t) => st.push(t) });
+    const n = await ai.autoCaptions({ lang: 'turkish', size: 'base', provider: 'local', onStatus: (t) => st.push(t) });
     return { n, ms: Math.round(performance.now() - t0), cues: window.__alpicut.P.subs.cues.slice(0, 6).map((c) => `${c.start.toFixed(1)} ${c.text}`), st: st.slice(-4), mem: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null };
   }, null, 900000));
   await sleep(500); shot('11-captions');

@@ -1205,7 +1205,9 @@ async function reverseClip(c) {
     if (ac) ac.close();
     frames.forEach((f) => f.close && f.close());
     const type = (mime || 'video/webm').split(';')[0];
-    const file = new File(chunks, `${(m.name || 'klip').replace(/\.\w+$/, '')}_ters.${type.includes('mp4') ? 'mp4' : 'webm'}`, { type });
+    let rb = new Blob(chunks, { type });
+    if (type.includes('webm')) { const { fixWebmDuration } = await import('./webmfix.js'); rb = await fixWebmDuration(rb, len * 1000); }
+    const file = new File([rb], `${(m.name || 'klip').replace(/\.\w+$/, '')}_ters.${type.includes('mp4') ? 'mp4' : 'webm'}`, { type });
     const recs = await importFiles([file]);
     if (!recs[0]) throw new Error('Kaydedilemedi');
     c.mediaId = recs[0].id; c.in = 0; c.out = recs[0].duration || len; c.kf = {}; c.reversed = !c.reversed;

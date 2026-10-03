@@ -63,7 +63,7 @@ function asrWorker() {
 }
 
 export const ASR_LANGS = [['auto', 'Otomatik'], ['turkish', 'Türkçe'], ['english', 'İngilizce'], ['german', 'Almanca'], ['spanish', 'İspanyolca'], ['french', 'Fransızca'], ['arabic', 'Arapça'], ['portuguese', 'Portekizce'], ['italian', 'İtalyanca'], ['russian', 'Rusça']];
-export const ASR_SIZES = [['tiny', 'Hızlı (~45 MB)'], ['base', 'Dengeli (~80 MB)'], ['small', 'En doğru (~250 MB)']];
+export const ASR_SIZES = [['base', 'Dengeli · önerilen (~80 MB)'], ['small', 'En doğru (~250 MB, yavaş)'], ['tiny', 'Çok hızlı (düşük doğruluk)']];
 
 function runWhisper(audio, size, language, onMsg) {
   return new Promise((resolve, reject) => {
@@ -130,7 +130,7 @@ export async function autoCaptions({ lang = 'turkish', size, provider, maxWords 
   const P = app.P;
   if (!P) throw new Error('Proje yok');
   provider = provider || lsGet('alpicut.asrProv', hasKey('openai') ? 'openai' : 'local');
-  size = size || lsGet('alpicut.asrSize', (navigator.deviceMemory || 4) <= 4 ? 'tiny' : 'base');
+  size = size || lsGet('alpicut.asrSize2', 'base');
   onStatus('Ses hazırlanıyor…'); onPct(2);
   const mix = await mixProjectAudio({ includeMusic: music });
   if (mix.peak < 0.005) throw new Error('Projede konuşma sesi bulunamadı');
@@ -161,6 +161,18 @@ export async function autoCaptions({ lang = 'turkish', size, provider, maxWords 
         } else if (m.type === 'status' && /çevriliyor/.test(m.text)) onStatus(`Konuşma yazıya dökülüyor… (${done + 1}/${pieces.length})`);
       });
       segment = segment || !!res.segment;
+      // zaman damgası doğrulaması: küçük modeller bazen tüm kelimeleri parçanın sonuna yığar
+      const plen = pc.e - pc.s;
+      const ts = (res.chunks || []).map((c) => c.timestamp?.[0]).filter((x) => x != null);
+      const bad = !res.segment && ts.length > 1 && (Math.max(...ts) > plen + 0.6 || (ts[0] > plen * 0.75 && plen > 3));
+      if (bad) {
+        const all = (res.text || '').trim().split(/\s+/).filter(Boolean);
+        const tot = all.reduce((x, w) => x + w.length + 1, 0) || 1;
+        let acc = pc.s + 0.15; const span = Math.max(0.5, plen - 0.4);
+        all.forEach((w) => { const d = ((w.length + 1) / tot) * span; words.push({ t: w, s: acc, e: acc + d }); acc += d; });
+        done++; onPct(55 + (done / pieces.length) * 37);
+        continue;
+      }
       (res.chunks || []).forEach((c) => {
         const [st0, e0] = c.timestamp || [];
         const text = (c.text || '').trim();
@@ -210,7 +222,7 @@ export async function autoCaptions({ lang = 'turkish', size, provider, maxWords 
 }
 
 export function openAutoCaptions() {
-  const st = { prov: lsGet('alpicut.asrProv', hasKey('openai') ? 'openai' : 'local'), size: lsGet('alpicut.asrSize', (navigator.deviceMemory || 4) <= 4 ? 'tiny' : 'base'), lang: lsGet('alpicut.asrLang', 'turkish'), music: false, maxWords: 4, fix: !!chatProvider(), running: false, log: '', pct: 0 };
+  const st = { prov: lsGet('alpicut.asrProv', hasKey('openai') ? 'openai' : 'local'), size: lsGet('alpicut.asrSize2', 'base'), lang: lsGet('alpicut.asrLang', 'turkish'), music: false, maxWords: 4, fix: !!chatProvider(), running: false, log: '', pct: 0 };
   openSheet({
     id: 'captions', title: 'Otomatik altyazı',
     render: (body) => {
@@ -232,7 +244,7 @@ export function openAutoCaptions() {
         : 'Ses (sadece konuşma, 16 kHz) OpenAI\'ye gönderilir ve kelime zamanlı altyazı döner. Kendi API anahtarınla çalışır. Not: Claude ses dinleyemez; Claude yalnızca yazım düzeltmede kullanılır.' }));
       if (st.prov === 'openai' && !hasKey('openai')) { body.append(h('button', { class: 'btn block primary', html: `${I.key} OpenAI hesabını bağla`, onclick: () => openAccounts('openai') })); return; }
       body.append(h('button', { class: 'btn block primary', html: `${I.ai} Altyazıyı oluştur`, onclick: async () => {
-        lsSet('alpicut.asrSize', st.size); lsSet('alpicut.asrLang', st.lang); lsSet('alpicut.asrProv', st.prov);
+        lsSet('alpicut.asrSize2', st.size); lsSet('alpicut.asrLang', st.lang); lsSet('alpicut.asrProv', st.prov);
         st.running = true; st.log = 'Ses hazırlanıyor…'; st.pct = 2; refreshSheet();
         const panel = curPanel();
         try {

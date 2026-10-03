@@ -228,6 +228,15 @@ await step('timelineEnd', () => pg.evaluate(async () => {
   return { dur: +app.engine.duration().toFixed(2), t: +app.engine.t.toFixed(2), maxScroll: sc.scrollWidth - sc.clientWidth, expected: Math.round(app.engine.duration() * app.pps) };
 }));
 
+await step('export', () => pg.evaluate(async () => {
+  const app = window.__alpicut;
+  app.P.layers = app.P.layers.filter((l) => l.end <= 8);
+  app.commit();
+  const t0 = performance.now();
+  const r = await app.engine.export({ res: 0.4, fps: 30, bitrate: 3e6 });
+  return { size: r?.blob.size, ext: r?.ext, ms: Math.round(performance.now() - t0), dur: app.engine.duration() };
+}));
+
 R.errors = errs.slice(0, 50);
 fs.writeFileSync(`${OUT}/smoke.json`, JSON.stringify(R, null, 1));
 console.log('HATALAR', errs.length, errs.slice(0, 15).join('\n'));

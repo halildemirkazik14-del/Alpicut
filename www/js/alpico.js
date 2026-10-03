@@ -468,7 +468,7 @@ export function openAlpico(prefill) {
       if (chat.busy) list.append(h('div', { class: 'chat-msg bot typing' }, h('span', { class: 'chat-av', html: I.bot }), h('div', { class: 'chat-b' }, h('i'), h('i'), h('i'), chat.status ? h('small', {}, chat.status) : null)));
       const sug = h('div', { class: 'chips scroll chat-sug' });
       SUGGEST.forEach((s) => sug.append(h('button', { onclick: () => send(s) }, s)));
-      const inp = h('textarea', { class: 'chat-in', rows: 1, placeholder: 'Alpi-co\'ya yaz… (ör. "jumpcut yap")' });
+      const inp = h('textarea', { class: 'chat-in', rows: 1, placeholder: 'Alpi-co\'ya yaz…' });
       inp.value = chat.draft || '';
       inp.addEventListener('input', () => { chat.draft = inp.value; inp.style.height = 'auto'; inp.style.height = `${Math.min(110, inp.scrollHeight)}px`; });
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(inp.value); } });

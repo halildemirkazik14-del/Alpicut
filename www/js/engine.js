@@ -328,6 +328,8 @@ export class Engine {
       el.src = m.url;
       el.addEventListener('seeked', () => this.requestDraw());
       el.addEventListener('loadeddata', () => this.requestDraw());
+      // Android WebView: duraklatılmış videoda ilk kare, bir arama yapılana kadar çözülmez (siyah önizleme)
+      el.addEventListener('loadedmetadata', () => { if (el.paused && el.readyState < 2) { try { el.currentTime = Math.max(0.001, el.currentTime || 0); } catch (_) { /* yoksay */ } } this.requestDraw(); });
       this.hidden.appendChild(el);
       this.els.set(item.id, el);
       this._connect(el);
@@ -350,6 +352,7 @@ export class Engine {
     } else {
       if (!el.paused) el.pause();
       if (Math.abs(el.currentTime - srcT) > 0.04) el.currentTime = srcT;
+      else if (el.readyState < 2 && !el.seeking && el.readyState >= 1 && (!el._nudge || performance.now() - el._nudge > 600)) { el._nudge = performance.now(); try { el.currentTime = srcT + 0.001; } catch (_) { /* yoksay */ } }
     }
   }
 
@@ -641,6 +644,8 @@ export class Engine {
     this.pause();
     if (cancelled) return null;
     const type = (mime || 'video/webm').split(';')[0];
-    return { blob: new Blob(chunks, { type }), ext: type.includes('mp4') ? 'mp4' : 'webm' };
+    let blob = new Blob(chunks, { type });
+    if (type.includes('webm')) { try { const { fixWebmDuration } = await import('./webmfix.js'); blob = await fixWebmDuration(blob, d * 1000); } catch (_) { /* yoksay */ } }
+    return { blob, ext: type.includes('mp4') ? 'mp4' : 'webm' };
   }
 }

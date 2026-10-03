@@ -112,6 +112,7 @@ export function openMic() {
       const time = h('div', { class: 'big-pct' }, st.phase === 'rec' ? fmt(rec?.elapsed() || 0) : '00:00.0');
       const btn = h('button', { class: `rec-btn${st.phase === 'rec' ? ' on' : ''}`, 'aria-label': 'Kaydet' });
       body.append(h('div', { class: 'rec-wrap' }, m.el, info, time, btn));
+      if (!rec) info.textContent = 'Mikrofon kapalı — kayda başlayınca açılır';
       body.append(h('p', { class: 'hint', style: { textAlign: 'center' } }, st.phase === 'rec' ? 'Bitirmek için tekrar dokun' : st.phase === 'count' ? 'Sessiz kal… ortam gürültüsü ölçülüyor' : 'Seviye çubuğu konuşurken sarı bölgeye ulaşmalı, kırmızıya değil.'));
       const loopFn = () => {
         if (rec && body.isConnected) {
@@ -124,7 +125,11 @@ export function openMic() {
         }
         raf = requestAnimationFrame(loopFn);
       };
-      startMonitor().then(() => { raf = requestAnimationFrame(loopFn); });
+      raf = requestAnimationFrame(loopFn);
+      if (!rec && st.phase === 'idle') {
+        const tb = h('button', { class: 'btn block', style: { marginTop: '6px' }, html: `${I.mic} Mikrofonu test et (seviyeyi gör)`, onclick: async () => { await startMonitor(); tb.remove(); } });
+        body.append(tb);
+      }
       btn.addEventListener('click', async () => {
         if (st.phase === 'idle' || st.phase === 'error') {
           await startMonitor();
