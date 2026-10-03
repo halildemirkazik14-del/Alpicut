@@ -38,13 +38,15 @@ async function getPipe(size, post) {
 }
 
 self.onmessage = async (ev) => {
-  const { cmd, audio, size, language, wordLevel } = ev.data;
+  const { cmd, audio, size, language, wordLevel, opts: xo = {} } = ev.data;
   const post = (m) => self.postMessage(m);
   if (cmd !== 'run') return;
   try {
     const p = await getPipe(size || 'base', post);
     post({ type: 'status', text: 'Konuşma metne çevriliyor…' });
-    const opts = { chunk_length_s: 30, stride_length_s: 5, task: 'transcribe', return_timestamps: wordLevel ? 'word' : true };
+    const long = audio.length > 16000 * 29;
+    const opts = { task: 'transcribe', return_timestamps: wordLevel ? 'word' : true };
+    if ((long && !xo.nochunk) || xo.chunk) { opts.chunk_length_s = 30; opts.stride_length_s = 5; }
     if (language && language !== 'auto') opts.language = language;
     let out;
     try { out = await p(audio, opts); }

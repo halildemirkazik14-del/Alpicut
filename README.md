@@ -1,6 +1,6 @@
 # Alpicut
 
-Dikey kısa videolar (Shorts / Reels / TikTok) için mor temalı, telefonda çalışan video editörü.
+Dikey kısa videolar (Shorts / Reels / TikTok) için telefonda çalışan, temalı (Obsidyen, Altın, Gümüş, Gece, Beyaz, Yakut, Zümrüt + özel renk) video editörü.
 
 ## Özellikler
 - **Kesme / birleştirme:** klip ekle, kırp, böl, kopyala, sırala, hız ayarı
@@ -42,10 +42,21 @@ Dikey kısa videolar (Shorts / Reels / TikTok) için mor temalı, telefonda çal
 - **Maske (v1.3):** 11 şekil (yıldız, kalp, üçgen, bölmeler…), kliplerde de; çoklu seçim ve gruplama (bileşik katman)
 - **Ses dalgası katmanı, proje şablonları (v1.3):** futbol Shorts, son dakika, yüzsüz podcast, yapay zekâ videosu, vlog, YouTube yatay
 - **Dokunmatik kontroller (v1.3):** –/+ düğmeli büyük kaydırıcılar, değere dokunup yazma, çift dokunuşla sıfırlama; önizlemede iki parmakla yakınlaştırma/kaydırma
+- **Yüzen paneller (v1.4):** aynı anda 3 panel, X ile kapatma, – ile üst çubuğa küçültme, başlıktan sürükleme, köşeden boyutlandırma, çift dokunuşla tam ekran; zaman çizelgesine dokununca onu örten paneller küçülür; önizlemeye dokunmak paneli kapatmaz
+- **Temalar (v1.4):** 7 hazır tema + özel vurgu rengi, yeni logo, premium görünüm
+- **Alpi-co (v1.4):** sohbet asistanı — "jumpcut yap", "altyazı ekle", "hışırtıyı temizle", "Vivaldi ekle", "zoom ekle"… internetsiz komutlarla; Claude/ChatGPT bağlıysa serbest cümlelerle ve araç kullanarak; her değişiklik tek dokunuşla geri alınır; proje kontrolü (self kontrol) ve tek dokunuşla düzeltme
+- **Otomatik kurgu (v1.4):** Claude veya ChatGPT (kendi API anahtarınla) transkripti okuyup jumpcut, hook, zoom, ses efekti, geçiş, müzik, abone butonu ekler
+- **Altyazı (v1.4):** telefonda Whisper (bellek dostu) veya OpenAI Whisper (en doğru); Claude/ChatGPT ile yazım düzeltme
+- **Seslendirme stüdyosu (v1.4):** ElevenLabs tarzı ses kartları; Piper (cihazda), OpenAI (ton/duygu yönergeli), ElevenLabs (Multilingual v2 / v3); satır satır klip
+- **Kayıt stüdyosu (v1.4):** sıkıştırmasız WAV, doğal mod (telefon işlemesi kapalı), giriş kazancı, ortam gürültüsü ölçümü, spektral hışırtı giderme + RNNoise + genişletici, ham/işlenmiş karşılaştırma
+- **Keyframe (v1.4):** 12 eğri (otomatik yumuşak, sinüs, geri esneme, elastik, zıplama, özel bezier düzenleyici), grafik görünümü, tümünü yumuşat
+- **Yeni kaydırıcı (v1.4):** dokunduğun yerde zıplamaz, göreli sürükleme, hassas mod, varsayılana yapışma
+- **Kütüphaneler (v1.4):** 80 efekt (parçacık, ışık, retro, sanat, kamera, ekran…), 62 filtre (sinematik, spor, retro, S/B, portre…), 132 geçiş (kategorili, animasyonlu önizleme), 86 yazı şablonu, 49 sosyal şablon (iPhone ve WhatsApp tarzı sohbet, YouTube kanal kartviziti, X/Instagram profil kartı, yarım ekran yazı, bitiş ekranı, alt bant, haber bandı, oyuncu kartı, VS kartı), 30 viral tarz SFX
+- **Favoriler (v1.4):** her özellikte ☆ — Favorilerim panelinden tek dokunuşla uygula
 - Projeler cihazda otomatik kaydedilir, geri al / yinele
 
 ## Henüz yok (planlanan)
-Nesne takibi (yalnız yüz takibi var), çok kameralı kurgu, video sabitleme, klip içinde iç içe sekans (ana izde).
+Nesne takibi (yalnız yüz takibi var), çok kameralı kurgu, video sabitleme, klip içinde iç içe sekans (ana izde). Claude/ChatGPT abonelik hesabıyla giriş (sağlayıcılar izin vermediği için API anahtarı kullanılır).
 
 ## Lisanslar
 Kod: MIT. Geçişler: gl-transitions (MIT/BSD). Ses efektleri: CC0. Müzik: kamu malı (Wikimedia Commons). Fontlar: SIL OFL. Yapay zekâ modelleri: Whisper (MIT), MediaPipe (Apache 2.0), Piper sesleri (çeşitli açık lisanslar), RNNoise (BSD).

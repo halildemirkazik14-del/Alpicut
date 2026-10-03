@@ -132,6 +132,31 @@ await step('musicHead', async () => pg.evaluate(async () => {
   return { status: r.status, cors: r.headers.get('access-control-allow-origin'), first: m[0].t };
 }));
 
+// Whisper hata ayıklama: farklı ayarlarla aynı ses
+await step('whisperDebug', () => pg.evaluate(async () => {
+  const res = {};
+  const dec = async (u) => { const ab = await (await fetch(u)).arrayBuffer(); const ctx = new OfflineAudioContext(1, 16000, 16000); const b = await ctx.decodeAudioData(ab); return b.getChannelData(0).slice(); };
+  let a1; try { a1 = await dec('labmedia/test.mp4'); } catch (e) { return { err: 'test.mp4 yok' }; }
+  // uzun doğal ses: Piper ile 2 cümle, başına 3 sn sessizlik
+  let a2 = null;
+  try { const T = await import('./vendor/piper/piper-tts-web.js'); const w = await T.predict({ text: 'Bugün harika bir maç izledik. İkinci yarıda kaleci inanılmaz bir kurtarış yaptı ve son dakikada gol geldi.', voiceId: 'tr_TR-dfki-medium' }); const x = await (async () => { const ctx = new OfflineAudioContext(1, 16000, 16000); return (await ctx.decodeAudioData(await w.arrayBuffer())).getChannelData(0); })(); a2 = new Float32Array(16000 * 3 + x.length + 16000 * 2); a2.set(x, 16000 * 3); } catch (e) { res.piperErr = String(e); }
+  const norm = (x) => { let p = 0; for (const v of x) p = Math.max(p, Math.abs(v)); const k = p > 0 ? 0.9 / p : 1; return x.map((v) => v * k); };
+  const run = (audio, size, opts) => new Promise((resolve) => {
+    const w = new Worker('./js/asr-worker.js', { type: 'module' });
+    w.onmessage = (e) => { const m = e.data; if (m.type === 'done') { resolve({ text: m.text, n: (m.chunks || []).length, first: (m.chunks || []).slice(0, 6).map((c) => `${c.text}@${c.timestamp?.[0]?.toFixed?.(2)}-${c.timestamp?.[1]?.toFixed?.(2)}`), seg: m.segment }); w.terminate(); } else if (m.type === 'error') { resolve({ err: m.message }); w.terminate(); } };
+    w.postMessage({ cmd: 'run', audio, size, language: 'turkish', wordLevel: opts.word, opts });
+  });
+  res.peak1 = Math.max(...a1.slice(0, 160000).map(Math.abs));
+  res.len1 = a1.length / 16000;
+  res.tiny_word = await run(a1, 'tiny', { word: true });
+  res.tiny_word_norm = await run(norm(a1), 'tiny', { word: true });
+  res.tiny_word_chunk = await run(norm(a1), 'tiny', { word: true, chunk: true });
+  res.tiny_seg = await run(norm(a1), 'tiny', { word: false });
+  res.base_word = await run(norm(a1), 'base', { word: true });
+  if (a2) { res.len2 = a2.length / 16000; res.p_tiny_word = await run(norm(a2), 'tiny', { word: true }); res.p_tiny_chunk = await run(norm(a2), 'tiny', { word: true, chunk: true }); res.p_base_word = await run(norm(a2), 'base', { word: true }); }
+  return res;
+}));
+
 // uçtan uca: projeye video ekle -> otomatik altyazı (telefondaki yöntem) -> jumpcut -> stüdyo ses
 await step('pipeline', () => pg.evaluate(async () => {
   document.getElementById('newProject').click();
@@ -157,7 +182,7 @@ await step('pipeline', () => pg.evaluate(async () => {
 
 // arayüz: şablon ve geçiş ekranları
 await step('ui', async () => {
-  await pg.click('#newProject'); await pg.waitForTimeout(500);
+  if (await pg.isVisible('#newProject')) { await pg.click('#newProject'); await pg.waitForTimeout(500); }
   await pg.click('#toolbar .tool:has-text("Yapay zekâ")'); await pg.waitForTimeout(500);
   await pg.screenshot({ path: `${OUT}/ui_ai.png` });
   await pg.click('#sheetClose'); await pg.waitForTimeout(300);

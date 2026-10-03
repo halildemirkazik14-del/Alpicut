@@ -347,7 +347,7 @@ function parseLocal(text) {
   else if (/(begen|like)/.test(t) && /(buton|ekle)/.test(t)) cmds.push(['add_cta', { kind: 'like' }]);
   if (/(baslik|yazi|hook)/.test(t) && /(ekle|koy|yaz)/.test(t)) cmds.push(['add_text', { text: quoted || (/hook/.test(t) ? 'BUNU KİMSE *BEKLEMİYORDU*' : 'YAZI'), position: /alt/.test(t) ? 'bottom' : /orta/.test(t) ? 'center' : 'top', style: /hook/.test(t) ? 'hook' : undefined }]);
   const fx = t.match(/(whoosh|vuus|boom|bum|ding|pop|riser|alkis|kalabalik|para|kasa|kamera|glitch|davul|bas)/);
-  if (fx && /(efekt|sfx|ses|ekle)/.test(t)) cmds.push(['add_sfx', { query: { vuus: 'whoosh', bum: 'boom', kasa: 'para', alkis: 'alkış', kalabalik: 'kalabalık' }[fx[1]] || fx[1] }]);
+  if (fx && /(efekt|sfx|\bses)/.test(t) && !/gecis/.test(t)) cmds.push(['add_sfx', { query: { vuus: 'whoosh', bum: 'boom', kasa: 'para', alkis: 'alkış', kalabalik: 'kalabalık' }[fx[1]] || fx[1] }]);
   const fl = FILTER_PRESETS.find((f) => t.includes(norm(f[1])) && f[0] !== 'none');
   if (fl && /(filtre|renk|uygula|yap)/.test(t)) cmds.push(['apply_filter', { preset: fl[0] }]);
   const sp = num(/(\d+[.,]?\d*) ?x/);
@@ -396,8 +396,11 @@ async function send(text) {
       chat.msgs.push({ role: 'bot', text: reply || 'Tamam.', steps, before: app.snap !== before ? before : null });
     } else {
       const cmds = parseLocal(text);
-      if (/(yardim|neler yapabilirsin|ne yapabilirsin|nasil kullan)/.test(norm(text)) || !cmds.length) {
-        chat.msgs.push({ role: 'bot', text: cmds.length ? '' : helpText() });
+      const faq = FAQ.find(([re]) => re.test(norm(text)));
+      if (faq && (!cmds.length || /nasil|nerede|ne ise|nedir/.test(norm(text)))) {
+        chat.msgs.push({ role: 'bot', text: faq[1] });
+      } else if (/(yardim|neler yapabilirsin|ne yapabilirsin|nasil kullan)/.test(norm(text)) || !cmds.length) {
+        chat.msgs.push({ role: 'bot', text: helpText() });
       } else {
         const lines = [];
         for (const [n, a] of cmds) {
@@ -416,6 +419,19 @@ async function send(text) {
   chat.busy = false; chat.status = '';
   refreshChat();
 }
+
+const FAQ = [
+  [/chroma|yesil perde|green/, 'Chroma key: videoya dokun → alttaki araçlardan "Chroma" → "Önizlemeden renk seç"e dokun ve görüntüde silinecek yeşile dokun. Tolerans ve kenar yumuşatmayı kaydırıcılarla ayarla.'],
+  [/arka ?plan/, 'Arka plan silme: Yapay zekâ → "Arka plan sil". Seçili klip yoksa oynatıcının üzerindeki klip otomatik seçilir. "Arka planı sil"i aç; yerine bulanık, renk veya saydam seçebilirsin. Kişiyi başka bir videonun üstüne koymak için onu Düzen → "Katman ekle" ile ekle.'],
+  [/gecis.*(nasil|nerede)|(nasil|nerede).*gecis/, 'Geçiş: zaman çizelgesinde iki klip arasındaki + noktasına dokun veya Efekt → Geçişler. En az 2 klip gerekir; tek klibin varsa oynatıcıyı ortaya getirip "Böl" de.'],
+  [/panel|pencere|kapat|kucult/, 'Paneller: sağ üstteki X kapatır, – küçültür (önizlemenin üstünde çip olur, dokununca geri gelir). Başlıktan sürükleyerek taşırsın, alttaki panelde başlığı yukarı/aşağı çekerek boyunu ayarlarsın. Aynı anda 3 panel açık kalabilir; zaman çizelgesine dokununca onu örten paneller küçülür.'],
+  [/keyframe|animasyon egri|egri/, 'Keyframe: öğeye dokun → Keyframe. ◆ ile işaret koy, başka zamana gidip değeri değiştir. Altta hareket eğrisini seç (Otomatik yumuşak, Elastik, Özel eğri…). "Tümünü otomatik yumuşat" tüm hareketleri pürüzsüzleştirir.'],
+  [/tema|renk degis|gold|altin|beyaz arayuz/, 'Tema: ana ekrandaki palet simgesi veya Düzen → Tema. Obsidyen, Altın, Gümüş, Gece, Beyaz, Yakut, Zümrüt ve istediğin vurgu rengi var.'],
+  [/favori/, 'Favoriler: efekt, filtre, geçiş, şablon, ses, müzik ve fontlarda ☆ simgesine dokun. Hepsi alttaki "Favoriler" düğmesinde toplanır.'],
+  [/disa aktar|kaydet|export|indir/, 'Dışa aktarma: sağ üstteki "Dışa Aktar". 1080p/720p, 30/60 fps veya dosya boyutu sınırı seçebilirsin. Video Galeri/Alpicut klasörüne kaydedilir.'],
+  [/kayit|mikrofon|ses kaydi/, 'Kayıt: Ses → Kayıt stüdyosu. "Doğal stüdyo" modunu kullan, geri sayımda sessiz kal (ortam gürültüsü ölçülür). Kayıttan sonra ham/işlenmiş hâlini dinleyip ekle.'],
+  [/seslendir|metinden ses|eleven/, 'Seslendirme: Ses → Seslendirme. Cihazda (ücretsiz), OpenAI veya ElevenLabs motorunu seç, sesi dinle, metni yaz ve oluştur.'],
+];
 
 function helpText() {
   return `Merhaba, ben Alpi-co 👋 Videonu birlikte düzenleyelim. Bana şunları yazabilirsin:
@@ -464,11 +480,12 @@ export function openAlpico(prefill) {
   });
 }
 
+const STEP_NAMES = { project_info: 'Proje incelendi', get_transcript: 'Konuşma okundu', jumpcut: 'Jumpcut', auto_captions: 'Altyazı', add_text: 'Yazı', add_cta: 'Buton', add_music: 'Müzik', add_sfx: 'Ses efekti', zoom: 'Zoom', add_transitions: 'Geçiş', set_ratio: 'Oran', apply_filter: 'Filtre', set_speed: 'Hız', set_volume: 'Ses seviyesi', denoise: 'Ses temizliği', duck_music: 'Müzik kısma', delete_range: 'Kesim', add_effect: 'Efekt', check_project: 'Kontrol', seek: 'Git' };
 function bubble(m) {
   const b = h('div', { class: `chat-b${m.err ? ' err' : ''}` }, m.text);
   if (m.steps?.length) {
     const st = h('div', { class: 'chat-steps' });
-    m.steps.forEach((s) => st.append(h('span', { class: s.r?.ok === false ? 'bad' : '' }, `${s.r?.ok === false ? '✗' : '✓'} ${s.name}`)));
+    m.steps.forEach((s) => st.append(h('span', { class: s.r?.ok === false ? 'bad' : '' }, `${s.r?.ok === false ? '✗' : '✓'} ${STEP_NAMES[s.name] || s.name}`)));
     b.append(st);
   }
   if (m.before) {
