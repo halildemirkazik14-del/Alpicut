@@ -1,0 +1,7 @@
+{
+  "appId": "com.alpicut.app",
+  "appName": "Alpicut",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "backgroundColor": "#0E0A17" }
+}

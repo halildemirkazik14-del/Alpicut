@@ -1,0 +1,41 @@
+// Arayüz ikonları (çizgi stili, 24x24)
+const s = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+
+export const I = {
+  media: s('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/>'),
+  layer: s('<path d="M12 3 3 8l9 5 9-5z"/><path d="m3 13 9 5 9-5"/>'),
+  text: s('<path d="M5 6V4.5h14V6M12 4.5v15M9 19.5h6"/>'),
+  template: s('<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><path d="M17 14v6M14 17h6"/>'),
+  subtitle: s('<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M6 12.5h4M12 12.5h6M6 15.5h7M15 15.5h3"/>'),
+  audio: s('<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>'),
+  cta: s('<rect x="2.5" y="7" width="19" height="10" rx="5"/><path d="M7 12h1M11 12h6"/>'),
+  score: s('<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M12 6v12M8 10.5v3M15 10.5h2.5v3H15"/>'),
+  fx: s('<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3"/>'),
+  ratio: s('<rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M9 6h2M9 6v2M15 18h-2M15 18v-2"/>'),
+  split: s('<path d="M12 3v18"/><path d="m7 8-3 4 3 4M17 8l3 4-3 4"/>'),
+  copy: s('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'),
+  trash: s('<path d="M4 7h16M10 11v6M14 11v6M5.5 7l1 13h11l1-13M9 7V4h6v3"/>'),
+  left: s('<path d="m14 6-6 6 6 6"/>'),
+  right: s('<path d="m10 6 6 6-6 6"/>'),
+  up: s('<path d="m6 14 6-6 6 6"/>'),
+  down: s('<path d="m6 10 6 6 6-6"/>'),
+  play: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor"/></svg>',
+  undo: s('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
+  redo: s('<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>'),
+  back: s('<path d="M15 5l-7 7 7 7"/>'),
+  export: s('<path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>'),
+  plus: s('<path d="M12 5v14M5 12h14"/>'),
+  check: s('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
+  close: s('<path d="M6 6l12 12M18 6 6 18"/>'),
+  zoomIn: s('<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M11 8v6M8 11h6"/>'),
+  zoomOut: s('<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M8 11h6"/>'),
+  more: s('<circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/>'),
+  edit: s('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'),
+  anim: s('<circle cx="15" cy="12" r="5"/><path d="M3 9h5M2 12h5M3 15h5"/>'),
+  front: s('<rect x="8" y="8" width="12" height="12" rx="2" fill="currentColor" fill-opacity=".25"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/>'),
+  backL: s('<rect x="4" y="4" width="12" height="12" rx="2" fill="currentColor" fill-opacity=".25"/><path d="M20 8v11a1 1 0 0 1-1 1H8"/>'),
+  upload: s('<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'),
+};
+
+export const LOGO = `<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A855F7"/><stop offset="1" stop-color="#6D28D9"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="url(#lg)"/><path d="M14 36 24 11l10 25" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 27.5 36 21" stroke="#F0ABFC" stroke-width="3.6" stroke-linecap="round"/></svg>`;

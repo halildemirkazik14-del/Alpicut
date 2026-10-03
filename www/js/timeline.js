@@ -1,0 +1,264 @@
+// Alpicut — zaman çizelgesi
+import { app, $, h, fmt, clone } from './state.js';
+import { layoutClips } from './engine.js';
+import { I } from './icons.js';
+
+let drag = null;
+let touching = false;
+
+const KIND_ICON = { text: I.text, media: I.layer, cta: I.cta, score: I.score };
+
+function half() { return $('tlScroll').clientWidth / 2; }
+
+function itemLabel(l) {
+  if (l.kind === 'text') return (l.text || '').split('\n')[0].replace(/\*/g, '') || 'Yazı';
+  if (l.kind === 'cta') return l.label || 'CTA';
+  if (l.kind === 'score') return `${l.teamA} ${l.scoreA}-${l.scoreB} ${l.teamB}`;
+  if (l.kind === 'media') return app.engine.media.get(l.mediaId)?.name || 'Katman';
+  return '';
+}
+
+export function renderTimeline() {
+  const { P, pps, engine } = app;
+  if (!P) return;
+  const scroll = $('tlScroll'), inner = $('tlInner');
+  const H = half();
+  const dur = engine.duration();
+  const width = H * 2 + Math.max(dur, 1) * pps + 80;
+  inner.style.width = `${width}px`;
+  inner.textContent = '';
+  const sel = app.sel;
+
+  // cetvel
+  const ruler = h('div', { class: 'ruler' });
+  const step = pps >= 120 ? 0.5 : pps >= 50 ? 1 : pps >= 25 ? 2 : 5;
+  const lblEvery = pps >= 120 ? 1 : pps >= 50 ? 2 : pps >= 25 ? 4 : 10;
+  for (let t = 0; t <= dur + 1; t += step) {
+    const major = Math.abs(t / lblEvery - Math.round(t / lblEvery)) < 1e-6;
+    ruler.append(h('div', { class: `tick${major ? ' major' : ''}`, style: { left: `${H + t * pps}px` } }));
+    if (major) ruler.append(h('div', { class: 'lbl', style: { left: `${H + t * pps}px` } }, fmt(t, false)));
+  }
+  inner.append(ruler);
+
+  // ana video izi
+  const vrow = h('div', { class: 'row video' });
+  const lay = layoutClips(P.clips);
+  lay.forEach((L, i) => {
+    const c = L.clip;
+    const m = engine.media.get(c.mediaId);
+    const isSel = sel?.type === 'clip' && sel.id === c.id;
+    const it = h('div', {
+      class: `item clip${isSel ? ' sel' : ''}`,
+      'data-type': 'clip', 'data-id': c.id,
+      style: { left: `${H + L.start * pps}px`, width: `${Math.max(8, L.len * pps - 2)}px`, backgroundImage: m?.thumb ? `url(${m.thumb})` : '' },
+    },
+    h('span', { class: 'nm' }, `${c.type === 'image' ? '🖼 ' : ''}${L.len.toFixed(1)}s`),
+    h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' }));
+    vrow.append(it);
+    if (i > 0) {
+      const on = c.trans && c.trans.type !== 'none';
+      vrow.append(h('button', {
+        class: `trans-dot${on ? ' on' : ''}`, 'data-trans': c.id,
+        style: { left: `${H + (L.start + L.td / 2) * pps}px` }, html: on ? I.split : I.plus, 'aria-label': 'Geçiş',
+      }));
+    }
+  });
+  const lastEnd = lay.length ? lay[lay.length - 1].end : 0;
+  vrow.append(h('button', { class: 'add-clip', 'data-add': 'clip', style: { left: `${H + lastEnd * pps + 8}px` }, html: I.plus, 'aria-label': 'Medya ekle' }));
+  inner.append(vrow);
+
+  // katmanlar (üstteki önce)
+  [...P.layers].reverse().forEach((l) => {
+    const row = h('div', { class: 'row' });
+    const isSel = sel?.type === 'layer' && sel.id === l.id;
+    const m = l.kind === 'media' ? engine.media.get(l.mediaId) : null;
+    row.append(h('div', {
+      class: `item k-${l.kind}${isSel ? ' sel' : ''}`, 'data-type': 'layer', 'data-id': l.id,
+      style: { left: `${H + l.start * pps}px`, width: `${Math.max(8, (l.end - l.start) * pps - 2)}px`, backgroundImage: m?.thumb ? `url(${m.thumb})` : '' },
+    }, h('span', { class: 'nm', html: `${KIND_ICON[l.kind] || ''}` }, itemLabel(l)),
+    h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' })));
+    inner.append(row);
+  });
+
+  // altyazı
+  if (P.subs?.cues?.length) {
+    const row = h('div', { class: 'row' });
+    const off = P.subs.offset || 0;
+    P.subs.cues.forEach((c, i) => {
+      row.append(h('div', {
+        class: `item k-sub${sel?.type === 'subs' ? ' selsub' : ''}`, 'data-type': 'subs', 'data-cue': i,
+        style: { left: `${H + (c.start + off) * pps}px`, width: `${Math.max(4, (c.end - c.start) * pps - 1)}px` },
+      }, h('span', { class: 'nm' }, c.text.replace(/\n/g, ' '))));
+    });
+    inner.append(row);
+  }
+
+  // ses izleri
+  P.audio.forEach((a) => {
+    const row = h('div', { class: 'row' });
+    const isSel = sel?.type === 'audio' && sel.id === a.id;
+    row.append(h('div', {
+      class: `item k-audio${isSel ? ' sel' : ''}`, 'data-type': 'audio', 'data-id': a.id,
+      style: { left: `${H + a.start * pps}px`, width: `${Math.max(8, (a.out - a.in) * pps - 2)}px` },
+    }, h('div', { class: 'wave' }), h('span', { class: 'nm', html: I.audio }, engine.media.get(a.mediaId)?.name || 'Ses'),
+    h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' })));
+    inner.append(row);
+  });
+
+  syncScroll(engine.t, true);
+}
+
+export function syncScroll(t, force = false) {
+  const sc = $('tlScroll');
+  if (drag) return;
+  if (!force && touching) return;
+  const x = Math.round(t * app.pps);
+  if (Math.abs(sc.scrollLeft - x) >= 1) sc.scrollLeft = x;
+}
+
+function findItem(type, id) {
+  const P = app.P;
+  if (type === 'clip') return P.clips.find((c) => c.id === id);
+  if (type === 'layer') return P.layers.find((c) => c.id === id);
+  if (type === 'audio') return P.audio.find((c) => c.id === id);
+  return null;
+}
+
+function snapT(t) {
+  const pt = app.engine.t;
+  if (Math.abs(t - pt) * app.pps < 10) return pt;
+  return t;
+}
+
+export function bindTimeline() {
+  const sc = $('tlScroll'), inner = $('tlInner');
+
+  sc.addEventListener('scroll', () => {
+    if (drag) return;
+    const t = sc.scrollLeft / app.pps;
+    const E = app.engine;
+    if (E.playing) {
+      if (!touching) return;
+      app.pause();
+    }
+    if (Math.abs(t - E.t) * app.pps < 0.5) return;
+    E.seek(t);
+    app.updateTime();
+  }, { passive: true });
+
+  sc.addEventListener('touchstart', (e) => {
+    touching = true;
+    if (e.touches.length === 2) {
+      const [a, b] = e.touches;
+      pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), pps: app.pps };
+    }
+  }, { passive: true });
+  let pinch = null;
+  sc.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && pinch) {
+      e.preventDefault();
+      const [a, b] = e.touches;
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      setZoom(pinch.pps * (d / pinch.d));
+    }
+  }, { passive: false });
+  const end = (e) => { if (!e.touches || e.touches.length === 0) { touching = false; pinch = null; } };
+  sc.addEventListener('touchend', end, { passive: true });
+  sc.addEventListener('touchcancel', end, { passive: true });
+  sc.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') touching = true; });
+  window.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') touching = false; });
+
+  inner.addEventListener('click', (e) => {
+    if (e.target.closest('[data-add]')) { app.addMedia('clip'); return; }
+    const td = e.target.closest('[data-trans]');
+    if (td) { app.select({ type: 'clip', id: td.dataset.trans }, 'Geçiş'); return; }
+    const it = e.target.closest('.item');
+    if (!it) { if (e.target === inner || e.target.classList.contains('row')) app.deselect(); return; }
+    if (it._dragged) { it._dragged = false; return; }
+    if (it.dataset.type === 'subs') {
+      const cue = app.P.subs.cues[+it.dataset.cue];
+      app.select({ type: 'subs', id: 'subs' }, 'Satırlar', { cue: +it.dataset.cue });
+      if (cue) { app.engine.seek(cue.start + (app.P.subs.offset || 0) + 0.01); app.updateTime(); syncScroll(app.engine.t, true); }
+      return;
+    }
+    const s = { type: it.dataset.type, id: it.dataset.id };
+    if (app.sel?.type === s.type && app.sel?.id === s.id) app.openInspector();
+    else app.select(s);
+  });
+
+  inner.addEventListener('pointerdown', (e) => {
+    const it = e.target.closest('.item.sel');
+    if (!it) return;
+    const type = it.dataset.type, id = it.dataset.id;
+    const obj = findItem(type, id);
+    if (!obj) return;
+    const hd = e.target.closest('[data-h]');
+    const mode = hd ? hd.dataset.h : 'move';
+    if (type === 'clip' && mode === 'move') return;
+    e.preventDefault();
+    try { it.setPointerCapture(e.pointerId); } catch (_) { /* yoksay */ }
+    if (app.engine.playing) app.pause();
+    drag = { it, type, obj, mode, x0: e.clientX, o: clone(obj), moved: false, left0: parseFloat(it.style.left), w0: parseFloat(it.style.width) };
+  });
+
+  inner.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const { obj, o, type, mode, it } = drag;
+    const dx = e.clientX - drag.x0;
+    if (!drag.moved && Math.abs(dx) < 4) return;
+    drag.moved = true;
+    const dt = dx / app.pps;
+    const pps = app.pps;
+    const mdur = (mid) => app.engine.media.get(mid)?.duration || 9999;
+    if (type === 'clip') {
+      const sp = o.speed || 1;
+      if (o.type === 'image') {
+        obj.dur = Math.max(0.3, mode === 'l' ? o.dur - dt : o.dur + dt);
+      } else if (mode === 'l') {
+        obj.in = Math.min(Math.max(0, o.in + dt * sp), o.out - 0.2);
+      } else {
+        obj.out = Math.max(Math.min(mdur(o.mediaId), o.out + dt * sp), o.in + 0.2);
+      }
+      const len = o.type === 'image' ? obj.dur : (obj.out - obj.in) / sp;
+      it.style.width = `${Math.max(8, len * pps - 2)}px`;
+      if (mode === 'l') it.style.left = `${drag.left0 + drag.w0 - Math.max(8, len * pps - 2)}px`;
+    } else if (type === 'layer') {
+      const len = o.end - o.start;
+      if (mode === 'move') { obj.start = Math.max(0, snapT(o.start + dt)); obj.end = obj.start + len; }
+      else if (mode === 'l') obj.start = Math.min(Math.max(0, snapT(o.start + dt)), o.end - 0.2);
+      else obj.end = Math.max(o.start + 0.2, snapT(o.end + dt));
+      it.style.left = `${half() + obj.start * pps}px`;
+      it.style.width = `${Math.max(8, (obj.end - obj.start) * pps - 2)}px`;
+    } else if (type === 'audio') {
+      const len = o.out - o.in;
+      if (mode === 'move') obj.start = Math.max(0, snapT(o.start + dt));
+      else if (mode === 'l') {
+        let d = Math.min(Math.max(dt, -o.in), len - 0.2);
+        if (o.start + d < 0) d = -o.start;
+        obj.start = o.start + d; obj.in = o.in + d;
+      } else obj.out = Math.max(o.in + 0.2, Math.min(mdur(o.mediaId), o.out + dt));
+      it.style.left = `${half() + obj.start * pps}px`;
+      it.style.width = `${Math.max(8, (obj.out - obj.in) * pps - 2)}px`;
+    }
+    app.engine.sync(app.engine.t);
+    app.engine.requestDraw();
+  });
+
+  const up = () => {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    if (d.moved) {
+      d.it._dragged = true;
+      setTimeout(() => { d.it._dragged = false; }, 50);
+      app.commit();
+    }
+  };
+  inner.addEventListener('pointerup', up);
+  inner.addEventListener('pointercancel', up);
+}
+
+export function setZoom(pps) {
+  app.pps = Math.max(8, Math.min(400, pps));
+  renderTimeline();
+}
