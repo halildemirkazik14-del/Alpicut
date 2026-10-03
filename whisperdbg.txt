@@ -1,0 +1,147 @@
+{
+ "a1": {
+  "len": 13,
+  "peak": 0.9502478241920471
+ },
+ "a2": {
+  "len": 11.849875
+ },
+ "t1_word": {
+  "text": " Merhaba arkadaşlar.",
+  "seg": false,
+  "chunks": [
+   " Merhaba@13.38-13.42",
+   " arkadaşlar.@13.42-13.46"
+  ]
+ },
+ "t1_seg": {
+  "text": " Merhaba arkadaşlar.",
+  "seg": true,
+  "chunks": [
+   " Merhaba arkadaşlar.@0-2"
+  ]
+ },
+ "t1_word_chunk": {
+  "text": " Merhaba arkadaşlar.",
+  "seg": false,
+  "chunks": [
+   " Merhaba@13.38-13.42",
+   " arkadaşlar.@13.42-13.46"
+  ]
+ },
+ "b1_word": {
+  "text": " Mühabah akatashlar. Bugün çok güzel bir maciz edik. İkinci yaratan hâri kâbi dol kalgi. Videoyu beğenmeyi beğenmeyi. Alma yöntüm ayağın.",
+  "seg": false,
+  "chunks": [
+   " Mühabah@0.12-1.08",
+   " akatashlar.@1.08-1.74",
+   " Bugün@2.34-2.76",
+   " çok@2.76-3.16",
+   " güzel@3.16-3.48",
+   " bir@3.48-3.8",
+   " maciz@3.8-4.34",
+   " edik.@4.34-4.6",
+   " İkinci@5.06-5.62",
+   " yaratan@5.62-6.28",
+   " hâri@6.28-6.48",
+   " kâbi@6.48-7.1",
+   " dol@7.1-7.32",
+   " kalgi.@7.32-7.82",
+   " Videoyu@8.28-8.94",
+   " beğenmeyi@8.94-9.64",
+   " beğenmeyi.@9.64-9.66",
+   " Alma@10.2-10.52",
+   " yöntüm@10.52-11.02",
+   " ayağın.@11.02-11.32"
+  ]
+ },
+ "b1_seg": {
+  "text": " Mühabah akatashlar. Bugün çok güzel bir maciz edik. İkinci yaratan hâri kâbi dol kalgi. Videoyu beğenmeyi beğenmeyi. Alma yöntüm ayağın.",
+  "seg": true,
+  "chunks": [
+   " Mühabah akatashlar.@0-1.74",
+   " Bugün çok güzel bir maciz edik.@1.74-4.6",
+   " İkinci yaratan hâri kâbi dol kalgi.@4.6-7.82",
+   " Videoyu beğenmeyi beğenmeyi.@7.82-9.82",
+   " Alma yöntüm ayağın.@9.82-11.32"
+  ]
+ },
+ "t2_word": {
+  "text": " 2. Yeride kaleneceğini nasıl bir kurtarış yaptığı ve son dakika da gol geldi.",
+  "seg": false,
+  "chunks": [
+   " 2.@5.22-5.68",
+   " Yeride@5.68-6.18",
+   " kaleneceğini@6.18-6.94",
+   " nasıl@6.94-7.1",
+   " bir@7.1-7.48",
+   " kurtarış@7.48-8.04",
+   " yaptığı@8.04-8.32",
+   " ve@8.32-8.5",
+   " son@8.5-8.84",
+   " dakika@8.84-9.16",
+   " da@9.16-9.36",
+   " gol@9.36-9.7",
+   " geldi.@9.7-10"
+  ]
+ },
+ "t2_seg": {
+  "text": " 2. Yeride kaleneceğini nasıl bir kurtarış yaptığı ve son dakika da gol geldi.",
+  "seg": true,
+  "chunks": [
+   " 2. Yeride kaleneceğini nasıl bir kurtarış yaptığı ve son dakika da gol geldi.@0-10"
+  ]
+ },
+ "b2_word": {
+  "text": " Bugün Harika bir maç izledik. İkinci yarıda kaleci inanılmaz bir kurtarı şaptı ve son dakikada gol geldi.",
+  "seg": false,
+  "chunks": [
+   " Bugün@3.3-3.58",
+   " Harika@3.58-4",
+   " bir@4-4.22",
+   " maç@4.22-4.62",
+   " izledik.@4.62-5",
+   " İkinci@5.22-5.64",
+   " yarıda@5.64-5.94",
+   " kaleci@5.94-6.46",
+   " inanılmaz@6.46-7.02",
+   " bir@7.02-7.34",
+   " kurtarı@7.34-7.72",
+   " şaptı@7.72-8.12",
+   " ve@8.12-8.36",
+   " son@8.36-8.72",
+   " dakikada@8.72-9.2",
+   " gol@9.2-9.56",
+   " geldi.@9.56-10"
+  ]
+ },
+ "pipe_tiny": {
+  "n": 2,
+  "cues": [
+   "13.38-13.63 Merhaba",
+   "13.42-13.67 arkadaşlar."
+  ],
+  "st": [
+   "Model indiriliyor (ilk sefer)… 41 / 42 MB",
+   "Model indiriliyor (ilk sefer)… 42 / 42 MB",
+   "Konuşma yazıya dökülüyor… (1/1)"
+  ]
+ },
+ "pipe_base": {
+  "n": 7,
+  "cues": [
+   "0.12-1.74 Mühabah akatashlar.",
+   "2.34-3.80 Bugün çok güzel bir",
+   "3.80-4.60 maciz edik.",
+   "5.06-7.10 İkinci yaratan hâri kâbi",
+   "7.10-7.82 dol kalgi.",
+   "8.28-9.66 Videoyu beğenmeyi beğenmeyi.",
+   "10.20-11.32 Alma yöntüm ayağın."
+  ],
+  "st": [
+   "Model indiriliyor (ilk sefer)… 76 / 76 MB",
+   "Model indiriliyor (ilk sefer)… 76 / 76 MB",
+   "Konuşma yazıya dökülüyor… (1/1)"
+  ]
+ }
+}
