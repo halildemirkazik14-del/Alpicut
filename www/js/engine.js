@@ -2,6 +2,7 @@
 import { RATIOS } from './presets.js';
 import { drawClip, drawTransition, drawLayer, drawSubtitles, drawFx, clamp } from './render.js';
 import { applyLayerFx } from './fxlib.js';
+import { transGL } from './gltrans.js';
 import { hasKeys, propAt } from './kf.js';
 
 export function clipLen(c) {
@@ -35,6 +36,13 @@ export function projectDuration(P) {
   return Math.max(d, 0.1);
 }
 
+// grup katmanlarının çocuklarıyla birlikte düz liste
+export function flatLayers(P) {
+  const out = [];
+  (P.layers || []).forEach((l) => { out.push(l); if (l.kind === 'group') (l.children || []).forEach((c) => out.push(c)); });
+  return out;
+}
+
 export class Engine {
   constructor(canvas) {
     this.canvas = canvas;
@@ -64,7 +72,7 @@ export class Engine {
 
   setProject(P) {
     this.P = P;
-    const ids = new Set([...P.clips.map((c) => c.id), ...P.layers.map((l) => l.id), ...P.audio.map((a) => a.id)]);
+    const ids = new Set([...P.clips.map((c) => c.id), ...flatLayers(P).map((l) => l.id), ...P.audio.map((a) => a.id)]);
     for (const [id, el] of this.els) {
       if (!ids.has(id)) { try { el.pause(); } catch (_) { /* yoksay */ } }
     }
@@ -294,7 +302,7 @@ export class Engine {
       this._syncEl(el, active, c.in + local * (c.speed || 1), c.speed || 1, vol, c, 'voice');
       if (!active && t < L.start && L.start - t < 1.5) this._prepare(el, c.in);
     });
-    P.layers.forEach((l) => {
+    flatLayers(P).forEach((l) => {
       if (l.kind !== 'media') return;
       const el = this.elFor(l);
       if (!el || el.tagName === 'IMG') return;
@@ -321,7 +329,15 @@ export class Engine {
   }
 
   // ---------- çizim ----------
-  env() { return { W: this.W, H: this.H, S: this.scale, exporting: this.exporting }; }
+  env() { return { W: this.W, H: this.H, S: this.scale, exporting: this.exporting, img: (id) => this.imgForMedia(id), seg: this.seg, elFor: (it) => this.elFor(it) }; }
+
+  imgForMedia(id) {
+    const m = this.media.get(id);
+    if (!m || m.kind !== 'image') return null;
+    let img = this.imgs.get(id);
+    if (!img) { img = new Image(); img.onload = () => this.requestDraw(); img.src = m.url; this.imgs.set(id, img); }
+    return img;
+  }
 
   draw(t = this.t) {
     const P = this.P;
@@ -343,7 +359,10 @@ export class Engine {
     if (act.length >= 2) {
       const a = act[act.length - 2], b = act[act.length - 1];
       const p = clamp((t - b.start) / Math.max(0.01, b.td));
-      drawTransition(ctx, b.clip.trans.type, p, dc(a), dc(b), env);
+      const type = b.clip.trans.type;
+      let done = false;
+      if (type.startsWith('gl:')) done = this._glTransition(type.slice(3), a, b, p, t, env);
+      if (!done) drawTransition(ctx, type.startsWith('gl:') ? 'fade' : type, p, dc(a), dc(b), env);
     } else if (act.length === 1) dc(act[0])();
 
     this.boxes.clear();
@@ -358,6 +377,33 @@ export class Engine {
     drawFx(ctx, P.fx, t, this.duration(), env);
 
     if (!this.exporting) this._drawSelection(ctx, t);
+  }
+
+  // gl-transitions: iki klibi ayrı tuvallere çiz, shader ile birleştir
+  _glTransition(raw, a, b, p, t, env) {
+    const T = transGL();
+    if (!T) return false;
+    const cw = this.canvas.width, ch = this.canvas.height;
+    const off = (i) => {
+      this._offs = this._offs || [];
+      let c = this._offs[i];
+      if (!c) { c = document.createElement('canvas'); this._offs[i] = c; }
+      if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; }
+      const x = c.getContext('2d');
+      x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.filter = 'none'; x.globalCompositeOperation = 'source-over';
+      x.fillStyle = this.P.fx?.bg || '#000'; x.fillRect(0, 0, cw, ch);
+      x.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+      return x;
+    };
+    const A = off(0), B = off(1);
+    drawClip(A, a.clip, this.elFor(a.clip), t - a.start, a.len, env);
+    drawClip(B, b.clip, this.elFor(b.clip), t - b.start, b.len, env);
+    const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    const out = T.render(raw, A.canvas, B.canvas, e, cw, ch);
+    if (!out) return false;
+    const ctx = this.ctx;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(out, 0, 0); ctx.restore();
+    return true;
   }
 
   _drawSelection(ctx, t) {

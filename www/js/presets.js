@@ -21,15 +21,23 @@ export const ANIM_IN = [
   ['none', 'Yok'], ['fade', 'Belir'], ['pop', 'Pop'], ['slideUp', 'Aşağıdan gel'], ['slideDown', 'Yukarıdan gel'],
   ['slideLeft', 'Sağdan gel'], ['slideRight', 'Soldan gel'], ['zoomIn', 'Büyüyerek'], ['zoomOut', 'Küçülerek'],
   ['spin', 'Dönerek'], ['bounce', 'Zıplayarak'], ['blur', 'Bulanıktan'], ['typewriter', 'Daktilo'], ['words', 'Kelime kelime'],
+  ['stamp', 'Damga'], ['elastic', 'Elastik'], ['swingIn', 'Sallanarak'], ['flipX', 'Dikey çevir'], ['flipY', 'Yatay çevir'],
+  ['zoomBlur', 'Zoom bulanık'], ['rollIn', 'Yuvarlanarak'], ['glitchWhole', 'Glitch'], ['slideUpMask', 'Alttan kay (kısa)'],
+  ['letters', 'Harf harf'], ['wave', 'Harf dalga'], ['drop', 'Harf düşme'], ['scatter', 'Harf dağınık'], ['flip', 'Harf çevirme'],
+  ['swing', 'Harf sallanma'], ['glitchin', 'Harf glitch'], ['flicker', 'Neon titreme'], ['rise', 'Harf yükselme'], ['typezoom', 'Harf zoom'], ['spinletters', 'Harf dönme'],
 ];
 
 export const ANIM_OUT = [
   ['none', 'Yok'], ['fade', 'Kaybol'], ['pop', 'Pop'], ['slideDown', 'Aşağı kay'], ['slideUp', 'Yukarı kay'],
   ['slideLeft', 'Sola kay'], ['slideRight', 'Sağa kay'], ['zoomOut', 'Küçül'], ['zoomIn', 'Büyü'], ['blur', 'Bulanıklaş'],
+  ['flipX', 'Çevrilerek'], ['spinOut', 'Dönerek'], ['zoomBlur', 'Zoom bulanık'],
+  ['lettersOut', 'Harf harf'], ['scatterOut', 'Harf dağıl'], ['flipOut', 'Harf çevir'], ['dropOut', 'Harf düş'],
 ];
 
 export const ANIM_LOOP = [
   ['none', 'Yok'], ['pulse', 'Nabız'], ['float', 'Süzül'], ['shake', 'Titre'], ['wiggle', 'Salla'], ['glow', 'Parla'],
+  ['heartbeat', 'Kalp atışı'], ['jelly', 'Jöle'], ['flickerLoop', 'Titreşen ışık'], ['spin', 'Sürekli dön'], ['swingLoop', 'Sarkaç'],
+  ['wavey', 'Harf dalgası'], ['rainbow', 'Gökkuşağı'], ['jitter', 'Harf titreme'],
 ];
 
 export const TRANSITIONS = [
@@ -78,7 +86,7 @@ export const TEXT_BASE = {
 };
 
 // *yıldız* arasındaki kelimeler vurgu rengini alır
-export const TEXT_TEMPLATES = [
+export const TEXT_TEMPLATES = [ // cat yoksa 'Temel'
   { id: 'hook', name: 'Hook Başlık', p: { text: 'BUNU KİMSE\n*BEKLEMİYORDU*', weight: 900, size: 124, accent: '#FACC15', strokeW: 12, y: 0.27, anim: anim('pop', 'fade', 'none', 0.5) } },
   { id: 'kinetic', name: 'Kinetik', p: { text: 'MAÇIN *KIRILMA* ANI', weight: 900, size: 110, accent: '#C084FC', strokeW: 10, y: 0.3, anim: anim('words', 'fade', 'none', 0.9) } },
   { id: 'breaking', name: 'Son Dakika', p: { text: 'SON DAKİKA', weight: 800, size: 78, bgOn: true, bgColor: '#E11D48', bgRadius: 10, bgPad: 20, shadowOn: false, y: 0.16, anim: anim('slideLeft', 'slideLeft', 'pulse', 0.4) } },
@@ -93,6 +101,39 @@ export const TEXT_TEMPLATES = [
   { id: 'player', name: 'Oyuncu Etiketi', p: { text: '*10* OYUNCU ADI', font: 'Barlow Condensed', weight: 800, size: 64, accent: '#FACC15', bgOn: true, bgColor: '#111111', bgOpacity: 0.85, bgRadius: 12, bgPad: 18, shadowOn: false, y: 0.45, anim: anim('pop', 'fade', 'none', 0.35) } },
   { id: 'yellowWhite', name: 'Sarı-Beyaz Vurgu', p: { text: 'BU *POZİSYON* GOL MÜ?', weight: 900, size: 100, accent: '#FACC15', strokeW: 10, y: 0.3, anim: anim('words', 'fade', 'none', 0.8) } },
   { id: 'number', name: 'Sayaç', p: { text: '#3', weight: 900, size: 220, color: '#FFFFFF', accent: '#C084FC', strokeColor: '#7C3AED', strokeW: 14, y: 0.3, anim: anim('spin', 'zoomIn', 'none', 0.5) } },
+  // ---- v1.3 ek şablonlar ----
+  { id: 'mrbeast', name: 'YouTube Hook', cat: 'Başlık', p: { text: '1 GÜNDE *100 GOL*', font: 'Anton', weight: 400, size: 140, accent: '#FACC15', strokeW: 14, y: 0.25, anim: anim('stamp', 'fade', 'none', 0.4) } },
+  { id: 'bebas', name: 'Sinema Başlığı', cat: 'Başlık', p: { text: 'SEZONUN HİKAYESİ', font: 'Bebas Neue', weight: 400, size: 150, spacing: 10, shadowOn: true, shadowBlur: 30, y: 0.45, anim: anim('zoomBlur', 'fade', 'none', 0.9) } },
+  { id: 'montBold', name: 'Modern Bold', cat: 'Başlık', p: { text: 'Bunu bilmiyordun', font: 'Montserrat', weight: 800, upper: false, size: 96, y: 0.3, anim: anim('rise', 'fade', 'none', 0.8) } },
+  { id: 'popKids', name: 'Çizgi Roman', cat: 'Eğlence', p: { text: 'BOOM!', font: 'Bangers', weight: 400, size: 200, color: '#FACC15', strokeColor: '#111', strokeW: 16, rot: -8, y: 0.35, anim: anim('elastic', 'pop', 'jelly', 0.6) } },
+  { id: 'script', name: 'El Yazısı İmza', cat: 'Zarif', p: { text: 'Teşekkürler', font: 'Pacifico', weight: 400, upper: false, size: 120, color: '#ffffff', shadowOn: true, y: 0.5, anim: anim('letters', 'fade', 'none', 1.2) } },
+  { id: 'marker', name: 'Keçeli Kalem', cat: 'Eğlence', p: { text: 'BUNA DİKKAT!', font: 'Permanent Marker', weight: 400, size: 100, color: '#ffffff', bgOn: true, bgColor: '#EF4444', bgRadius: 6, bgPad: 24, rot: -3, shadowOn: false, y: 0.2, anim: anim('swingIn', 'fade', 'none', 0.5) } },
+  { id: 'elegant', name: 'Zarif Serif', cat: 'Zarif', p: { text: 'Bir efsanenin\n*doğuşu*', font: 'Playfair Display', weight: 700, italic: true, upper: false, size: 96, accent: '#FDE68A', y: 0.45, anim: anim('blur', 'blur', 'none', 1.0) } },
+  { id: 'lowerMin', name: 'Minimal Alt Bant', cat: 'Alt bant', p: { text: 'İsim Soyisim\n*Futbol Yorumcusu*', font: 'Montserrat', weight: 700, upper: false, size: 56, align: 'left', accent: '#C4B5FD', bgOn: true, bgMode: 'line', bgColor: '#111111', bgOpacity: 0.8, bgRadius: 4, bgPad: 18, shadowOn: false, x: 0.36, y: 0.82, anim: anim('slideRight', 'slideLeft', 'none', 0.5) } },
+  { id: 'lowerNews', name: 'Haber Alt Bant', cat: 'Alt bant', p: { text: 'CANLI · *TRANSFER GÜNDEMİ*', font: 'Oswald', weight: 700, size: 58, accent: '#FACC15', bgOn: true, bgColor: '#B91C1C', bgRadius: 0, bgPad: 22, shadowOn: false, maxW: 1, y: 0.86, anim: anim('slideRight', 'slideLeft', 'none', 0.45) } },
+  { id: 'subtitleBox', name: 'Altyazı Kutusu', cat: 'Altyazı', p: { text: 'Konuşmanı buraya yaz', font: 'Poppins', weight: 600, upper: false, size: 62, bgOn: true, bgMode: 'line', bgColor: '#000000', bgOpacity: 0.7, bgRadius: 12, bgPad: 14, shadowOn: false, y: 0.78, anim: anim('fade', 'fade') } },
+  { id: 'yellowSub', name: 'Sarı Altyazı', cat: 'Altyazı', p: { text: 'Kelime vurgulu altyazı', font: 'Montserrat', weight: 800, size: 70, color: '#FACC15', strokeW: 9, y: 0.75, anim: anim('wave', 'fade', 'none', 0.6) } },
+  { id: 'gradientNeon', name: 'Neon Mavi', cat: 'Neon', p: { text: 'GECE MAÇI', font: 'Righteous', weight: 400, size: 130, color: '#E0F2FE', shadowColor: '#38BDF8', shadowBlur: 45, y: 0.35, anim: anim('flicker', 'fade', 'flickerLoop', 0.9) } },
+  { id: 'neonPink', name: 'Neon Pembe', cat: 'Neon', p: { text: 'Open', font: 'Pacifico', weight: 400, upper: false, size: 160, color: '#FCE7F3', shadowColor: '#EC4899', shadowBlur: 50, y: 0.4, anim: anim('flicker', 'fade', 'glow', 1.0) } },
+  { id: 'tekoScore', name: 'Dijital Skor', cat: 'Spor', p: { text: '2 - 1', font: 'Teko', weight: 600, size: 240, color: '#ffffff', strokeColor: '#7C3AED', strokeW: 10, y: 0.3, anim: anim('flipX', 'flipX', 'none', 0.4) } },
+  { id: 'goalBig', name: 'GOL Patlaması', cat: 'Spor', p: { text: 'GOOOL!', font: 'Anton', weight: 400, size: 230, color: '#FACC15', strokeColor: '#111', strokeW: 18, y: 0.4, anim: anim('stamp', 'zoomBlur', 'heartbeat', 0.35) } },
+  { id: 'varCheck', name: 'VAR İnceleme', cat: 'Spor', p: { text: 'VAR İNCELEMESİ', font: 'Russo One', weight: 400, size: 84, bgOn: true, bgColor: '#111827', bgRadius: 10, bgPad: 24, accent: '#60A5FA', shadowOn: false, y: 0.15, anim: anim('glitchWhole', 'fade', 'flickerLoop', 0.6) } },
+  { id: 'playerName', name: 'Oyuncu Adı Büyük', cat: 'Spor', p: { text: '*10*\nOYUNCU ADI', font: 'Bebas Neue', weight: 400, size: 150, lineH: 0.9, accent: '#FACC15', strokeW: 0, shadowOn: true, shadowBlur: 25, y: 0.62, anim: anim('rise', 'fade', 'none', 0.7) } },
+  { id: 'top5', name: 'İlk 5 Listesi', cat: 'Liste', p: { text: '*5.* EN İYİ FRİKİK GOLLERİ', font: 'Archivo Black', weight: 400, size: 74, accent: '#A78BFA', bgOn: true, bgMode: 'line', bgColor: '#000', bgOpacity: 0.75, bgRadius: 8, bgPad: 16, shadowOn: false, y: 0.14, anim: anim('slideLeft', 'slideLeft', 'none', 0.4) } },
+  { id: 'tip', name: 'İpucu Kartı', cat: 'Liste', p: { text: '💡 İPUCU: *Videoyu kaydet*', font: 'Poppins', weight: 700, size: 60, accent: '#FACC15', bgOn: true, bgColor: '#1E1B4B', bgOpacity: 0.92, bgRadius: 24, bgPad: 28, shadowOn: false, y: 0.8, anim: anim('elastic', 'fade', 'float', 0.6) } },
+  { id: 'warning', name: 'Uyarı', cat: 'Liste', p: { text: '⚠️ SONUNA KADAR İZLE', font: 'Oswald', weight: 700, size: 70, color: '#111', bgOn: true, bgColor: '#FACC15', bgRadius: 10, bgPad: 20, shadowOn: false, y: 0.12, anim: anim('pop', 'pop', 'pulse', 0.4) } },
+  { id: 'quoteCard', name: 'Söz Kartı', cat: 'Zarif', p: { text: '“Başarı tesadüf değildir.”\n*— Pelé*', font: 'Merriweather', weight: 700, upper: false, size: 64, accent: '#C4B5FD', bgOn: true, bgColor: '#0F0B1A', bgOpacity: 0.85, bgRadius: 28, bgPad: 40, shadowOn: false, y: 0.5, anim: anim('blur', 'fade', 'none', 0.8) } },
+  { id: 'typingCode', name: 'Terminal', cat: 'Teknoloji', p: { text: '> analiz başlatılıyor...', font: 'Roboto Mono', weight: 700, upper: false, size: 54, color: '#4ADE80', bgOn: true, bgColor: '#000', bgOpacity: 0.85, bgRadius: 10, bgPad: 24, shadowOn: false, align: 'left', y: 0.4, anim: anim('typewriter', 'fade', 'none', 1.6) } },
+  { id: 'glitchTitle', name: 'Glitch Başlık', cat: 'Teknoloji', p: { text: 'SİSTEM HATASI', font: 'Russo One', weight: 400, size: 110, color: '#F0ABFC', strokeColor: '#22D3EE', strokeW: 3, y: 0.4, anim: anim('glitchin', 'scatterOut', 'jitter', 0.9) } },
+  { id: 'rainbow', name: 'Gökkuşağı', cat: 'Eğlence', p: { text: 'MÜTHİŞ!', font: 'Bangers', weight: 400, size: 180, strokeW: 12, strokeColor: '#111', y: 0.4, anim: anim('drop', 'dropOut', 'rainbow', 0.9) } },
+  { id: 'waveText', name: 'Dalgalı', cat: 'Eğlence', p: { text: 'yaz tatili geldi', font: 'Righteous', weight: 400, upper: false, size: 110, color: '#ffffff', strokeColor: '#0EA5E9', strokeW: 8, y: 0.4, anim: anim('wave', 'fade', 'wavey', 0.8) } },
+  { id: 'cleanCaption', name: 'Temiz Başlık', cat: 'Başlık', p: { text: 'Hafta sonu özeti', font: 'Inter', weight: 800, upper: false, size: 92, color: '#ffffff', shadowOn: true, shadowBlur: 20, y: 0.15, anim: anim('slideUpMask', 'fade', 'none', 0.5) } },
+  { id: 'boxed', name: 'Çerçeveli Başlık', cat: 'Başlık', p: { text: 'MAÇ ÖNÜ', font: 'Oswald', weight: 700, size: 110, color: '#ffffff', bgOn: true, bgColor: 'rgba(0,0,0,0)', bgOpacity: 0, strokeW: 0, spacing: 12, y: 0.3, anim: anim('scatter', 'scatterOut', 'none', 1.0) } },
+  { id: 'chapter', name: 'Bölüm Başlığı', cat: 'Liste', p: { text: 'BÖLÜM 2\n*Taktik analiz*', font: 'Bebas Neue', weight: 400, size: 120, accent: '#C4B5FD', lineH: 0.95, y: 0.45, anim: anim('flip', 'flipOut', 'none', 0.9) } },
+  { id: 'subscribeText', name: 'Abone Ol Yazısı', cat: 'Sosyal', p: { text: 'ABONE OLMAYI\n*UNUTMA!*', font: 'Anton', weight: 400, size: 110, accent: '#EF4444', strokeW: 10, y: 0.72, anim: anim('elastic', 'pop', 'heartbeat', 0.6) } },
+  { id: 'commentAsk', name: 'Yorum Sorusu', cat: 'Sosyal', p: { text: 'SENCE KİM KAZANIR?\n*YORUMLARA YAZ* 👇', font: 'Montserrat', weight: 900, size: 72, accent: '#FACC15', strokeW: 8, y: 0.78, anim: anim('letters', 'fade', 'none', 1.0) } },
+  { id: 'followCta', name: 'Takip Et Yazısı', cat: 'Sosyal', p: { text: 'Daha fazlası için\n*takip et* ✨', font: 'Poppins', weight: 800, upper: false, size: 78, accent: '#C084FC', bgOn: true, bgColor: '#000', bgOpacity: 0.55, bgRadius: 30, bgPad: 30, shadowOn: false, y: 0.8, anim: anim('rise', 'fade', 'float', 0.7) } },
+  { id: 'aiTag', name: 'Yapay Zekâ Etiketi', cat: 'Teknoloji', p: { text: '🤖 Yapay zekâ ile üretildi', font: 'Inter', weight: 700, upper: false, size: 44, bgOn: true, bgColor: '#000', bgOpacity: 0.55, bgRadius: 40, bgPad: 18, shadowOn: false, y: 0.94, anim: anim('fade', 'fade') } },
 ];
 
 export const CTA_BASE = {

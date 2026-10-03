@@ -10,6 +10,7 @@ import { layoutClips } from './engine.js';
 import { anim, RATIOS, FONTS, TEXT_BASE, TEXT_TEMPLATES } from './presets.js';
 import { store, lsGet, lsSet, saveVideo } from './storage.js';
 import { drawText } from './render.js';
+import { processVoice, STUDIO_PRESETS } from './studio.js';
 
 const pct = (x) => `${Math.round(x * 100)}%`;
 const sgn = (x) => `${x > 0 ? '+' : ''}${(+x).toFixed(2)}`;
@@ -398,7 +399,7 @@ export function openMixer() {
 // ================= MİKROFON =================
 export function openMic() {
   let rec = null, raf = null, startT = 0;
-  const st = { playVideo: true };
+  const st = { playVideo: true, studio: lsGet('alpicut.micStudio', 'podcast') };
   openSheet({
     title: 'Seslendirme kaydı',
     onClose: () => { cancelAnimationFrame(raf); if (rec) { rec.cancel(); rec = null; app.engine.master && (app.engine.out.gain.value = 1); app.pause(); } },
@@ -406,7 +407,10 @@ export function openMic() {
       const lvl = h('i'), time = h('div', { class: 'big-pct' }, '00:00.0');
       const btn = h('button', { class: 'rec-btn', 'aria-label': 'Kaydet' });
       body.append(h('p', { class: 'hint', html: 'Kayıt oynatıcının bulunduğu yerden başlar. Video sessiz oynar, böylece görüntüye bakarak konuşabilirsin. En iyi sonuç için kulaklık kullan.' }));
-      body.append(fields(st, [{ label: 'Kayıtta videoyu oynat', path: 'playVideo', type: 'toggle' }]));
+      body.append(fields(st, [
+        { label: 'Kayıtta videoyu oynat', path: 'playVideo', type: 'toggle' },
+        { label: 'Stüdyo işleme (kayıttan sonra)', path: 'studio', type: 'chips', options: [['none', 'Ham kayıt'], ...Object.entries(STUDIO_PRESETS).map(([k, v]) => [k, v.label])], post: (o) => lsSet('alpicut.micStudio', o.studio) },
+      ]));
       body.append(h('div', { class: 'rec-wrap' }, time, h('div', { class: 'meter' }, lvl), btn));
       const tick = () => {
         if (rec) {
@@ -436,12 +440,16 @@ export function openMic() {
           btn.classList.remove('on');
           app.pause();
           if (app.engine.out) app.engine.out.gain.value = 1;
-          const blob = await r.stop();
+          let blob = await r.stop();
+          if (st.studio && st.studio !== 'none') {
+            const pb = busy('Stüdyo işleme…');
+            try { blob = await processVoice(blob, STUDIO_PRESETS[st.studio], (p, t) => pb.set(`${t} %${Math.round(p * 100)}`)); } catch (e) { toast('Stüdyo işleme yapılamadı, ham kayıt eklendi', 3500); } finally { pb.close(); }
+          }
           const d = new Date();
-          const file = new File([blob], `Seslendirme_${d.getHours()}${String(d.getMinutes()).padStart(2, '0')}.${blob.type.includes('mp4') ? 'm4a' : 'webm'}`, { type: blob.type });
+          const file = new File([blob], `Seslendirme_${d.getHours()}${String(d.getMinutes()).padStart(2, '0')}.${blob.type.includes('wav') ? 'wav' : blob.type.includes('mp4') ? 'm4a' : 'webm'}`, { type: blob.type });
           const recs = await app.importFiles([file], true);
           if (recs[0]) {
-            const a = { id: uid(), mediaId: recs[0].id, start: startT, in: 0, out: recs[0].duration || r.elapsed(), volume: 1, fadeIn: 0, fadeOut: 0, role: 'voice', afx: { hp: true, low: -2, mid: 3, high: 1, comp: true } };
+            const a = { id: uid(), mediaId: recs[0].id, start: startT, in: 0, out: recs[0].duration || r.elapsed(), volume: 1, fadeIn: 0, fadeOut: 0, role: 'voice', afx: st.studio && st.studio !== 'none' ? { hp: false, low: 0, mid: 0, high: 0, comp: false } : { hp: true, low: -2, mid: 3, high: 1, comp: true } };
             app.P.audio.push(a);
             app.commit();
             toast('Seslendirme eklendi');

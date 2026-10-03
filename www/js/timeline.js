@@ -7,7 +7,7 @@ import { allKeyTimes } from './kf.js';
 let drag = null;
 let touching = false;
 
-const KIND_ICON = { text: I.text, media: I.layer, cta: I.cta, score: I.score, shape: I.shape, sticker: I.sticker, fx: I.fx, adjust: I.adjust };
+const KIND_ICON = { group: I.layer, social: I.bubble, text: I.text, media: I.layer, cta: I.cta, score: I.score, shape: I.shape, sticker: I.sticker, fx: I.fx, adjust: I.adjust };
 const FX_NAMES = { shake: 'Sarsıntı', zoompulse: 'Zoom nabzı', punch: 'Darbe zoom', wobble: 'Sallanma', beatzoom: 'Ritim zoom', beatflash: 'Ritim flaş', beatshake: 'Ritim sarsıntı', rgb: 'RGB', glitch: 'Glitch', vhs: 'VHS', pixel: 'Piksel', noise: 'Gürültü', flash: 'Flaş', leak: 'Işık sızıntısı', bloom: 'Bloom', fadeblack: 'Karartma', bwpop: 'S/B pop', poster: 'Posterize', invert: 'Negatif', mirror: 'Ayna', film: 'Eski film', cinema: 'Sinema' };
 
 function diamonds(el, o, pps) {
@@ -21,6 +21,8 @@ function itemLabel(l) {
   if (l.kind === 'cta') return l.label || 'CTA';
   if (l.kind === 'score') return `${l.teamA} ${l.scoreA}-${l.scoreB} ${l.teamB}`;
   if (l.kind === 'media') return app.engine.media.get(l.mediaId)?.name || 'Katman';
+  if (l.kind === 'group') return `${l.name || 'Grup'}`;
+  if (l.kind === 'social') return l.name || l.title || l.text || 'Sosyal';
   if (l.kind === 'fx') return FX_NAMES[l.effect] || 'Efekt';
   if (l.kind === 'adjust') return 'Renk ayarı';
   if (l.kind === 'sticker') return l.glyph || (l.badge || '').toUpperCase();
@@ -87,7 +89,7 @@ export function renderTimeline() {
     const isSel = sel?.type === 'layer' && sel.id === l.id;
     const m = l.kind === 'media' ? engine.media.get(l.mediaId) : null;
     row.append(h('div', {
-      class: `item k-${l.kind}${isSel ? ' sel' : ''}${l.hidden ? ' off' : ''}${l.locked ? ' locked' : ''}`, 'data-type': 'layer', 'data-id': l.id,
+      class: `item k-${l.kind}${isSel ? ' sel' : ''}${app.multi?.has(l.id) ? ' msel' : ''}${l.hidden ? ' off' : ''}${l.locked ? ' locked' : ''}`, 'data-type': 'layer', 'data-id': l.id,
       style: { left: `${H + l.start * pps}px`, width: `${Math.max(8, (l.end - l.start) * pps - 2)}px`, backgroundImage: m?.thumb ? `url(${m.thumb})` : '' },
     }, h('span', { class: 'nm', html: `${l.locked ? I.lock : l.hidden ? I.eyeOff : KIND_ICON[l.kind] || ''}` }, itemLabel(l)),
     h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' })));
@@ -198,6 +200,7 @@ export function bindTimeline() {
       return;
     }
     const s = { type: it.dataset.type, id: it.dataset.id };
+    if (app.multi) { if (s.type === 'layer') app.toggleMulti(s.id); else window.__toast?.('Çoklu seçim yalnızca katmanlar içindir'); return; }
     if (app.sel?.type === s.type && app.sel?.id === s.id) app.openInspector();
     else app.select(s);
   });

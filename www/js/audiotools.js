@@ -3,12 +3,13 @@ const SR = 8000;
 const cache = new Map();
 
 // Medyanın sesini tek kanal, düşük örnekleme hızıyla çöz
-export async function decodeMono(media) {
-  if (cache.has(media.id)) return cache.get(media.id);
+export async function decodeMono(media, sr = SR) {
+  const ck = `${media.id}@${sr}`;
+  if (cache.has(ck)) return cache.get(ck);
   if (media.blob && media.blob.size > 400 * 1048576) throw new Error('Dosya çok büyük (400 MB üstü) — telefonda ses analizi yapılamıyor');
   const buf = await (media.blob || await (await fetch(media.url)).blob()).arrayBuffer();
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-  const ctx = new OAC(1, SR, SR);
+  const ctx = new OAC(1, sr, sr);
   let ab;
   try { ab = await ctx.decodeAudioData(buf); } catch (e) { throw new Error('Bu dosyanın sesi çözülemedi (ses kanalı olmayabilir)'); }
   const n = ab.length, ch = ab.numberOfChannels;
@@ -16,7 +17,7 @@ export async function decodeMono(media) {
   for (let c = 0; c < ch; c++) { const d = ab.getChannelData(c); for (let i = 0; i < n; i++) out[i] += d[i] / ch; }
   const res = { data: out, sr: ab.sampleRate, dur: n / ab.sampleRate };
   if (cache.size > 6) cache.delete(cache.keys().next().value);
-  cache.set(media.id, res);
+  cache.set(ck, res);
   return res;
 }
 

@@ -7,13 +7,17 @@ import { renderTimeline, bindTimeline, syncScroll, setZoom } from './timeline.js
 import { layerAt, hasKeys, setKey, writeProp, splitKeys } from './kf.js';
 import { renderSfx } from './sfx.js';
 import { lutStore } from './gl.js';
+import { openAIHub, smartReframe, prepareProjectAI } from './ai.js';
+import { openSfxLibrary, openMusicLibrary } from './library.js';
+import { processVoice, STUDIO_PRESETS } from './studio.js';
+import { ensureProjectFonts, getCatalog } from './fonts.js';
 import {
   openMixer, openMic, openEffects, openStickers, addAdjustLayer, openBrand, openCover, openSilence, findBeats, normalizeItem,
   openVersions, exportPackage, importPackage, openRelink,
 } from './ui3.js';
 import {
   openSheet, closeSheet, refreshSheet, isSheetOpen, openInspector, openTemplates, openCTAs,
-  openScoreMenu, openSubsMenu, openFx, openRatio, openExport, openShapes, openSfx,
+  openScoreMenu, openSubsMenu, openFx, openRatio, openExport, openShapes, openSfx, openSocial,
 } from './sheets.js';
 import { store, lsGet, lsSet, isNative } from './storage.js';
 import { parseSRT } from './srt.js';
@@ -80,6 +84,7 @@ function init() {
   document.addEventListener('visibilitychange', () => { if (document.hidden && app.P) { app.pause(); saveNow(); } });
   if (document.fonts) document.fonts.addEventListener('loadingdone', () => app.engine.requestDraw());
   loadFonts();
+  getCatalog();
   renderHome();
 }
 
@@ -103,7 +108,7 @@ async function loadFonts() {
 // Seçime göre değişen araç çubuğu
 function buildToolbar() { renderToolbar(); }
 
-const KIND_NAME = { text: 'Yazı', media: 'Katman', cta: 'Çağrı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma', fx: 'Efekt', adjust: 'Ayar katmanı' };
+const KIND_NAME = { group: 'Grup', social: 'Sosyal', text: 'Yazı', media: 'Katman', cta: 'Çağrı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma', fx: 'Efekt', adjust: 'Ayar katmanı' };
 
 function selLabel() {
   const s = app.sel, o = selected();
@@ -121,20 +126,33 @@ function renderToolbar() {
   const s = app.sel, o = selected();
   const tool = (ic, label, fn, cls = '') => bar.append(h('button', { class: `tool ${cls}`, onclick: () => { app.pause(); fn(); } }, h('span', { class: 'ti', html: I[ic] || I.edit }), label));
   const insp = (tab) => () => openInspector(tab);
+  if (app.multi) {
+    bar.classList.add('ctx');
+    bar.append(h('button', { class: 'tool back', onclick: () => endMulti() }, h('span', { class: 'ti', html: I.back }), 'Bitti'));
+    bar.append(h('div', { class: 'sel-chip' }, `${app.multi.size} öğe seçili`));
+    tool('layer', 'Grupla', groupSelected);
+    tool('copy', 'Kopyala', () => { [...app.multi].forEach((id) => { const L = app.P.layers.find((x) => x.id === id); if (L) { const n = clone(L); n.id = uid(); app.P.layers.push(n); } }); commit(); toast('Kopyalandı'); });
+    tool('eye', 'Gizle/Göster', () => { [...app.multi].forEach((id) => { const L = app.P.layers.find((x) => x.id === id); if (L) L.hidden = !L.hidden; }); commit(); });
+    tool('trash', 'Sil', () => { app.P.layers = app.P.layers.filter((x) => !app.multi.has(x.id)); app.multi = new Set(); commit(); renderToolbar(); }, 'danger');
+    return;
+  }
   if (!s || !o) {
     bar.classList.remove('ctx');
     tool('media', 'Medya', () => addMedia('clip'), 'primary');
+    tool('ai', 'Yapay zekâ', openAIHub, 'ai');
     tool('layer', 'Katman', () => addMedia('layer'));
     tool('text', 'Yazı', () => addLayer(clone(TEXT_BASE)));
-    tool('template', 'Şablon', openTemplates);
+    tool('template', 'Şablon', () => openTemplates());
     tool('subtitle', 'Altyazı', openSubsMenu);
-    tool('audio', 'Ses', () => addMedia('audio'));
+    tool('audio', 'Müzik', openMusicLibrary);
+    tool('sfx', 'Ses efekti', openSfxLibrary);
+    tool('upload', 'Ses dosyası', () => addMedia('audio'));
     tool('mic', 'Kayıt', openMic);
-    tool('sfx', 'SFX', openSfx);
     tool('fx', 'Efektler', () => openEffects());
     tool('sticker', 'Çıkartma', () => openStickers());
     tool('shape', 'Şekil', openShapes);
     tool('cta', 'Çağrı', openCTAs);
+    tool('bubble', 'Sosyal', () => openSocial());
     tool('score', 'Skor', openScoreMenu);
     tool('adjust', 'Renk katmanı', addAdjustLayer);
     tool('mixer', 'Mikser', openMixer);
@@ -143,6 +161,7 @@ function renderToolbar() {
     tool('cover', 'Kapak', openCover);
     tool('anim', 'Genel', openFx);
     tool('ratio', 'Oran', openRatio);
+    tool('check', 'Çoklu seç', startMulti);
     return;
   }
   bar.classList.add('ctx');
@@ -154,7 +173,12 @@ function renderToolbar() {
     tool('edit', 'Düzen', insp('Düzen'));
     tool('split', 'Böl', splitSel);
     tool('color', 'Renk', insp('Renk'));
+    tool('adjust', 'Arka plan sil', insp('Arka plan'));
+    tool('shape', 'Maske', insp('Maske'));
+    tool('color', 'Chroma', insp('Chroma'));
+    if (isV) tool('ratio', 'Akıllı kadraj', () => smartReframe(o));
     if (isV) tool('sfx', 'Ses', insp('Ses'));
+    if (isV) tool('mic', 'Stüdyo ses', () => studioClean(o));
     tool('diamond', 'Keyframe', insp('Keyframe'));
     tool('plus', 'Geçiş', insp('Geçiş'));
     tool('fx', 'Efekt', () => openEffects());
@@ -166,11 +190,13 @@ function renderToolbar() {
     tool('trash', 'Sil', delSel, 'danger');
   } else if (s.type === 'layer') {
     const tabs = {
-      text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'], media: ['Düzen', 'Maske', 'Renk', 'Chroma', 'Animasyon', 'Keyframe', 'Konum'],
+      text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'], media: ['Düzen', 'Arka plan', 'Chroma', 'Maske', 'Renk', 'Animasyon', 'Keyframe', 'Konum'],
+      group: ['Grup', 'Animasyon', 'Keyframe', 'Konum'],
       cta: ['Buton', 'Animasyon', 'Keyframe', 'Konum'], score: ['Skor', 'Animasyon', 'Keyframe', 'Konum'], shape: ['Şekil', 'Animasyon', 'Keyframe', 'Konum'],
       sticker: ['Çıkartma', 'Animasyon', 'Keyframe', 'Konum'], fx: ['Efekt', 'Zaman'], adjust: ['Renk', 'Zaman'],
+      social: ['İçerik', 'Animasyon', 'Keyframe', 'Konum'],
     }[o.kind] || [];
-    const icon = { Metin: 'text', Stil: 'brand', Animasyon: 'anim', Keyframe: 'diamond', Konum: 'layer', Düzen: 'edit', Maske: 'shape', Renk: 'color', Chroma: 'adjust', Buton: 'cta', Skor: 'score', Şekil: 'shape', Çıkartma: 'sticker', Efekt: 'fx', Zaman: 'versions' };
+    const icon = { Grup: 'layer', 'Arka plan': 'adjust', İçerik: 'edit', Metin: 'text', Stil: 'brand', Animasyon: 'anim', Keyframe: 'diamond', Konum: 'layer', Düzen: 'edit', Maske: 'shape', Renk: 'color', Chroma: 'adjust', Buton: 'cta', Skor: 'score', Şekil: 'shape', Çıkartma: 'sticker', Efekt: 'fx', Zaman: 'versions' };
     tabs.forEach((t) => tool(icon[t], t, insp(t)));
     tool('split', 'Böl', splitSel);
     tool(o.hidden ? 'eyeOff' : 'eye', o.hidden ? 'Göster' : 'Gizle', () => { o.hidden = !o.hidden; commit(); renderToolbar(); });
@@ -185,6 +211,7 @@ function renderToolbar() {
     tool('silence', 'Sessizlik', () => openSilence(o, 'audio'));
     tool('beat', 'Ritim bul', () => findBeats(o));
     tool('adjust', 'Seviye eşitle', () => normalizeItem(o));
+    tool('mic', 'Stüdyo ses', () => studioClean(o));
     tool(o.mute ? 'mute' : 'sfx', o.mute ? 'Sesi aç' : 'Sessiz', () => { o.mute = !o.mute; commit(); renderToolbar(); });
     tool('lock', 'Kilitle', () => { o.locked = true; commit(); renderToolbar(); });
     tool('copy', 'Kopyala', dupSel);
@@ -304,6 +331,8 @@ async function openProject(id) {
       const lid = o.lut?.id;
       if (lid && !lid.startsWith('b:') && !lutStore.has(lid)) { const r = await store.getMedia(lid).catch(() => null); if (r) lutStore.set(lid, r); }
     }
+    ensureProjectFonts(P).then(() => app.engine.requestDraw());
+    prepareProjectAI(P);
     showEditor(P);
     if (missing.length) setTimeout(() => openRelink(missing, () => app.engine.requestDraw()), 400);
   } catch (e) {
@@ -429,47 +458,88 @@ function updateTime() {
   $('emptyHint').classList.toggle('hidden', !!(app.P.clips.length || app.P.layers.length));
 }
 
-function bindPreview() {
-  const stage = $('stage');
-  const cv = $('preview');
-  const ptrs = new Map();
-  let g = null;
-  const norm = (e) => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; };
-  const sizeKey = (L) => (L.kind === 'media' ? 'w' : L.kind === 'text' ? 'size' : 'scale');
+// Önizleme: katman sürükle/döndür/ölçekle; boşta iki parmakla görünümü yakınlaştır, tek parmakla kaydır
+app.view = { z: 1, x: 0, y: 0 };
+function applyView() {
+  const v = app.view;
+  $('stage').style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.z})`;
+  $('viewReset').classList.toggle('hidden', v.z === 1 && !v.x && !v.y);
+  $('viewReset').textContent = `${Math.round(v.z * 100)}% · Sığdır`;
+}
+function resetView() { app.view = { z: 1, x: 0, y: 0 }; applyView(); }
 
-  stage.addEventListener('pointerdown', (e) => {
+function bindPreview() {
+  const wrap = $('previewWrap');
+  const cv = $('preview');
+  const ptrs = new Map(); // normalize
+  const raw = new Map(); // ekran pikseli
+  let g = null;
+  let lastTap = 0;
+  const norm = (e) => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; };
+  const sizeKey = (L) => (L.kind === 'media' ? 'w' : L.kind === 'text' ? 'size' : L.kind === 'sticker' ? 'size' : 'scale');
+  $('viewReset').addEventListener('click', (e) => { e.stopPropagation(); resetView(); });
+  $('viewReset').addEventListener('pointerdown', (e) => e.stopPropagation());
+
+  wrap.addEventListener('pointerdown', (e) => {
     if (!app.P) return;
-    try { stage.setPointerCapture(e.pointerId); } catch (_) { /* yoksay */ }
+    try { wrap.setPointerCapture(e.pointerId); } catch (_) { /* yoksay */ }
     ptrs.set(e.pointerId, norm(e));
+    raw.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (ptrs.size === 1) {
       if (app.engine.playing) app.pause();
       const p = norm(e);
-      if (app.pickMode) { ptrs.delete(e.pointerId); samplePreview(p.x, p.y); return; }
-      const hit = app.engine.hitTest(p.x, p.y);
+      if (app.pickMode) { ptrs.delete(e.pointerId); raw.delete(e.pointerId); samplePreview(p.x, p.y); return; }
+      const inside = p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
+      const hit = inside ? app.engine.hitTest(p.x, p.y) : null;
       const kv = hit ? layerAt(hit, app.engine.t) : null;
-      g = { L: hit && !hit.locked ? hit : null, tapL: hit, p0: p, x0: kv?.x, y0: kv?.y, moved: false, wasSel: hit && app.sel?.id === hit.id };
+      g = { L: hit && !hit.locked ? hit : null, tapL: hit, p0: p, r0: { x: e.clientX, y: e.clientY }, v0: { ...app.view }, x0: kv?.x, y0: kv?.y, moved: false, wasSel: hit && app.sel?.id === hit.id };
       if (hit && !g.wasSel) { app.sel = { type: 'layer', id: hit.id }; app.engine.selectedId = hit.id; app.engine.requestDraw(); }
-    } else if (ptrs.size === 2 && g?.L) {
+    } else if (ptrs.size === 2 && g) {
       const [a, b] = [...ptrs.values()];
-      const ar = RATIOS[app.P.ratio][1] / RATIOS[app.P.ratio][0];
-      const kv = layerAt(g.L, app.engine.t);
-      g.pinch = { d: Math.hypot(a.x - b.x, (a.y - b.y) * ar), ang: Math.atan2((b.y - a.y) * ar, b.x - a.x), size: hasKeys(g.L, 's') ? kv.s : (g.L[sizeKey(g.L)] ?? 1), rot: kv.rot };
+      const [ra, rb] = [...raw.values()];
       g.moved = true;
+      if (g.L) {
+        const ar = RATIOS[app.P.ratio][1] / RATIOS[app.P.ratio][0];
+        const kv = layerAt(g.L, app.engine.t);
+        g.pinch = { d: Math.hypot(a.x - b.x, (a.y - b.y) * ar), ang: Math.atan2((b.y - a.y) * ar, b.x - a.x), size: hasKeys(g.L, 's') ? kv.s : (g.L[sizeKey(g.L)] ?? 1), rot: kv.rot };
+      } else {
+        g.vpinch = { d: Math.hypot(ra.x - rb.x, ra.y - rb.y), mx: (ra.x + rb.x) / 2, my: (ra.y + rb.y) / 2, v0: { ...app.view } };
+      }
     }
   });
 
-  stage.addEventListener('pointermove', (e) => {
+  wrap.addEventListener('pointermove', (e) => {
     if (!ptrs.has(e.pointerId) || !g) return;
     ptrs.set(e.pointerId, norm(e));
+    raw.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const L = g.L;
-    if (!L) return;
+    if (ptrs.size === 2 && g.vpinch) {
+      const [ra, rb] = [...raw.values()];
+      const d = Math.hypot(ra.x - rb.x, ra.y - rb.y);
+      const mx = (ra.x + rb.x) / 2, my = (ra.y + rb.y) / 2;
+      const z = Math.max(0.5, Math.min(8, g.vpinch.v0.z * (d / Math.max(10, g.vpinch.d))));
+      app.view = { z, x: g.vpinch.v0.x + (mx - g.vpinch.mx), y: g.vpinch.v0.y + (my - g.vpinch.my) };
+      applyView();
+      return;
+    }
+    if (!L) {
+      // boş alanda tek parmak: yakınlaştırılmışsa görünümü kaydır
+      if (ptrs.size === 1 && app.view.z !== 1) {
+        const dx = e.clientX - g.r0.x, dy = e.clientY - g.r0.y;
+        if (!g.moved && Math.hypot(dx, dy) < 6) return;
+        g.moved = true; g.panned = true;
+        app.view = { ...g.v0, x: g.v0.x + dx, y: g.v0.y + dy };
+        applyView();
+      }
+      return;
+    }
     if (ptrs.size === 1 && !g.pinch) {
       const p = norm(e);
       const dx = p.x - g.p0.x, dy = p.y - g.p0.y;
-      if (!g.moved && Math.hypot(dx, dy) < 0.012) return;
+      if (!g.moved && Math.hypot(dx, dy) < 0.012 / app.view.z) return;
       g.moved = true;
       let nx = g.x0 + dx, ny = g.y0 + dy;
-      const gx = Math.abs(nx - 0.5) < 0.015, gy = Math.abs(ny - 0.5) < 0.012;
+      const gx = Math.abs(nx - 0.5) < 0.015 / app.view.z, gy = Math.abs(ny - 0.5) < 0.012 / app.view.z;
       if (gx) nx = 0.5;
       if (gy) ny = 0.5;
       const lt = app.engine.t - L.start;
@@ -485,7 +555,7 @@ function bindPreview() {
       const v = g.pinch.size * (d / Math.max(0.01, g.pinch.d));
       const lt = app.engine.t - L.start;
       if (hasKeys(L, 's')) setKey(L, 's', lt, Math.max(0.05, Math.min(4, v)));
-      else L[k] = k === 'size' ? Math.round(Math.max(16, Math.min(400, v))) : Math.max(0.05, Math.min(4, v));
+      else L[k] = k === 'size' ? Math.round(Math.max(16, Math.min(k === 'size' && L.kind === 'sticker' ? 1200 : 400, v))) : Math.max(0.05, Math.min(4, v));
       let rot = g.pinch.rot + ((ang - g.pinch.ang) * 180) / Math.PI;
       if (Math.abs(rot) < 4) rot = 0;
       writeProp(L, 'rot', lt, Math.round(rot));
@@ -496,16 +566,21 @@ function bindPreview() {
   const up = (e) => {
     if (!ptrs.has(e.pointerId)) return;
     ptrs.delete(e.pointerId);
+    raw.delete(e.pointerId);
     if (ptrs.size > 0) return;
     app.engine.guides = null;
     const G = g; g = null;
     if (!G) return;
+    if (G.vpinch || G.panned) { app.engine.requestDraw(); return; }
     if (G.moved) { commit(); refreshSheet(); return; }
-    if (G.tapL) select({ type: 'layer', id: G.tapL.id });
-    else { deselect(); if (isSheetOpen()) closeSheet(); }
+    if (G.tapL) { select({ type: 'layer', id: G.tapL.id }); return; }
+    const now = performance.now();
+    if (now - lastTap < 320) { lastTap = 0; resetView(); return; }
+    lastTap = now;
+    deselect(); if (isSheetOpen()) closeSheet();
   };
-  stage.addEventListener('pointerup', up);
-  stage.addEventListener('pointercancel', up);
+  wrap.addEventListener('pointerup', up);
+  wrap.addEventListener('pointercancel', up);
 }
 
 // ---------- seçim ----------
@@ -885,7 +960,128 @@ function layerOrder(dir) {
   toast(dir > 0 ? 'Öne getirildi' : 'Arkaya gönderildi');
 }
 
-const PROJECT_VERSION = 2;
+// ---------- çoklu seçim ve gruplama ----------
+function startMulti() { app.multi = new Set(); deselect(); renderToolbar(); renderTimeline(); toast('Katmanlara dokunarak seç'); }
+function endMulti() { app.multi = null; renderToolbar(); renderTimeline(); }
+function toggleMulti(id) { if (!app.multi) return; if (app.multi.has(id)) app.multi.delete(id); else app.multi.add(id); renderToolbar(); renderTimeline(); }
+
+function groupSelected() {
+  const P = app.P;
+  const sel = P.layers.filter((l) => app.multi?.has(l.id) && l.kind !== 'group');
+  if (sel.length < 2) { toast('Gruplamak için en az 2 katman seç'); return; }
+  const idx = Math.max(...sel.map((l) => P.layers.indexOf(l)));
+  const G = { id: uid(), kind: 'group', name: `Grup (${sel.length})`, children: sel.map((l) => clone(l)), start: Math.min(...sel.map((l) => l.start)), end: Math.max(...sel.map((l) => l.end)), x: 0.5, y: 0.5, rot: 0, sc: 1, opacity: 1, kf: {}, anim: anim('none', 'none') };
+  P.layers.splice(idx + 1, 0, G);
+  P.layers = P.layers.filter((l) => !sel.includes(l));
+  app.multi = null;
+  commit();
+  select({ type: 'layer', id: G.id }, false);
+  toast('Gruplandı — artık birlikte taşınır, ölçeklenir ve animasyonlanır');
+}
+
+function ungroup(G) {
+  const P = app.P;
+  const W = app.engine.W, H = app.engine.H;
+  const a = ((G.rot || 0) * Math.PI) / 180, s = G.sc || 1;
+  const kids = (G.children || []).map((c) => {
+    const n = clone(c);
+    const dx = (c.x - 0.5) * W, dy = (c.y - 0.5) * H;
+    n.x = 0.5 + (G.x - 0.5) + (dx * Math.cos(a) - dy * Math.sin(a)) * s / W;
+    n.y = 0.5 + (G.y - 0.5) + (dx * Math.sin(a) + dy * Math.cos(a)) * s / H;
+    n.rot = (c.rot || 0) + (G.rot || 0);
+    n.sc = (c.sc ?? 1) * s;
+    n.opacity = (c.opacity ?? 1) * (G.opacity ?? 1);
+    return n;
+  });
+  const i = P.layers.indexOf(G);
+  P.layers.splice(i, 1, ...kids);
+  closeSheet(); deselect();
+  commit();
+  toast('Grup çözüldü');
+}
+
+// zaman çizelgesinde aralıkları kes (metinden kurgu) ve sonrasını kaydır
+function cutTimelineRanges(ranges) {
+  const P = app.P;
+  const rs = [...ranges].sort((x, y) => y.s - x.s);
+  let total = 0;
+  rs.forEach((r) => {
+    const lay = layoutClips(P.clips);
+    for (let k = lay.length - 1; k >= 0; k--) {
+      const L = lay[k], c = L.clip;
+      const a = Math.max(r.s, L.start), b = Math.min(r.e, L.end);
+      if (b - a < 0.02) continue;
+      const sp = c.speed || 1;
+      const ls = a - L.start, le = b - L.start;
+      const i = P.clips.indexOf(c);
+      if (c.type === 'image' || c.freeze) {
+        c.dur = Math.max(0.2, c.dur - (le - ls));
+      } else if (ls < 0.03 && le > L.len - 0.03) {
+        P.clips.splice(i, 1);
+      } else if (ls < 0.03) { c.in += le * sp; }
+      else if (le > L.len - 0.03) { c.out = c.in + ls * sp; }
+      else {
+        const right = clone(c); right.id = uid(); right.trans = { type: 'none', dur: 0.5 }; right.kf = {};
+        right.in = c.in + le * sp; c.out = c.in + ls * sp;
+        P.clips.splice(i + 1, 0, right);
+      }
+    }
+    shiftAfter(r.s, r.e - r.s);
+    total += r.e - r.s;
+  });
+  // ses dosyalarını da aynı aralıklardan kes
+  rs.forEach((r) => {
+    P.audio.slice().forEach((a) => {
+      const len = a.out - a.in, s0 = a.start, e0 = a.start + len;
+      const x = Math.max(r.s, s0), y = Math.min(r.e, e0);
+      if (y - x < 0.02 || a.sfx || (a.role || 'music') === 'music') return;
+      const right = clone(a); right.id = uid();
+      right.in = a.in + (y - s0); right.start = r.s;
+      a.out = a.in + (x - s0);
+      if (a.out - a.in < 0.03) P.audio.splice(P.audio.indexOf(a), 1);
+      if (right.out - right.in >= 0.03) P.audio.push(right);
+    });
+  });
+  commit();
+  toast(`${ranges.length} kesim · ${total.toFixed(1)} sn kısaldı`);
+}
+
+// stüdyo ses temizliği
+function studioClean(o) {
+  const st = { preset: 'podcast' };
+  openSheet({
+    title: 'Stüdyo ses', 
+    render: (body) => {
+      body.append(h('p', { class: 'hint', html: 'Sesi yapay zekâ gürültü temizliği (RNNoise), uğultu filtresi, EQ, de-esser (sert “s” sesleri), kompresör ve seviye eşitlemeden geçirir. Orijinal dosya korunur; geri al ile dönebilirsin.' }));
+      const ch = h('div', { class: 'chips' });
+      Object.entries(STUDIO_PRESETS).forEach(([k, v]) => ch.append(h('button', { class: st.preset === k ? 'on' : '', onclick: () => { st.preset = k; refreshSheet(); } }, v.label)));
+      body.append(h('div', { class: 'field full' }, h('label', {}, 'Ön ayar'), ch));
+      body.append(h('button', { class: 'btn block primary', html: `${I.mic} Uygula`, onclick: async () => {
+        const m = app.engine.media.get(o.mediaId);
+        if (!m) return;
+        closeSheet();
+        const b = busy('Ses işleniyor…');
+        try {
+          const wav = await processVoice(m.blob, STUDIO_PRESETS[st.preset], (p, t) => b.set(`${t} %${Math.round(p * 100)}`));
+          const file = new File([wav], `${(m.name || 'ses').replace(/\.\w+$/, '')}_studyo.wav`, { type: 'audio/wav' });
+          const recs = await importFiles([file], true);
+          if (!recs[0]) throw new Error('Kaydedilemedi');
+          if (o.type === 'video') {
+            // video sesini kapat, temiz sesi aynı yere ve aynı kırpmayla ekle
+            const L = layoutClips(app.P.clips).find((x) => x.clip === o);
+            o.mute = true;
+            app.P.audio.push({ id: uid(), mediaId: recs[0].id, start: L.start, in: o.in, out: o.out, volume: o.volume ?? 1, fadeIn: 0, fadeOut: 0, role: 'voice', linked: o.id });
+            if ((o.speed || 1) !== 1) toast('Not: hızlandırılmış kliplerde temiz ses normal hızda eklenir', 3500);
+          } else { o.mediaId = recs[0].id; o.afx = { hp: false, low: 0, mid: 0, high: 0, comp: false }; }
+          commit();
+          toast('Stüdyo ses uygulandı');
+        } catch (e) { toast(e.message || 'İşlenemedi', 4000); } finally { b.close(); }
+      } }));
+    },
+  });
+}
+
+const PROJECT_VERSION = 3;
 function migrate(P) {
   // eski projeleri yeni sürüme taşı
   P.v = P.v || 1;
@@ -1017,6 +1213,7 @@ Object.assign(app, {
   openInspector: (tab) => openInspector(tab),
   addMedia, addLayer, splitSel, dupSel, delSel, moveClip, layerOrder, importSRT, freezeFrame, addSfx,
   beginEdit, endEdit, cutSourceRanges, pickColor, relinkMedia, pickFiles, importFiles, renderToolbar,
+  registerMedia, cutTimelineRanges, studioClean, toggleMulti, ungroup, openSilenceFor: (o) => openSilence(o, app.sel?.type === 'clip' ? 'clip' : 'audio'),
   getStyles, saveStyle, deleteStyle, exportStyles, importStyles,
   layout: () => layoutClips(app.P.clips),
   fitStage,
@@ -1024,3 +1221,4 @@ Object.assign(app, {
 
 init();
 window.__alpicut = app; // hata ayıklama için
+window.__toast = toast;

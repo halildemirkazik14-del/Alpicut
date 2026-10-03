@@ -3,6 +3,7 @@ import { filterString } from './presets.js';
 import { layerAt, clipAt } from './kf.js';
 import { gradeParams, gradeSource } from './gl.js';
 import { drawSticker } from './fxlib.js';
+import { drawSocial } from './social.js';
 
 export const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
@@ -37,7 +38,7 @@ export function roundRect(ctx, x, y, w, h, r) {
 
 // ---------- Animasyon durumu ----------
 export function animState(L, t, W, H) {
-  const s = { alpha: 1, tx: 0, ty: 0, sc: 1, rot: 0, blur: 0, reveal: 1, glow: 0 };
+  const s = { alpha: 1, tx: 0, ty: 0, sc: 1, rot: 0, blur: 0, reveal: 1, glow: 0, out: 0, lt: Math.max(0, t - L.start), sx: 1, sy: 1 };
   const a = L.anim || {};
   const dur = Math.max(0.05, L.end - L.start);
   const local = t - L.start;
@@ -59,6 +60,16 @@ export function animState(L, t, W, H) {
     case 'bounce': s.ty -= (1 - easeOutBounce(pin)) * H * 0.3; s.alpha *= clamp(pin * 4); break;
     case 'blur': s.blur += (1 - e) * 30; s.alpha *= e; break;
     case 'typewriter': case 'words': s.reveal = pin; break;
+    case 'stamp': s.sc *= 1 + (1 - e) * 1.6; s.alpha *= clamp(pin * 3); if (pin >= 1 && local - inD < 0.18) { s.tx += Math.sin(local * 90) * 6; } break;
+    case 'elastic': { const p = pin; const el = p === 0 ? 0 : p === 1 ? 1 : Math.pow(2, -10 * p) * Math.sin((p * 10 - 0.75) * (2 * Math.PI) / 3) + 1; s.sc *= el; break; }
+    case 'swingIn': s.rot -= (1 - easeOutBack(pin)) * 0.9; s.alpha *= e; break;
+    case 'flipX': s.sy = Math.max(0.001, e); s.alpha *= clamp(pin * 2); break;
+    case 'flipY': s.sx = Math.max(0.001, e); s.alpha *= clamp(pin * 2); break;
+    case 'zoomBlur': s.sc *= 1.6 - 0.6 * e; s.blur += (1 - e) * 24; s.alpha *= e; break;
+    case 'rollIn': s.tx -= (1 - e) * W * 0.6; s.rot -= (1 - e) * Math.PI * 1.5; s.alpha *= e; break;
+    case 'glitchWhole': s.alpha *= pin < 1 ? (Math.sin(local * 80) > -0.2 ? 1 : 0.2) : 1; s.tx += pin < 1 ? Math.sin(local * 120) * 18 * (1 - pin) : 0; break;
+    case 'slideUpMask': s.ty += (1 - e) * L.size * 1.2; s.alpha *= clamp(pin * 1.5); break;
+    default: if (LETTER_IN.has(a.in)) s.reveal = pin;
   }
   const q = easeInCubic(1 - pout);
   switch (a.out) {
@@ -71,6 +82,10 @@ export function animState(L, t, W, H) {
     case 'zoomOut': s.sc *= 1 - q * 0.7; s.alpha *= 1 - q; break;
     case 'zoomIn': s.sc *= 1 + q * 0.8; s.alpha *= 1 - q; break;
     case 'blur': s.blur += q * 30; s.alpha *= 1 - q; break;
+    case 'flipX': s.sy *= Math.max(0.001, 1 - q); break;
+    case 'spinOut': s.rot += q * Math.PI; s.sc *= 1 - q; break;
+    case 'zoomBlur': s.sc *= 1 + q * 0.6; s.blur += q * 24; s.alpha *= 1 - q; break;
+    default: if (LETTER_OUT.has(a.out)) s.out = 1 - pout;
   }
   const lt = Math.max(0, local);
   switch (a.loop) {
@@ -79,6 +94,11 @@ export function animState(L, t, W, H) {
     case 'shake': s.tx += Math.sin(lt * 61) * 6; s.rot += Math.sin(lt * 47) * 0.012; break;
     case 'wiggle': s.rot += Math.sin(lt * Math.PI * 2.4) * 0.07; break;
     case 'glow': s.glow = 0.5 + 0.5 * Math.sin(lt * Math.PI * 2); break;
+    case 'heartbeat': { const ph = (lt * 1.2) % 1; s.sc *= 1 + 0.08 * (Math.exp(-ph * 14) + 0.6 * Math.exp(-Math.abs(ph - 0.22) * 14)); break; }
+    case 'jelly': s.sx *= 1 + Math.sin(lt * 7) * 0.06; s.sy *= 1 - Math.sin(lt * 7) * 0.06; break;
+    case 'flickerLoop': s.alpha *= Math.sin(lt * 37) > 0.85 ? 0.35 : 1; break;
+    case 'spin': s.rot += lt * Math.PI; break;
+    case 'swingLoop': s.rot += Math.sin(lt * 3) * 0.12; break;
   }
   return s;
 }
@@ -111,8 +131,12 @@ export function drawFit(ctx, el, x, y, w, h, fit = 'cover', zoom = 1, panX = 0, 
 export function drawClip(ctx, clip, el, localT, len, env) {
   const { W, H, S } = env;
   if (!isReady(el)) return;
+  const raw = el;
   const gp = gradeParams(clip);
   if (gp) { const [sw, sh] = mediaSize(el); el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280); }
+  if ((clip.bgr?.on && env.seg) || (clip.mask && clip.mask.type && clip.mask.type !== 'none')) {
+    return drawClipComposite(ctx, clip, el, raw, localT, len, env);
+  }
   const fit = clip.fit || 'cover';
   const kv = clipAt(clip, localT);
   let zoom = kv.zoom || 1;
@@ -131,6 +155,44 @@ export function drawClip(ctx, clip, el, localT, len, env) {
   if (fs !== 'none') ctx.filter = fs;
   drawFit(ctx, el, 0, 0, W, H, fit, zoom, kv.panX || 0, kv.panY || 0);
   ctx.restore();
+}
+
+// Arka plan silme / maske uygulanmış klip: ekran dışı tuvalde birleştir
+let clipOff = null;
+function drawClipComposite(ctx, clip, el, raw, localT, len, env) {
+  const { W, H, S } = env;
+  const cw = Math.max(2, Math.round(W * S)), ch = Math.max(2, Math.round(H * S));
+  if (!clipOff) clipOff = document.createElement('canvas');
+  if (clipOff.width !== cw || clipOff.height !== ch) { clipOff.width = cw; clipOff.height = ch; }
+  const o = clipOff.getContext('2d');
+  o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-over'; o.filter = 'none'; o.globalAlpha = 1;
+  o.clearRect(0, 0, cw, ch);
+  o.setTransform(S, 0, 0, S, 0, 0);
+  const kv = clipAt(clip, localT);
+  let zoom = kv.zoom || 1;
+  if (clip.kenburns) zoom *= 1 + 0.15 * clamp(localT / Math.max(0.1, len));
+  const fit = clip.fit || 'cover';
+  let src = el;
+  const b = clip.bgr;
+  if (b?.on && env.seg) {
+    const [sw, sh] = mediaSize(el);
+    const cut = env.seg.removeBackground(el, sw, sh, b, env.exporting ? 1920 : 960);
+    if (cut) {
+      if (b.mode === 'blur') { o.save(); o.filter = `blur(${(b.blur || 30) * S}px)`; drawFit(o, raw, -40, -40, W + 80, H + 80, 'cover'); o.restore(); }
+      else if (b.mode === 'color') { o.fillStyle = b.color || '#00B140'; o.fillRect(0, 0, W, H); }
+      src = cut;
+    }
+  } else if (fit === 'contain' && clip.bgMode === 'blur') {
+    o.save(); o.filter = `blur(${40 * S}px) brightness(0.7)`; drawFit(o, el, -40, -40, W + 80, H + 80, 'cover'); o.restore();
+  }
+  o.save();
+  const fs = filterString(clip.filters, S);
+  if (fs !== 'none') o.filter = fs;
+  drawFit(o, src, 0, 0, W, H, fit, zoom, kv.panX || 0, kv.panY || 0);
+  o.restore();
+  const m = clip.mask;
+  if (m && m.type && m.type !== 'none') applyMask(o, m, cw, ch, S);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(clipOff, 0, 0); ctx.restore();
 }
 
 // ---------- Geçişler ----------
@@ -189,6 +251,51 @@ export function drawTransition(ctx, type, p, drawA, drawB, env) {
     }
     default: (p < 0.5 ? drawA : drawB)();
   }
+}
+
+// ---------- Harf animasyonları ----------
+const LETTER_IN = new Set(['letters', 'wave', 'drop', 'scatter', 'flip', 'swing', 'glitchin', 'flicker', 'rise', 'typezoom', 'spinletters']);
+const LETTER_OUT = new Set(['lettersOut', 'scatterOut', 'flipOut', 'dropOut']);
+const LETTER_LOOP = new Set(['wavey', 'rainbow', 'jitter']);
+const rnd = (n) => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+
+function charAnim(inn, out, loop, gi, N, st, size, lt) {
+  const r = { a: 1, dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, color: null };
+  if (inn) {
+    const span = 0.55;
+    const lp = clamp((st.reveal - (gi / Math.max(1, N)) * (1 - span)) / span);
+    const e = easeOutCubic(lp);
+    switch (inn) {
+      case 'letters': r.a = lp; r.dy = (1 - e) * size * 0.45; break;
+      case 'wave': r.a = clamp(lp * 2); r.dy = (1 - easeOutBack(lp)) * size * 0.7; break;
+      case 'drop': r.a = clamp(lp * 3); r.dy = -(1 - easeOutBounce(lp)) * size * 1.6; break;
+      case 'scatter': r.a = e; r.dx = (rnd(gi) - 0.5) * size * 8 * (1 - e); r.dy = (rnd(gi + 7) - 0.5) * size * 5 * (1 - e); r.rot = (rnd(gi + 3) - 0.5) * 3 * (1 - e); break;
+      case 'flip': r.a = clamp(lp * 2); r.sy = Math.max(0.001, e); break;
+      case 'swing': r.a = e; r.rot = -(1 - easeOutBack(lp)) * 1.2; break;
+      case 'glitchin': r.a = lp < 1 ? (rnd(gi + Math.floor(lt * 30)) > 0.35 ? 1 : 0.15) : 1; r.dx = lp < 1 ? (rnd(gi * 3 + Math.floor(lt * 30)) - 0.5) * size * 0.6 : 0; r.color = lp < 1 && rnd(gi + Math.floor(lt * 20)) > 0.7 ? '#22d3ee' : null; break;
+      case 'flicker': r.a = lp < 1 ? (rnd(gi * 5 + Math.floor(lt * 25)) > 0.5 ? 1 : 0.1) : 1; break;
+      case 'rise': r.a = e; r.dy = (1 - e) * size; r.sx = r.sy = 0.85 + 0.15 * e; break;
+      case 'typezoom': r.a = clamp(lp * 4); r.sx = r.sy = 1 + (1 - easeOutBack(lp)) * 1.8; break;
+      case 'spinletters': r.a = e; r.rot = (1 - e) * Math.PI * 2; r.sx = r.sy = Math.max(0.01, e); break;
+    }
+  }
+  if (out && st.out > 0) {
+    const span = 0.55;
+    const op = clamp((st.out - (gi / Math.max(1, N)) * (1 - span)) / span);
+    const q = op * op;
+    switch (out) {
+      case 'lettersOut': r.a *= 1 - op; r.dy -= q * size * 0.45; break;
+      case 'scatterOut': r.a *= 1 - op; r.dx += (rnd(gi + 11) - 0.5) * size * 8 * q; r.dy += (rnd(gi + 17) - 0.5) * size * 5 * q; r.rot += (rnd(gi + 5) - 0.5) * 3 * q; break;
+      case 'flipOut': r.sy *= Math.max(0.001, 1 - op); break;
+      case 'dropOut': r.a *= 1 - op; r.dy += q * size * 2; r.rot += q * (rnd(gi) - 0.5); break;
+    }
+  }
+  switch (loop) {
+    case 'wavey': r.dy += Math.sin(lt * 5 + gi * 0.55) * size * 0.08; break;
+    case 'rainbow': r.color = `hsl(${(lt * 140 + gi * 22) % 360}, 95%, 62%)`; break;
+    case 'jitter': r.dx += (rnd(gi + Math.floor(lt * 18)) - 0.5) * size * 0.05; r.dy += (rnd(gi * 2 + Math.floor(lt * 18)) - 0.5) * size * 0.05; break;
+  }
+  return r;
 }
 
 // ---------- Yazı ----------
@@ -274,10 +381,31 @@ export function drawText(ctx, L, st, env) {
 
   const totalChars = lines.reduce((a, l) => a + l.words.reduce((b, w) => b + w.t.length, 0), 0);
   const totalWords = lines.reduce((a, l) => a + l.words.length, 0);
-  const tw = L.anim?.in === 'typewriter' ? st.reveal * totalChars : Infinity;
-  const ww = L.anim?.in === 'words' ? st.reveal * totalWords : Infinity;
+  const ain = L.anim?.in, aout = L.anim?.out, aloop = L.anim?.loop;
+  const tw = ain === 'typewriter' ? st.reveal * totalChars : Infinity;
+  const ww = ain === 'words' ? st.reveal * totalWords : Infinity;
+  const letterIn = LETTER_IN.has(ain) ? ain : null;
+  const letterOut = LETTER_OUT.has(aout) ? aout : null;
+  const charMode = !!(letterIn || letterOut || LETTER_LOOP.has(aloop));
   let charCount = 0, wordIdx = 0;
   const glow = st.glow || 0;
+  const lt = st.lt || 0;
+
+  const paint = (txt, fill) => {
+    if (L.shadowOn) {
+      ctx.shadowColor = L.shadowColor || 'rgba(0,0,0,.6)';
+      ctx.shadowBlur = ((L.shadowBlur || 0) + glow * 40) * S;
+      ctx.shadowOffsetY = L.shadowColor && L.shadowColor.startsWith('#') ? 0 : 4 * S;
+    }
+    if (L.strokeW > 0) {
+      ctx.strokeStyle = L.strokeColor || '#000';
+      ctx.lineWidth = L.strokeW;
+      ctx.strokeText(txt, 0, 0);
+      ctx.shadowColor = 'transparent';
+    }
+    ctx.fillStyle = fill;
+    ctx.fillText(txt, 0, 0);
+  };
 
   lines.forEach((ln, i) => {
     let x = align === 'center' ? -ln.width / 2 : align === 'left' ? -totalW / 2 : totalW / 2 - ln.width;
@@ -294,29 +422,38 @@ export function drawText(ctx, L, st, env) {
         const wp = clamp(ww - wordIdx);
         a = wp; dy = (1 - easeOutCubic(wp)) * L.size * 0.5; sc = 0.6 + 0.4 * easeOutBack(wp);
       }
-      charCount += wd.t.length; wordIdx++;
-      if (txt && a > 0) {
+      const fill = wd.accent ? (L.accent || L.color) : L.color;
+      ctx.font = fontStr(L, L.size);
+      if (charMode && txt) {
+        // harf harf animasyon
+        const chars = [...txt];
+        let pre = '';
+        chars.forEach((ch, ci) => {
+          const gi = charCount + ci;
+          const cx = ctx.measureText(pre).width;
+          const cw = ctx.measureText(ch).width;
+          pre += ch;
+          const c = charAnim(letterIn, letterOut, aloop, gi, totalChars, st, L.size, lt);
+          if (c.a <= 0.003) return;
+          ctx.save();
+          ctx.globalAlpha *= c.a * a;
+          ctx.translate(x + cx + cw / 2 + c.dx, y + dy + c.dy);
+          ctx.rotate(c.rot);
+          ctx.scale(sc * c.sx, sc * c.sy);
+          ctx.translate(-cw / 2, 0);
+          paint(ch, c.color || fill);
+          ctx.restore();
+        });
+      } else if (txt && a > 0) {
         ctx.save();
         ctx.globalAlpha *= a;
         ctx.translate(x + wd.w / 2, y + dy);
         ctx.scale(sc, sc);
         ctx.translate(-wd.w / 2, 0);
-        ctx.font = fontStr(L, L.size);
-        if (L.shadowOn) {
-          ctx.shadowColor = L.shadowColor || 'rgba(0,0,0,.6)';
-          ctx.shadowBlur = ((L.shadowBlur || 0) + glow * 40) * S;
-          ctx.shadowOffsetY = L.shadowColor && L.shadowColor.startsWith('#') ? 0 : 4 * S;
-        }
-        if (L.strokeW > 0) {
-          ctx.strokeStyle = L.strokeColor || '#000';
-          ctx.lineWidth = L.strokeW;
-          ctx.strokeText(txt, 0, 0);
-          ctx.shadowColor = 'transparent';
-        }
-        ctx.fillStyle = wd.accent ? (L.accent || L.color) : L.color;
-        ctx.fillText(txt, 0, 0);
+        paint(txt, fill);
         ctx.restore();
       }
+      charCount += wd.t.length; wordIdx++;
       x += wd.w + spaceW;
     });
   });
@@ -476,6 +613,7 @@ export const BLENDS = [
 
 export function drawLayer(ctx, L, t, env, el, still = false) {
   const { W, H, S } = env;
+  if (L.kind === 'group') return drawGroup(ctx, L, t, env, still);
   // still: düzenlerken seçili katman giriş/çıkış animasyonsuz, tam haliyle görünür (keyframe'ler uygulanır)
   const st = still ? { alpha: 1, tx: 0, ty: 0, sc: 1, rot: 0, blur: 0, reveal: 1, glow: 0 } : animState(L, t, W, H);
   if (st.alpha <= 0.001 || st.sc <= 0.001) return null;
@@ -487,7 +625,7 @@ export function drawLayer(ctx, L, t, env, el, still = false) {
   const rot = (kv.rot * Math.PI) / 180 + st.rot;
   ctx.translate(cx, cy);
   ctx.rotate(rot);
-  ctx.scale(st.sc * kv.s, st.sc * kv.s);
+  ctx.scale(st.sc * kv.s * (st.sx || 1), st.sc * kv.s * (st.sy || 1));
   if (st.blur > 0.5) ctx.filter = `blur(${st.blur * S}px)`;
   let box = null;
   if (L.kind === 'text') box = drawText(ctx, L, st, env);
@@ -495,10 +633,35 @@ export function drawLayer(ctx, L, t, env, el, still = false) {
   else if (L.kind === 'score') box = drawScore(ctx, L, t, env);
   else if (L.kind === 'shape') box = drawShape(ctx, L, t, env);
   else if (L.kind === 'sticker') box = drawSticker(ctx, L, t, env);
+  else if (L.kind === 'social') box = drawSocial(ctx, L, t, env);
   else if (L.kind === 'media') box = drawMediaLayer(ctx, L, t, env, el, st);
   ctx.restore();
   if (!box) return null;
   return { w: box.w * kv.s, h: box.h * kv.s, x: kv.x * W, y: kv.y * H, rot: kv.rot };
+}
+
+// ---------- Grup (bileşik katman) ----------
+function drawGroup(ctx, G, t, env, still) {
+  const { W, H } = env;
+  const st = still ? { alpha: 1, tx: 0, ty: 0, sc: 1, rot: 0, sx: 1, sy: 1 } : animState(G, t, W, H);
+  if (st.alpha <= 0.001) return null;
+  const kv = layerAt(G, t);
+  ctx.save();
+  ctx.globalAlpha = clamp(kv.opacity * st.alpha);
+  ctx.translate(kv.x * W + st.tx, kv.y * H + st.ty);
+  ctx.rotate((kv.rot * Math.PI) / 180 + st.rot);
+  ctx.scale(st.sc * kv.s * (st.sx || 1), st.sc * kv.s * (st.sy || 1));
+  ctx.translate(-W / 2, -H / 2);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  (G.children || []).forEach((c) => {
+    if (t < c.start || t >= c.end || c.hidden) return;
+    const b = drawLayer(ctx, c, t, env, c.kind === 'media' && env.elFor ? env.elFor(c) : null, false);
+    if (b) { x0 = Math.min(x0, b.x - b.w / 2); x1 = Math.max(x1, b.x + b.w / 2); y0 = Math.min(y0, b.y - b.h / 2); y1 = Math.max(y1, b.y + b.h / 2); }
+  });
+  ctx.restore();
+  if (x0 === Infinity) return { w: 200, h: 200, x: kv.x * W, y: kv.y * H, rot: kv.rot };
+  const cx = (x0 + x1) / 2 - W / 2, cy = (y0 + y1) / 2 - H / 2;
+  return { w: (x1 - x0) * kv.s, h: (y1 - y0) * kv.s, x: kv.x * W + cx * kv.s, y: kv.y * H + cy * kv.s, rot: kv.rot };
 }
 
 // ---------- Şekiller ----------
@@ -576,6 +739,49 @@ function cropH(L, w, sw, sh, env) {
 
 const maskCanvases = new Map();
 
+export const MASK_SHAPES = [['none', 'Yok'], ['rect', 'Dikdörtgen'], ['ellipse', 'Elips'], ['star', 'Yıldız'], ['heart', 'Kalp'], ['triangle', 'Üçgen'], ['diamond', 'Elmas'], ['hexagon', 'Altıgen'], ['splitV', 'Dikey bölme'], ['splitH', 'Yatay bölme'], ['diagonal', 'Çapraz bölme'], ['film', 'Sinema şeridi']];
+
+// m: {type,x,y,w,h,radius,rot}; cw,ch: tuval boyutu
+export function maskPath(o, m, cw, ch, k = 1) {
+  const mx = (m.x ?? 0.5) * cw, my = (m.y ?? 0.5) * ch, mw = (m.w ?? 0.8) * cw, mh = (m.h ?? 0.8) * ch;
+  o.beginPath();
+  o.save();
+  o.translate(mx, my);
+  if (m.rot) o.rotate((m.rot * Math.PI) / 180);
+  switch (m.type) {
+    case 'ellipse': o.ellipse(0, 0, mw / 2, mh / 2, 0, 0, Math.PI * 2); break;
+    case 'star': for (let i = 0; i < 10; i++) { const r = i % 2 ? 0.4 : 1, a = (i / 10) * Math.PI * 2 - Math.PI / 2; o.lineTo(Math.cos(a) * r * mw / 2, Math.sin(a) * r * mh / 2); } o.closePath(); break;
+    case 'heart': {
+      const w = mw / 2, hh = mh / 2;
+      o.moveTo(0, hh * 0.85);
+      o.bezierCurveTo(-w * 1.2, hh * 0.05, -w * 0.9, -hh * 1.05, 0, -hh * 0.45);
+      o.bezierCurveTo(w * 0.9, -hh * 1.05, w * 1.2, hh * 0.05, 0, hh * 0.85);
+      o.closePath(); break;
+    }
+    case 'triangle': o.moveTo(0, -mh / 2); o.lineTo(mw / 2, mh / 2); o.lineTo(-mw / 2, mh / 2); o.closePath(); break;
+    case 'diamond': o.moveTo(0, -mh / 2); o.lineTo(mw / 2, 0); o.lineTo(0, mh / 2); o.lineTo(-mw / 2, 0); o.closePath(); break;
+    case 'hexagon': for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; o.lineTo(Math.cos(a) * mw / 2, Math.sin(a) * mh / 2); } o.closePath(); break;
+    case 'splitV': o.rect(-cw * 2, -ch * 2, cw * 2, ch * 4); break;
+    case 'splitH': o.rect(-cw * 2, -ch * 2, cw * 4, ch * 2); break;
+    case 'diagonal': o.moveTo(-cw * 2, -ch * 2); o.lineTo(cw * 2, -ch * 2); o.lineTo(-cw * 2, ch * 2); o.closePath(); break;
+    case 'film': o.rect(-cw * 2, -mh / 2, cw * 4, mh); break;
+    default: roundRect(o, -mw / 2, -mh / 2, mw, mh, (m.radius || 0) * k);
+  }
+  o.restore();
+}
+
+// maske uygula: tuvalde önce görüntü olmalı
+export function applyMask(o, m, cw, ch, k = 1) {
+  o.save();
+  o.setTransform(1, 0, 0, 1, 0, 0);
+  o.globalCompositeOperation = m.invert ? 'destination-out' : 'destination-in';
+  o.filter = m.feather > 0 ? `blur(${m.feather * k}px)` : 'none';
+  o.fillStyle = '#000';
+  maskPath(o, m, cw, ch, k);
+  o.fill();
+  o.restore();
+}
+
 function drawMediaLayer(ctx, L, t, env, el, st) {
   const { W, S } = env;
   const w = (L.w || 0.6) * W;
@@ -583,6 +789,18 @@ function drawMediaLayer(ctx, L, t, env, el, st) {
   const [sw, sh] = mediaSize(el);
   const gp = gradeParams(L);
   if (gp) el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280);
+  if (L.bgr?.on && env.seg) {
+    const cut = env.seg.removeBackground(el, sw, sh, L.bgr, env.exporting ? 1920 : 960);
+    if (cut) {
+      if (L.bgr.mode === 'color' || L.bgr.mode === 'blur') {
+        const bg = document.createElement('canvas'); bg.width = cut.width; bg.height = cut.height;
+        const bx = bg.getContext('2d');
+        if (L.bgr.mode === 'color') { bx.fillStyle = L.bgr.color || '#00B140'; bx.fillRect(0, 0, bg.width, bg.height); }
+        else { bx.filter = `blur(${(L.bgr.blur || 30) * bg.width / 1080}px)`; bx.drawImage(el, 0, 0, bg.width, bg.height); bx.filter = 'none'; }
+        bx.drawImage(cut, 0, 0); el = bg;
+      } else el = cut;
+    }
+  }
   const h = cropH(L, w, sw, sh, env);
   let zoom = L.zoom || 1;
   if (L.kenburns) zoom *= 1 + 0.15 * clamp((t - L.start) / Math.max(0.1, L.end - L.start));
@@ -614,14 +832,7 @@ function drawMediaLayer(ctx, L, t, env, el, st) {
     o.filter = filt;
     drawFit(o, el, 0, 0, cw, ch, 'cover', zoom);
     o.restore();
-    o.globalCompositeOperation = m.invert ? 'destination-out' : 'destination-in';
-    o.filter = m.feather > 0 ? `blur(${m.feather * k}px)` : 'none';
-    o.fillStyle = '#000';
-    o.beginPath();
-    const mx = (m.x ?? 0.5) * cw, my = (m.y ?? 0.5) * ch, mw = (m.w ?? 0.8) * cw, mh = (m.h ?? 0.8) * ch;
-    if (m.type === 'ellipse') o.ellipse(mx, my, mw / 2, mh / 2, 0, 0, Math.PI * 2);
-    else roundRect(o, mx - mw / 2, my - mh / 2, mw, mh, (m.radius || 0) * k);
-    o.fill();
+    applyMask(o, m, cw, ch, k);
     o.globalCompositeOperation = 'source-over';
     o.filter = 'none';
     ctx.drawImage(oc, -w / 2, -h / 2, w, h);
@@ -645,6 +856,8 @@ function drawMediaLayer(ctx, L, t, env, el, st) {
 
 // ---------- Altyazı ----------
 export function wordTimings(cue) {
+  // otomatik altyazıdan gelen gerçek kelime zamanları varsa onları kullan
+  if (cue.words && cue.words.length) return cue.words.map((w) => ({ t: w.t, s: w.s, e: w.e }));
   const words = cue.text.replace(/\n/g, ' ').split(/ +/).filter(Boolean);
   const weights = words.map((w) => w.length + 2);
   const sum = weights.reduce((a, b) => a + b, 0) || 1;

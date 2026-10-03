@@ -5,13 +5,18 @@ import {
   FONTS, WEIGHTS, ANIM_IN, ANIM_OUT, ANIM_LOOP, TRANSITIONS, FILTER_PRESETS, DEFAULT_FILTERS,
   TEXT_BASE, TEXT_TEMPLATES, CTA_BASE, CTA_PRESETS, SCORE_BASE, SUB_PRESETS, SUB_BASE, RATIOS, SHAPE_BASE, SHAPE_PRESETS,
 } from './presets.js';
-import { drawText, drawCTA, drawScore, drawShape, ICON_NAMES, BLENDS, SHAPES, CROPS } from './render.js';
+import { drawText, drawCTA, drawScore, drawShape, drawFit, ICON_NAMES, BLENDS, SHAPES, CROPS, MASK_SHAPES } from './render.js';
+import { bgRemoveTab } from './ai.js';
 import { Engine } from './engine.js';
 import { saveVideo, isNative } from './storage.js';
 import { parseSRT, toSRT, toVTT } from './srt.js';
 import { LAYER_PROPS, CLIP_PROPS, EASES, propAt, hasKeys, keyAt, setKey, delKey, writeProp, allKeyTimes } from './kf.js';
 import { SFX, renderSfx } from './sfx.js';
 import { layoutClips } from './engine.js';
+import { rangeControl, guessDefault } from './ctl.js';
+import { GL_LIST, transGL } from './gltrans.js';
+import { SOCIAL_TEMPLATES, drawSocial, SOCIAL_FIELDS } from './social.js';
+import { fontPickerBody, isBundled, fontWeights, ensureProjectFonts } from './fonts.js';
 import { colorTab, chromaTab, audioFxTab, audioToolsTab, slipControl, fxLayerInspector, openStickers } from './ui3.js';
 
 // ---------- panel altyapısı ----------
@@ -116,12 +121,14 @@ export function fields(obj, list, opts = {}) {
     switch (f.type) {
       case 'range': {
         const fmtv = f.fmt || ((x) => (Math.round(x * 100) / 100).toString());
-        valEl = h('span', { class: 'val' }, fmtv(v ?? f.min));
-        ctl = h('input', { type: 'range', min: f.min, max: f.max, step: f.step || 0.01, value: v ?? f.min });
-        setRangeFill(ctl);
-        ctl.addEventListener('input', () => { const x = parseFloat(ctl.value); valEl.textContent = fmtv(x); setRangeFill(ctl); change(f, x, false); });
-        ctl.addEventListener('change', () => change(f, parseFloat(ctl.value), true));
-        break;
+        const rc = rangeControl({
+          min: f.min, max: f.max, step: f.step || 0.01, value: v ?? f.min, fmt: fmtv, label: f.label,
+          def: f.def ?? guessDefault(f.kf || f.path, f.min, f.max),
+          onInput: (x) => change(f, x, false), onChange: (x) => change(f, x, true),
+        });
+        const lbl2 = h('label', {}, f.label, f.kf && hasKeys(obj, f.kf) ? h('span', { class: 'kf-mark' }, ' ◆') : null);
+        frag.append(h('div', { class: 'field rngf' }, h('div', { class: 'rng-top' }, lbl2, rc.val), rc.row));
+        return;
       }
       case 'color': {
         ctl = h('div', { class: 'swatches' });
@@ -272,7 +279,7 @@ function clipInspector(c) {
   const idx = app.P.clips.indexOf(c);
   return {
     title: c.freeze ? 'Donmuş kare' : isV ? 'Video klip' : 'Fotoğraf',
-    tabs: isV && !c.freeze ? ['Düzen', 'Renk', 'Ses', 'Keyframe', 'Geçiş', 'Filtre'] : ['Düzen', 'Renk', 'Keyframe', 'Geçiş', 'Filtre'],
+    tabs: isV && !c.freeze ? ['Düzen', 'Renk', 'Arka plan', 'Chroma', 'Maske', 'Ses', 'Keyframe', 'Geçiş', 'Filtre'] : ['Düzen', 'Renk', 'Arka plan', 'Chroma', 'Maske', 'Keyframe', 'Geçiş', 'Filtre'],
     actions: [
       { icon: I.left, label: 'Sola taşı', onClick: () => app.moveClip(-1) },
       { icon: I.right, label: 'Sağa taşı', onClick: () => app.moveClip(1) },
@@ -301,26 +308,74 @@ function clipInspector(c) {
       } else if (tab === 'Geçiş') {
         if (idx === 0) { body.append(h('p', { class: 'hint', html: 'İlk klibe geçiş eklenemez. Geçiş, <b>bu klipten önceki</b> klip ile bu klip arasında uygulanır.' })); return; }
         if (!c.trans) c.trans = { type: 'none', dur: 0.5 };
-        body.append(h('p', { class: 'hint', html: 'Önceki klipten bu klibe geçiş efekti:' }));
+        const pick = (id) => {
+          c.trans.type = id; app.change(true); app.refreshTimeline(); refreshSheet();
+          const L = app.layout().find((x) => x.clip === c);
+          if (L && id !== 'none') { app.engine.seek(Math.max(0, L.start - 0.4)); app.updateTime(); app.play(); setTimeout(() => app.pause(), (L.td + 0.9) * 1000); }
+        };
+        const cur = GL_LIST.find((g) => g.id === c.trans.type);
+        body.append(h('p', { class: 'hint', html: `Önceki klipten bu klibe geçiş. Seçili: <b>${cur ? cur.name : (TRANSITIONS.find((x) => x[0] === c.trans.type)?.[1] || 'Yok')}</b>` }));
+        body.append(fields(c, [{ label: 'Geçiş süresi', path: 'trans.dur', type: 'range', min: 0.2, max: 2, step: 0.05, fmt: sec, def: 0.5, post: () => app.refreshTimeline() }]));
+        body.append(h('h4', { class: 'sub-title' }, 'Temel'));
         const grid = h('div', { class: 'grid-3' });
-        TRANSITIONS.forEach(([id, lbl]) => {
-          grid.append(h('button', { class: `opt${c.trans.type === id ? ' on' : ''}`, onclick: () => {
-            c.trans.type = id; app.change(true); app.refreshTimeline(); refreshSheet();
-            const L = app.layout().find((x) => x.clip === c);
-            if (L && id !== 'none') { app.engine.seek(Math.max(0, L.start - 0.4)); app.updateTime(); app.play(); setTimeout(() => app.pause(), (L.td + 0.9) * 1000); }
-          } }, lbl));
-        });
+        TRANSITIONS.forEach(([id, lbl]) => grid.append(h('button', { class: `opt${c.trans.type === id ? ' on' : ''}`, onclick: () => pick(id) }, lbl)));
         body.append(grid);
-        body.append(fields(c, [{ label: 'Geçiş süresi', path: 'trans.dur', type: 'range', min: 0.2, max: 1.5, step: 0.05, fmt: sec, post: () => app.refreshTimeline() }]));
+        body.append(h('h4', { class: 'sub-title' }, `Sinematik (${GL_LIST.length})`));
+        const q = h('input', { type: 'text', placeholder: 'Geçiş ara…', class: 'search' });
+        const g2 = h('div', { class: 'tr-grid' });
+        const lay = app.layout();
+        const Li = lay.findIndex((x) => x.clip === c);
+        const thumbOf = (L) => { const el = L && app.engine.elFor(L.clip); const cv = document.createElement('canvas'); cv.width = 72; cv.height = 128; const x = cv.getContext('2d'); x.fillStyle = '#222'; x.fillRect(0, 0, 72, 128); try { if (el) drawFit(x, el, 0, 0, 72, 128, 'cover'); } catch (_) { /* yoksay */ } return cv; };
+        const A = thumbOf(lay[Li - 1]), B = thumbOf(lay[Li]);
+        const io = new IntersectionObserver((ents) => ents.forEach((en) => {
+          if (!en.isIntersecting) return;
+          io.unobserve(en.target);
+          const T = transGL(); const id = en.target.dataset.raw;
+          const out = T && T.render(id, A, B, 0.5, 72, 128);
+          if (out) en.target.getContext('2d').drawImage(out, 0, 0);
+        }), { root: $('sheetBody') });
+        const draw = () => {
+          g2.textContent = '';
+          const k = q.value.trim().toLocaleLowerCase('tr-TR');
+          GL_LIST.filter((t) => !k || t.name.toLocaleLowerCase('tr-TR').includes(k) || t.raw.toLowerCase().includes(k)).forEach((t) => {
+            const cv = h('canvas', { width: 72, height: 128, 'data-raw': t.raw });
+            g2.append(h('button', { class: `tr-card${c.trans.type === t.id ? ' on' : ''}`, onclick: () => pick(t.id) }, cv, h('span', {}, t.name)));
+            io.observe(cv);
+          });
+        };
+        q.addEventListener('input', draw);
+        body.append(q, g2);
+        draw();
         body.append(h('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: () => {
           app.P.clips.forEach((x, i) => { if (i > 0) x.trans = clone(c.trans); }); app.change(true); app.refreshTimeline(); toast('Geçiş tüm kliplere uygulandı');
         } }, 'Tüm kliplere uygula'));
       } else if (tab === 'Filtre') filterTab(body, c);
       else if (tab === 'Keyframe') kfTab(body, c, isV && !c.freeze ? [...CLIP_PROPS, ['vol', 'Ses seviyesi', 0, 2, 0.01]] : CLIP_PROPS, true);
       else if (tab === 'Renk') colorTab(body, c);
+      else if (tab === 'Arka plan') bgRemoveTab(body, c);
+      else if (tab === 'Chroma') chromaTab(body, c);
+      else if (tab === 'Maske') maskTab(body, c, 'klibin');
       else if (tab === 'Ses') audioFxTab(body, c, 'voice');
     },
   };
+}
+
+// ---------- Maske ----------
+function maskTab(body, o, who) {
+  if (!o.mask) o.mask = { type: 'none', x: 0.5, y: 0.5, w: 0.8, h: 0.8, feather: 0, invert: false, radius: 0, rot: 0 };
+  const m = o.mask, off = m.type === 'none';
+  body.append(h('p', { class: 'hint', html: `Maske, ${who} sadece seçtiğin şeklin içini gösterir (Ters çevir ile dışını). Bölme maskeleriyle iki videoyu yan yana/üst üste koyabilirsin.` }));
+  body.append(fields(o, [
+    { label: 'Maske şekli', path: 'mask.type', type: 'chips', options: MASK_SHAPES, rerender: true },
+    { label: 'Merkez yatay', path: 'mask.x', type: 'range', min: -0.2, max: 1.2, fmt: pct, def: 0.5, hide: off },
+    { label: 'Merkez dikey', path: 'mask.y', type: 'range', min: -0.2, max: 1.2, fmt: pct, def: 0.5, hide: off },
+    { label: 'Genişlik', path: 'mask.w', type: 'range', min: 0.05, max: 1.5, fmt: pct, def: 0.8, hide: off || /^split|diagonal/.test(m.type) },
+    { label: 'Yükseklik', path: 'mask.h', type: 'range', min: 0.05, max: 1.5, fmt: pct, def: 0.8, hide: off || /^split|diagonal/.test(m.type) },
+    { label: 'Döndür', path: 'mask.rot', type: 'range', min: -180, max: 180, step: 1, def: 0, fmt: deg, hide: off },
+    { label: 'Köşe', path: 'mask.radius', type: 'range', min: 0, max: 300, step: 1, hide: m.type !== 'rect' },
+    { label: 'Kenar yumuşatma', path: 'mask.feather', type: 'range', min: 0, max: 150, step: 1, def: 0, hide: off },
+    { label: 'Ters çevir', path: 'mask.invert', type: 'toggle', hide: off },
+  ]));
 }
 
 // ---------- Bölünmüş ekran / resim içinde resim ----------
@@ -358,14 +413,11 @@ function kfTab(body, o, props, isClip = false) {
     const v = propAt(o, p, lt);
     const on = !!keyAt(o, p, lt);
     const fmtv = p === 'rot' ? deg : (p === 'x' || p === 'y' || p === 'opacity' || p === 's' || p === 'zoom') ? pct : (x) => (+x).toFixed(2);
-    const val = h('span', { class: 'val' }, fmtv(v));
-    const inp = h('input', { type: 'range', min, max, step, value: v });
-    setRangeFill(inp);
-    inp.addEventListener('input', () => { const x = parseFloat(inp.value); val.textContent = fmtv(x); setRangeFill(inp); writeProp(o, p, lt, x); app.change(false); });
-    inp.addEventListener('change', () => { app.change(true); refreshSheet(); });
+    const rc = rangeControl({ min, max, step, value: v, fmt: fmtv, label, def: guessDefault(p, min, max),
+      onInput: (x) => { writeProp(o, p, lt, x); app.change(false); }, onChange: () => { app.change(true); refreshSheet(); } });
     const dia = h('button', { class: `kf-btn${on ? ' on' : ''}${hasKeys(o, p) ? ' has' : ''}`, disabled: !inside, html: I.diamond, 'aria-label': `${label} keyframe` });
     dia.addEventListener('click', () => { if (on) delKey(o, p, lt); else setKey(o, p, lt, propAt(o, p, lt)); app.change(true); refreshSheet(); });
-    body.append(h('div', { class: 'kf-row' }, h('label', {}, label), inp, val, dia));
+    body.append(h('div', { class: 'field rngf' }, h('div', { class: 'rng-top' }, h('label', {}, label), h('span', { class: 'kf-top' }, rc.val, dia)), rc.row));
   });
   const here = props.filter(([p]) => keyAt(o, p, lt));
   if (here.length) {
@@ -437,11 +489,13 @@ function posTab(body, L) {
 }
 
 function layerInspector(L) {
-  const title = { text: 'Yazı', media: 'Katman', cta: 'Sosyal medya çağrısı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma' }[L.kind];
+  const title = { text: 'Yazı', media: 'Katman', cta: 'Sosyal medya çağrısı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma', social: 'Sosyal medya', group: 'Grup' }[L.kind];
   const tabs = {
     text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'],
-    media: ['Düzen', 'Maske', 'Renk', 'Chroma', 'Animasyon', 'Keyframe', 'Filtre', 'Konum'],
+    media: ['Düzen', 'Arka plan', 'Chroma', 'Maske', 'Renk', 'Animasyon', 'Keyframe', 'Filtre', 'Konum'],
     sticker: ['Çıkartma', 'Animasyon', 'Keyframe', 'Konum'],
+    social: ['İçerik', 'Animasyon', 'Keyframe', 'Konum'],
+    group: ['Grup', 'Animasyon', 'Keyframe', 'Konum'],
     cta: ['Buton', 'Animasyon', 'Keyframe', 'Konum'],
     score: ['Skor', 'Animasyon', 'Keyframe', 'Konum'],
     shape: ['Şekil', 'Animasyon', 'Keyframe', 'Konum'],
@@ -454,6 +508,15 @@ function layerInspector(L) {
       if (tab === 'Keyframe') return kfTab(body, L, LAYER_PROPS);
       if (tab === 'Renk') return colorTab(body, L);
       if (tab === 'Chroma') return chromaTab(body, L);
+      if (tab === 'Arka plan') return bgRemoveTab(body, L);
+      if (tab === 'İçerik' && L.kind === 'social') return socialTab(body, L);
+      if (tab === 'Grup') {
+        body.append(h('p', { class: 'hint', html: `Bu grupta <b>${(L.children || []).length}</b> katman var. Grubu taşı, ölçekle, döndür veya animasyon ver — içindekiler birlikte hareket eder. İçindekileri tek tek düzenlemek için grubu çöz.` }));
+        body.append(fields(L, [{ label: 'Grup adı', path: 'name', type: 'text', post: () => app.refreshTimelineSoon() }]));
+        (L.children || []).forEach((c) => body.append(h('div', { class: 'kit-row' }, h('b', {}, `${c.kind === 'text' ? (c.text || '').split('\n')[0].replace(/\*/g, '') : c.kind}`), h('button', { class: 'icon-btn sm', html: c.hidden ? I.eyeOff : I.eye, onclick: () => { c.hidden = !c.hidden; app.change(true); refreshSheet(); } }))));
+        body.append(h('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: () => app.ungroup(L) }, 'Grubu çöz'));
+        return;
+      }
       if (tab === 'Çıkartma') {
         return body.append(fields(L, [
           { label: 'Boyut', path: 'size', type: 'range', min: 40, max: 900, step: 1 },
@@ -467,8 +530,8 @@ function layerInspector(L) {
         body.append(fields(L, [
           { label: 'Metin', path: 'text', type: 'textarea', post: () => app.refreshTimelineSoon() },
           { type: 'hint', html: 'İpucu: <b>*kelime*</b> şeklinde yazdığın kelimeler vurgu rengiyle görünür.' },
-          { label: 'Yazı tipi', path: 'font', type: 'chips', options: FONTS },
-          { label: 'Kalınlık', path: 'weight', type: 'chips', options: WEIGHTS },
+          { type: 'el', el: fontButton(L, 'font', () => app.openInspector('Metin')) },
+          { label: 'Kalınlık', path: 'weight', type: 'chips', options: weightOptions(L.font) },
           { label: 'Boyut', path: 'size', type: 'range', min: 20, max: 320, step: 1 },
           { label: 'Renk', path: 'color', type: 'color' },
           { label: 'Vurgu rengi', path: 'accent', type: 'color' },
@@ -512,18 +575,7 @@ function layerInspector(L) {
           { label: 'Döngü', path: 'loop', type: 'toggle', hide: !isV },
         ]));
       } else if (L.kind === 'media' && tab === 'Maske') {
-        if (!L.mask) L.mask = { type: 'none', x: 0.5, y: 0.5, w: 0.8, h: 0.8, feather: 0, invert: false, radius: 0 };
-        body.append(h('p', { class: 'hint', html: 'Maske, katmanın sadece seçtiğin bölgesini gösterir. Maske açıkken kenar çerçevesi ve gölge kapanır.' }));
-        body.append(fields(L, [
-          { label: 'Maske', path: 'mask.type', type: 'chips', options: [['none', 'Yok'], ['rect', 'Dikdörtgen'], ['ellipse', 'Elips']], rerender: true },
-          { label: 'Merkez yatay', path: 'mask.x', type: 'range', min: 0, max: 1, fmt: pct, hide: L.mask.type === 'none' },
-          { label: 'Merkez dikey', path: 'mask.y', type: 'range', min: 0, max: 1, fmt: pct, hide: L.mask.type === 'none' },
-          { label: 'Genişlik', path: 'mask.w', type: 'range', min: 0.05, max: 1.5, fmt: pct, hide: L.mask.type === 'none' },
-          { label: 'Yükseklik', path: 'mask.h', type: 'range', min: 0.05, max: 1.5, fmt: pct, hide: L.mask.type === 'none' },
-          { label: 'Köşe', path: 'mask.radius', type: 'range', min: 0, max: 300, step: 1, hide: L.mask.type !== 'rect' },
-          { label: 'Kenar yumuşatma', path: 'mask.feather', type: 'range', min: 0, max: 120, step: 1, hide: L.mask.type === 'none' },
-          { label: 'Ters çevir', path: 'mask.invert', type: 'toggle', hide: L.mask.type === 'none' },
-        ]));
+        maskTab(body, L, 'katmanın');
       } else if (L.kind === 'shape' && tab === 'Şekil') {
         const lineLike = L.shape === 'line' || L.shape === 'arrow';
         body.append(fields(L, [
@@ -613,8 +665,8 @@ function subsInspector(extra = {}) {
         body.append(h('p', { class: 'hint', html: 'Not: SRT/VTT dosyaları cümle zamanı içerir. Kelime vurgusu, kelimeler satır süresine <b>yaklaşık</b> dağıtılarak yapılır; gerekirse satırı bölerek zamanlamayı düzelt.' }));
         body.append(fields(S.style, [
           { label: 'Görünüm', path: 'preset', type: 'chips', options: SUB_PRESETS, rerender: true },
-          { label: 'Yazı tipi', path: 'font', type: 'chips', options: FONTS },
-          { label: 'Kalınlık', path: 'weight', type: 'chips', options: WEIGHTS },
+          { type: 'el', el: fontButton(S.style, 'font', () => app.openInspector('Stil')) },
+          { label: 'Kalınlık', path: 'weight', type: 'chips', options: weightOptions(S.style.font) },
           { label: 'Boyut', path: 'size', type: 'range', min: 30, max: 180, step: 1 },
           { label: 'Renk', path: 'color', type: 'color' },
           { label: 'Vurgu rengi', path: 'accent', type: 'color' },
@@ -667,6 +719,9 @@ function subsInspector(extra = {}) {
         ]));
         body.append(h('p', { class: 'hint', html: 'Altyazı sesle senkron değilse <b>zaman kaydırma</b> ile hepsini birlikte ileri-geri al.' }));
         body.append(h('div', { class: 'btn-row' },
+          h('button', { class: 'btn', html: `${I.ai} Yeniden oluştur`, onclick: () => import('./ai.js').then((m) => m.openAutoCaptions()) }),
+          h('button', { class: 'btn', html: `${I.edit} Metinden kurgu`, onclick: () => import('./ai.js').then((m) => m.openTranscript()) })));
+        body.append(h('div', { class: 'btn-row' },
           h('button', { class: 'btn', html: `${I.upload} SRT / VTT yükle`, onclick: () => app.importSRT() }),
           h('button', { class: 'btn', html: `${I.export} SRT kaydet`, onclick: async () => {
             const blob = new Blob([toSRT(S.cues)], { type: 'text/plain' });
@@ -705,15 +760,24 @@ function previewCanvas(draw) {
   return c;
 }
 
-const ST = { alpha: 1, reveal: 1, glow: 0.3, sc: 1 };
+const ST = { alpha: 1, reveal: 1, glow: 0.3, sc: 1, out: 0, lt: 0 };
+const SOCIAL_BASE = { kind: 'social', x: 0.5, y: 0.5, rot: 0, sc: 1, opacity: 1, scale: 1, dark: false, accent: '#8B5CF6' };
 
-export function openTemplates() {
+const tplCats = () => ['Tümü', ...new Set(TEXT_TEMPLATES.map((t) => t.cat || 'Temel'))];
+let fontsWarm = false;
+async function warmTemplateFonts(list) {
+  if (!document.fonts) return;
+  const specs = new Set(list.map((L) => `${L.italic ? 'italic ' : ''}${L.weight || 700} 40px "${L.font || 'Barlow Condensed'}"`));
+  try { await Promise.all([...specs].map((sp) => document.fonts.load(sp, 'AaĞŞİçö'))); } catch (_) { /* yoksay */ }
+}
+
+export function openTemplates(tab) {
   openSheet({
-    title: 'Yazı şablonları', tall: true,
-    render: (body) => {
-      const mine = app.getStyles('text');
-      if (mine.length) {
-        body.append(h('h4', { class: 'sub-title' }, 'Benim stillerim'));
+    title: 'Yazı şablonları', tall: true, tabs: ['Benim', ...tplCats()], tab: tab || 'Tümü',
+    render: (body, tb) => {
+      if (tb === 'Benim') {
+        const mine = app.getStyles('text');
+        if (!mine.length) body.append(h('p', { class: 'hint', html: 'Bir yazıyı beğendiğin hale getirince denetçideki <b>kaydet</b> simgesiyle kendi stilin olarak saklayabilirsin.' }));
         const g2 = h('div', { class: 'grid-tpl', style: { marginBottom: '14px' } });
         mine.forEach((st) => {
           const L = { ...clone(TEXT_BASE), ...clone(st.data) };
@@ -726,20 +790,101 @@ export function openTemplates() {
         body.append(h('div', { class: 'btn-row' },
           h('button', { class: 'btn', html: `${I.export} Stilleri dışa aktar`, onclick: () => app.exportStyles() }),
           h('button', { class: 'btn', html: `${I.upload} Stil dosyası yükle`, onclick: () => app.importStyles() })));
-        body.append(h('h4', { class: 'sub-title' }, 'Hazır şablonlar'));
-      } else {
-        body.append(h('p', { class: 'hint', html: 'Bir yazıyı beğendiğin hale getirince denetçideki <b>kaydet</b> simgesiyle kendi stilin olarak saklayabilirsin.' }));
-        body.append(h('button', { class: 'btn block', style: { marginBottom: '10px' }, html: `${I.upload} Stil dosyası yükle`, onclick: () => app.importStyles() }));
+        return;
       }
+      const list = TEXT_TEMPLATES.filter((t) => tb === 'Tümü' || (t.cat || 'Temel') === tb).map((tp) => ({ tp, L: { ...clone(TEXT_BASE), ...clone(tp.p) } }));
       const grid = h('div', { class: 'grid-tpl' });
-      TEXT_TEMPLATES.forEach((tp) => {
-        const L = { ...clone(TEXT_BASE), ...clone(tp.p) };
-        const cv = previewCanvas((ctx, env) => drawText(ctx, L, ST, env));
-        grid.append(h('button', { class: 'tpl', onclick: () => { app.addLayer({ ...L }); } }, cv, h('span', {}, tp.name)));
+      const draw = () => {
+        grid.textContent = '';
+        list.forEach(({ tp, L }) => {
+          const cv = previewCanvas((ctx, env) => drawText(ctx, L, ST, env));
+          grid.append(h('button', { class: 'tpl', onclick: () => { app.addLayer({ ...clone(L) }); } }, cv, h('span', {}, tp.name)));
+        });
+      };
+      draw();
+      body.append(grid);
+      if (!fontsWarm) warmTemplateFonts(list.map((x) => x.L)).then(() => { fontsWarm = true; draw(); });
+    },
+  });
+}
+
+// ---------- Sosyal medya şablonları ----------
+export function openSocial(tab) {
+  const cats = [...new Set(SOCIAL_TEMPLATES.map((t) => t.cat))];
+  openSheet({
+    title: 'Sosyal medya şablonları', tall: true, tabs: cats, tab: tab || cats[0],
+    render: (body, tb) => {
+      body.append(h('p', { class: 'hint', html: 'Platformdan bağımsız tasarımlar. İsim, metin, sayılar, renk, açık/koyu tema ve profil fotoğrafı düzenlenebilir.' }));
+      const grid = h('div', { class: 'grid-tpl' });
+      SOCIAL_TEMPLATES.filter((t) => t.cat === tb).forEach((tp) => {
+        const L = { ...clone(SOCIAL_BASE), ...clone(tp.p), start: 0, end: 5 };
+        const cv = previewCanvas((ctx, env) => drawSocial(ctx, L, 2.2, { ...env, img: (id) => app.engine.imgForMedia(id) }));
+        grid.append(h('button', { class: 'tpl', onclick: () => { const x = clone(L); delete x.start; delete x.end; app.addLayer(x, x.type === 'countdown' ? 3 : 4); } }, cv, h('span', {}, tp.name)));
       });
       body.append(grid);
     },
   });
+}
+
+function socialTab(body, L) {
+  const keys = SOCIAL_FIELDS[L.type] || [];
+  const LBL = { name: 'İsim', handle: 'Kullanıcı adı', time: 'Zaman', text: 'Metin', likes: 'Beğeni', pinned: 'Sabitlendi', dark: 'Koyu tema', avatar: 'Profil fotoğrafı', lines: 'Mesajlar (her satır “İsim: mesaj”)', side: 'Taraf', color: 'Renk', textColor: 'Yazı rengi', app: 'Uygulama adı', title: 'Başlık', accent: 'Vurgu rengi', icon: 'İkon', from: 'Başlangıç', to: 'Bitiş', label: 'Etiket', dur: 'Sayma süresi (sn)', count: 'Sayı', value: 'Puan (0–5)', options: 'Seçenekler (her satır “Seçenek|oy”)', verified: 'Onay rozeti', replies: 'Yanıt', shares: 'Paylaşım', followers: 'Takipçi', btn: 'Buton yazısı' };
+  const list = [];
+  keys.forEach((k) => {
+    if (k === 'avatar') return;
+    const lab = LBL[k] || k;
+    if (['text', 'lines', 'options'].includes(k)) list.push({ label: lab, path: k, type: 'textarea' });
+    else if (['dark', 'pinned', 'verified'].includes(k)) list.push({ label: lab, path: k, type: 'toggle' });
+    else if (['color', 'textColor', 'accent'].includes(k)) list.push({ label: lab, path: k, type: 'color' });
+    else if (k === 'side') list.push({ label: lab, path: k, type: 'chips', options: [['left', 'Gelen (sol)'], ['right', 'Giden (sağ)']] });
+    else if (k === 'icon') list.push({ label: lab, path: k, type: 'chips', options: ICON_NAMES });
+    else if (k === 'value') list.push({ label: lab, path: k, type: 'range', min: 0, max: 5, step: 0.5 });
+    else if (k === 'dur') list.push({ label: lab, path: k, type: 'range', min: 0.3, max: 6, step: 0.1, def: 1.6 });
+    else if (['likes', 'from', 'to', 'count', 'replies', 'shares', 'followers'].includes(k)) {
+      list.push({ label: lab, path: k, type: 'text', post: (o) => { const n = parseFloat(String(o[k]).replace(/\./g, '').replace(',', '.')); if (!Number.isNaN(n)) o[k] = n; } });
+    } else list.push({ label: lab, path: k, type: 'text' });
+  });
+  body.append(fields(L, list));
+  if (keys.includes('avatar')) {
+    const m = L.avatar ? app.engine.media.get(L.avatar) : null;
+    body.append(h('div', { class: 'field' }, h('label', {}, 'Profil fotoğrafı'), h('span', {}, m ? m.name : 'Baş harf'),
+      h('div', { style: { display: 'flex', gap: '6px' } },
+        h('button', { class: 'btn', onclick: async () => {
+          const files = await app.pickFiles('image/*', false);
+          if (!files.length) return;
+          const recs = await app.importFiles(files);
+          if (recs[0]) { L.avatar = recs[0].id; app.change(true); refreshSheet(); }
+        } }, 'Seç'),
+        L.avatar ? h('button', { class: 'btn', onclick: () => { L.avatar = null; app.change(true); refreshSheet(); } }, 'Kaldır') : null)));
+  }
+  body.append(fields(L, [{ label: 'Boyut', path: 'scale', type: 'range', min: 0.3, max: 2.5, fmt: pct, def: 1 }]));
+}
+
+// ---------- Yazı tipi seçici ----------
+export function openFontPicker(obj, path, back) {
+  openSheet({
+    title: 'Yazı tipi', tall: true,
+    render: (body) => fontPickerBody(body, getPath(obj, path), (f, meta) => {
+      setPath(obj, path, f);
+      const ws = meta?.w || [400, 700];
+      const cur = getPath(obj, path.replace(/font$/, 'weight'));
+      if (cur && !ws.includes(cur)) setPath(obj, path.replace(/font$/, 'weight'), ws.reduce((a, b) => (Math.abs(b - cur) < Math.abs(a - cur) ? b : a), ws[0]));
+      app.change(true);
+      if (back) back(); else closeSheet();
+    }, () => refreshSheet()),
+  });
+}
+
+function fontButton(obj, path, back) {
+  const f = getPath(obj, path) || 'Barlow Condensed';
+  return h('div', { class: 'field full' }, h('label', {}, 'Yazı tipi'),
+    h('button', { class: 'font-pick', onclick: () => openFontPicker(obj, path, back) },
+      h('span', { style: { fontFamily: `"${f}", sans-serif` } }, f), h('small', {}, isBundled(f) ? 'internetsiz' : 'Google Fonts'), h('b', {}, 'Değiştir ›')));
+}
+
+function weightOptions(family) {
+  const ws = fontWeights(family);
+  return WEIGHTS.filter(([w]) => ws.includes(w)).length ? WEIGHTS.filter(([w]) => ws.includes(w)) : WEIGHTS;
 }
 
 export function openCTAs() {
@@ -808,8 +953,9 @@ export function openSubsMenu() {
   openSheet({
     title: 'Altyazı ekle',
     render: (body) => {
-      body.append(h('p', { class: 'hint', html: 'SRT dosyanı yükle; kelime vurgulu, pop veya klasik görünümle videoya yerleşsin. Yazı tipi varsayılan olarak <b>Barlow Condensed</b>.' }));
-      body.append(h('button', { class: 'btn block primary', html: `${I.upload} SRT dosyası yükle`, onclick: () => { closeSheet(); app.importSRT(); } }));
+      body.append(h('button', { class: 'btn block primary', html: `${I.ai} Otomatik altyazı (yapay zekâ)`, onclick: () => { closeSheet(); setTimeout(() => import('./ai.js').then((m) => m.openAutoCaptions()), 230); } }));
+      body.append(h('p', { class: 'hint', html: 'Konuşmayı telefonda yazıya döker; kelime kelime zamanlı, Türkçe dahil. Yazı tipi varsayılan olarak <b>Barlow Condensed</b>.' }));
+      body.append(h('button', { class: 'btn block', html: `${I.upload} SRT / VTT dosyası yükle`, onclick: () => { closeSheet(); app.importSRT(); } }));
       body.append(h('button', { class: 'btn block', style: { marginTop: '8px' }, html: `${I.edit} Elle yaz`, onclick: () => {
         if (!app.P.subs) app.P.subs = clone(SUB_BASE);
         const t = app.engine.t;
@@ -906,6 +1052,8 @@ export function openExport() {
 
   const start = async () => {
     cancel = false;
+    const fontsOk = await ensureProjectFonts(app.P);
+    if (!fontsOk) toast('Bazı Google fontları indirilemedi; yedek font kullanılacak', 4000);
     let wake = null;
     try { wake = await navigator.wakeLock?.request('screen'); } catch (_) { /* yoksay */ }
     const res = opt.q / short;

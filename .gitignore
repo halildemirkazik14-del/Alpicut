@@ -3,3 +3,10 @@ android/
 www/fonts/
 *.apk
 .DS_Store
+www/vendor/
+www/models/
+www/sfx/
+www/data/gfonts.json
+www/data/music.json
+www/data/assets-report.json
+lab/out/

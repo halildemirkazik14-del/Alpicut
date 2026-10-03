@@ -2,7 +2,7 @@ name: Alpicut APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 permissions:
@@ -27,11 +27,20 @@ jobs:
       - name: Android SDK lisansları
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
+      - name: Araçlar (ffmpeg, unzip)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg unzip > /dev/null
+
       - name: Paketleri kur
         run: npm install --no-audit --no-fund
 
-      - name: Barlow fontlarını kopyala
-        run: node scripts/copy-fonts.mjs
+      - name: Fontlar, yapay zekâ kütüphaneleri, ses efektleri, müzik kataloğu
+        run: node scripts/fetch-assets.mjs
+
+      - name: Uçtan uca test (gerçek tarayıcı, internet açık)
+        continue-on-error: true
+        run: |
+          npx playwright install --with-deps chromium > /dev/null
+          node lab/e2e.mjs | tee e2e.txt
 
       - name: Android projesini oluştur
         run: npx cap add android
@@ -58,7 +67,22 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: APK'yı adlandır
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk Alpicut.apk
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk Alpicut.apk
+          {
+            echo "Telefonundan **Alpicut.apk** dosyasına dokunup indir ve kur."
+            echo; echo "Boyut: $(du -h Alpicut.apk | cut -f1)"
+            echo; echo '<details><summary>Derleme raporu</summary>'; echo; echo '```'
+            cat www/data/assets-report.json 2>/dev/null; echo; cat e2e.txt 2>/dev/null | tail -40
+            echo '```'; echo '</details>'
+          } > release-notes.md
+
+      - name: Test sonuçlarını kaydet
+        if: always()
+        run: |
+          mkdir -p /tmp/res && cp -r lab/out/* /tmp/res/ 2>/dev/null; cp www/data/assets-report.json e2e.txt /tmp/res/ 2>/dev/null; cd /tmp/res
+          git init -q && git checkout -q -b ci-results && git config user.name ci && git config user.email ci@alpicut.local
+          git add -A && git commit -qm "ci $GITHUB_RUN_NUMBER" && git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-results || true
 
       - uses: actions/upload-artifact@v4
         with:
@@ -66,9 +90,10 @@ jobs:
           path: Alpicut.apk
 
       - name: Sürüm yayınla (telefondan indirmek için)
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Alpicut v1.0.${{ github.run_number }}
-          body: Telefonundan **Alpicut.apk** dosyasına dokunup indir ve kur.
+          body_path: release-notes.md
           files: Alpicut.apk

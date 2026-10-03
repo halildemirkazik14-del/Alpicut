@@ -5,20 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0E0A17">
   <title>Alpicut</title>
-  <!-- Barlow ailesi: APK içinde yerel dosyalardan (derlemede kopyalanır) -->
-  <link rel="stylesheet" href="fonts/barlow/400.css">
-  <link rel="stylesheet" href="fonts/barlow/600.css">
-  <link rel="stylesheet" href="fonts/barlow/700.css">
-  <link rel="stylesheet" href="fonts/barlow-semi-condensed/500.css">
-  <link rel="stylesheet" href="fonts/barlow-semi-condensed/600.css">
-  <link rel="stylesheet" href="fonts/barlow-semi-condensed/700.css">
-  <link rel="stylesheet" href="fonts/barlow-semi-condensed/600-italic.css">
-  <link rel="stylesheet" href="fonts/barlow-condensed/600.css">
-  <link rel="stylesheet" href="fonts/barlow-condensed/700.css">
-  <link rel="stylesheet" href="fonts/barlow-condensed/800.css">
-  <link rel="stylesheet" href="fonts/barlow-condensed/900.css">
-  <link rel="stylesheet" href="fonts/barlow-condensed/800-italic.css">
-  <link rel="stylesheet" href="fonts/barlow-condensed/900-italic.css">
+  <!-- Paketli fontlar (derlemede oluşturulur) -->
+  <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -48,6 +36,7 @@
     </header>
     <section class="preview-wrap" id="previewWrap">
       <div class="stage" id="stage"><canvas id="preview"></canvas></div>
+      <button class="view-reset hidden" id="viewReset">100% · Sığdır</button>
       <div class="empty-hint" id="emptyHint">Başlamak için alttan <b>Medya</b> ekle</div>
     </section>
     <div class="transport">
