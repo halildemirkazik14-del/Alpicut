@@ -131,7 +131,7 @@ function niceName(f) {
         if (fn.endsWith('.zip')) { try { execSync(`unzip -qo "${fn}" -d "${dir}/x"`); } catch (_) { report.errors.push(`unzip: ${fn}`); } }
         else { mk(`${dir}/x`); fs.renameSync(fn, `${dir}/x/${path.basename(fn)}`); }
       }
-      const files = execSync(`find "${dir}/x" -type f \\( -iname '*.ogg' -o -iname '*.wav' -o -iname '*.mp3' -o -iname '*.flac' \\) 2>/dev/null || true`).toString().split('\n').filter(Boolean);
+      const files = execSync(`find "${dir}/x" -type f \\( -iname '*.ogg' -o -iname '*.wav' -o -iname '*.mp3' -o -iname '*.flac' \\) 2>/dev/null || true`).toString().split('\n').filter((f) => f && !f.includes('__MACOSX') && !path.basename(f).startsWith('._'));
       report.sfxSources[src.slug] = `${report.sfxSources[src.slug] || '?'} · ${files.length} dosya`;
       // aynı adın farklı biçimlerinden yalnız birini al
       const seen = new Set();

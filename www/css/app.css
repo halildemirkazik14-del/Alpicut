@@ -338,3 +338,6 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 7px; }
 .sfx-row.sfx4 { grid-template-columns: 44px 1fr 34px auto; }
 .btn.tplbtn { margin-top: 10px; background: var(--surface-2); border-color: var(--primary); color: var(--primary-3); }
 .item.k-wave { background: linear-gradient(90deg, #0E7490, #A855F7); }
+.chips.scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chips.scroll::-webkit-scrollbar { display: none; }
+.chips.scroll button { flex: none; }

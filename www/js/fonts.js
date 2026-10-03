@@ -79,7 +79,7 @@ const setFavs = (f) => { try { localStorage.setItem('alpicut.favfonts', JSON.str
 export function fontPickerBody(body, current, onPick, refresh) {
   const st = fontPickerBody.st || (fontPickerBody.st = { q: '', cat: 'all', limit: 80 });
   const q = h('input', { type: 'text', placeholder: 'Font ara (1500+ Google Fonts)…', class: 'search', value: st.q });
-  const chips = h('div', { class: 'chips', style: { marginBottom: '8px' } });
+  const chips = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
   [['fav', '★ Favoriler'], ...CATS].forEach(([id, l]) => {
     chips.append(h('button', { class: st.cat === id ? 'on' : '', onclick: () => { st.cat = id; st.limit = 80; refresh(); } }, l));
   });

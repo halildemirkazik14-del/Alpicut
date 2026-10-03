@@ -53,7 +53,7 @@ export function openSfxLibrary() {
       const cats = ['Favoriler', 'Tümü', ...new Set(all.map((x) => x.c))];
       if (!cats.includes(st.cat)) st.cat = 'Tümü';
       const q = h('input', { type: 'text', class: 'search', placeholder: `${all.length} ses efektinde ara…`, value: st.q });
-      const chips = h('div', { class: 'chips', style: { marginBottom: '8px' } });
+      const chips = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
       cats.forEach((c) => chips.append(h('button', { class: st.cat === c ? 'on' : '', onclick: () => { st.cat = c; st.limit = 60; refreshSheet(); } }, c)));
       body.append(q, chips);
       const fv = favs();
@@ -91,6 +91,14 @@ export function openSfxLibrary() {
   });
 }
 
+function cleanTitle(m) {
+  const sur = m.c.split(' ').pop().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const parts = m.t.split(' – ');
+  if (parts.length > 1 && parts[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(sur.slice(0, 5))) parts.shift();
+  const t = parts.join(' – ');
+  return t.charAt(0).toLocaleUpperCase('tr-TR') + t.slice(1);
+}
+
 export function openMusicLibrary() {
   const st = openMusicLibrary.st || (openMusicLibrary.st = { q: '', comp: 'Tümü' });
   openSheet({
@@ -102,7 +110,7 @@ export function openMusicLibrary() {
       if (!musicIndex.length) { body.append(h('p', { class: 'hint' }, 'Katalog bulunamadı.')); return; }
       const comps = ['Tümü', ...new Set(musicIndex.map((m) => m.c))];
       const q = h('input', { type: 'text', class: 'search', placeholder: `${musicIndex.length} eserde ara…`, value: st.q });
-      const chips = h('div', { class: 'chips', style: { marginBottom: '8px' } });
+      const chips = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
       comps.forEach((c) => chips.append(h('button', { class: st.comp === c ? 'on' : '', onclick: () => { st.comp = c; refreshSheet(); } }, c)));
       body.append(q, chips);
       const k = st.q.trim().toLocaleLowerCase('tr-TR');
@@ -111,7 +119,7 @@ export function openMusicLibrary() {
         const pb = h('button', { class: 'icon-btn', html: I.play, 'aria-label': 'Dinle' });
         pb.addEventListener('click', () => preview(m.u, pb));
         body.append(h('div', { class: 'mus-row' }, pb,
-          h('div', { class: 'mus-t' }, h('b', {}, m.t), h('small', {}, `${m.c} · ${fmt(m.d, false)} · ${m.l}${m.a ? ` · ${m.a}` : ''}`)),
+          h('div', { class: 'mus-t' }, h('b', {}, cleanTitle(m)), h('small', {}, `${m.c} · ${fmt(m.d, false)} · ${m.l}${m.a ? ` · ${m.a}` : ''}`)),
           h('button', { class: 'btn', onclick: async () => {
             stopPreview();
             const b = busy(`İndiriliyor… (${(m.z / 1048576).toFixed(1)} MB)`);

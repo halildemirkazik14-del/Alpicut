@@ -32,10 +32,23 @@ Dikey kısa videolar (Shorts / Reels / TikTok) için mor temalı, telefonda çal
 - **Ritim (v1.2):** müzikte vuruş tespiti, ritim işaretleri, ritimde böl, işaretlere yapışma
 - **Slip, katman gizle/kilitle/sessiz (v1.2)**
 - **Marka kitleri, kapak (thumbnail) editörü, proje sürümleri, .alpicut yedek paketi, eksik medyayı yeniden bağlama (v1.2)**
+- **Yapay zekâ (v1.3, cihaz üzerinde):** Whisper ile otomatik altyazı (kelime zamanlı, Türkçe dahil), metinden kurgu ve dolgu kelime temizliği, MediaPipe ile arka plan silme, yüz takibiyle akıllı dikey kadraj, Piper ile metinden sese, RNNoise ile gürültü giderme; isteğe bağlı kendi API anahtarınla asistan (hook, başlık, hashtag, çeviri, bölüm, senaryo)
+- **Geçişler (v1.3):** gl-transitions kütüphanesinden 122 sinematik geçiş (MIT), önizlemeli ve aranabilir
+- **Yazı (v1.3):** 46 şablon, harf harf animasyonlar (dalga, düşme, dağılma, glitch, neon titreme…), 1700+ Google Fonts + 22 internetsiz font
+- **Sosyal medya şablonları (v1.3):** yorum, yanıt, canlı sohbet, mesaj balonu, bildirim, sayaçlar, anket, soru kutusu, gönderi, profil, abone bandı, kalp yağmuru… (31 şablon, tamamı düzenlenebilir)
+- **Ses kütüphanesi (v1.3):** ~1750 CC0 ses efekti (Kenney, OpenGameArt) + 530 kamu malı klasik müzik kaydı (Wikimedia Commons)
+- **Stüdyo ses (v1.3):** gürültü giderme + EQ + de-esser + kompresör + seviye eşitleme; ses efektleri (eko, salon, stadyum, telefon, radyo, megafon, robot, su altı)
+- **Hız eğrileri ve ters oynatma (v1.3)**, cilt yumuşatma ve keskinleştirme
+- **Maske (v1.3):** 11 şekil (yıldız, kalp, üçgen, bölmeler…), kliplerde de; çoklu seçim ve gruplama (bileşik katman)
+- **Ses dalgası katmanı, proje şablonları (v1.3):** futbol Shorts, son dakika, yüzsüz podcast, yapay zekâ videosu, vlog, YouTube yatay
+- **Dokunmatik kontroller (v1.3):** –/+ düğmeli büyük kaydırıcılar, değere dokunup yazma, çift dokunuşla sıfırlama; önizlemede iki parmakla yakınlaştırma/kaydırma
 - Projeler cihazda otomatik kaydedilir, geri al / yinele
 
 ## Henüz yok (planlanan)
-Otomatik altyazı ve metinden kurgu, nesne/yüz takibi, otomatik arka plan kaldırma, ters oynatma, çok kameralı kurgu, metinden sese (TTS).
+Nesne takibi (yalnız yüz takibi var), çok kameralı kurgu, video sabitleme, klip içinde iç içe sekans (ana izde).
+
+## Lisanslar
+Kod: MIT. Geçişler: gl-transitions (MIT/BSD). Ses efektleri: CC0. Müzik: kamu malı (Wikimedia Commons). Fontlar: SIL OFL. Yapay zekâ modelleri: Whisper (MIT), MediaPipe (Apache 2.0), Piper sesleri (çeşitli açık lisanslar), RNNoise (BSD).
 
 ## APK nasıl oluşur?
 Bu depoya her `push` yapıldığında GitHub Actions APK'yı otomatik derler.
