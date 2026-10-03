@@ -2,7 +2,11 @@
 // geri sayımda gürültü profili öğrenme, kayıttan sonra ham/işlenmiş karşılaştırma ve stüdyo zinciri
 import { app, h, toast, busy, uid, fmt } from './state.js';
 import { I } from './icons.js';
-import { openSheet, closeSheet, refreshSheet, fields } from './sheets.js';
+import { openSheet, fields } from './sheets.js';
+import * as WM from './wm.js';
+let micPanel = null;
+const refreshSheet = () => WM.refresh(micPanel);
+const closeSheet = () => WM.close(micPanel);
 import { processVoice, STUDIO_PRESETS, toWav } from './studio.js';
 import { lsGet, lsSet } from './storage.js';
 
@@ -98,7 +102,8 @@ export function openMic() {
   openSheet({
     id: 'mic', title: 'Kayıt stüdyosu',
     onClose: finish,
-    render: (body) => {
+    render: (body, tab, panel) => {
+      if (panel) micPanel = panel;
       cancelAnimationFrame(raf);
       if (st.phase === 'review' && st.take) { review(body); return; }
       body.append(h('p', { class: 'hint', html: 'Sıkıştırmasız stüdyo kaydı. <b>Doğal mod</b> telefonun ses işlemesini kapatır (hışırtı ve "su altı" sesi yapmaz). Geri sayımda <b>sessiz kal</b>: ortam gürültüsü ölçülür ve kayıttan sonra temizlenir. Kulaklıkla kayıt en iyisidir.' }));

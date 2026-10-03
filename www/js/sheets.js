@@ -149,10 +149,11 @@ export function openInspector(tab, extra = {}) {
   const o = selected();
   if (!o) return;
   const build = (ob) => {
-    if (ob.locked) return lockedInspector(ob, s.type);
-    if (s.type === 'clip') return clipInspector(ob);
-    if (s.type === 'layer') return (ob.kind === 'fx' || ob.kind === 'adjust') ? fxLayerInspector(ob) : layerInspector(ob);
-    if (s.type === 'audio') return audioInspector(ob);
+    const S = app.sel || s;
+    if (ob.locked) return lockedInspector(ob, S.type);
+    if (S.type === 'clip') return clipInspector(ob);
+    if (S.type === 'layer') return (ob.kind === 'fx' || ob.kind === 'adjust') ? fxLayerInspector(ob) : layerInspector(ob);
+    if (S.type === 'audio') return audioInspector(ob);
     return subsInspector(extra);
   };
   const cfg = build(o);

@@ -71,7 +71,7 @@ export function transBody(body, c, cat, refresh) {
       // küçük animasyon: görünürken döngü
       let p = 0.15;
       const tick = () => { if (!cv.isConnected) return; p = (p + 0.025) % 1; const out = T.render(id, A, B, 0.15 + p * 0.7, 72, 128); if (out) cv.getContext('2d').drawImage(out, 0, 0); cv._raf = setTimeout(tick, 60); };
-      if (cv.dataset.anim) tick(); else { const out = T.render(id, A, B, 0.5, 72, 128); if (out) cv.getContext('2d').drawImage(out, 0, 0); }
+      if (cv.dataset.anim) { if (cv._raf) return; tick(); } else { const out = T.render(id, A, B, 0.5, 72, 128); if (out) cv.getContext('2d').drawImage(out, 0, 0); }
     }), { root: null });
     items.forEach((t) => {
       const cv = h('canvas', { width: 72, height: 128 });
@@ -91,10 +91,11 @@ export function transBody(body, c, cat, refresh) {
 
 export async function openTransitions() {
   const { openSheet, refreshSheet } = await import('./sheets.js');
-  const P = app.P;
   openSheet({
     id: 'transitions', title: `Geçişler · ${GL_LIST.length + TRANSITIONS.length - 1}`, tabs: ['★', ...TR_CATS], tab: 'Temel',
     render: (body, tab) => {
+      const P = app.P;
+      if (!P) return;
       if (P.clips.length < 2) {
         body.append(h('div', { class: 'acc-empty' }, h('span', { html: I.trans }), h('b', {}, 'Geçiş için en az 2 klip gerekli'),
           h('p', { class: 'hint' }, 'Geçiş iki klip arasındaki kesime uygulanır. İkinci bir video ekle veya mevcut klibi oynatıcının olduğu yerden böl.'),

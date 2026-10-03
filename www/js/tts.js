@@ -2,7 +2,10 @@
 // Motorlar: Cihazda (Piper, ücretsiz, internetsiz), OpenAI (gpt-4o-mini-tts), ElevenLabs (kendi anahtarınla)
 import { app, h, toast, uid } from './state.js';
 import { I } from './icons.js';
-import { openSheet, refreshSheet, fields } from './sheets.js';
+import { openSheet, fields } from './sheets.js';
+import * as WM from './wm.js';
+let ttsPanel = null;
+const refreshSheet = () => WM.refresh(ttsPanel);
 import { lsGet, lsSet } from './storage.js';
 import { hasKey, ttsOpenAI, ttsEleven, elevenVoices, OPENAI_VOICES, PROVIDERS, getModel, setModel } from './aiapi.js';
 import { star } from './favs.js';
@@ -58,7 +61,8 @@ export function openTTS(prefill) {
   openSheet({
     id: 'tts', title: 'Seslendirme stüdyosu', tabs: ['Cihazda', 'OpenAI', 'ElevenLabs'], tab: { piper: 'Cihazda', openai: 'OpenAI', eleven: 'ElevenLabs' }[st.engine],
     onClose: () => { if (player) { player.pause(); player = null; } },
-    render: (body, tab) => {
+    render: (body, tab, panel) => {
+      if (panel) ttsPanel = panel;
       st.engine = { Cihazda: 'piper', OpenAI: 'openai', ElevenLabs: 'eleven' }[tab] || 'piper';
       lsSet('alpicut.ttsEngine', st.engine);
       if (st.engine !== 'piper' && !hasKey(st.engine)) {

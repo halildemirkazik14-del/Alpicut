@@ -13,6 +13,7 @@ import { SUB_BASE } from './presets.js';
 import { lsGet, lsSet } from './storage.js';
 import { PROVIDERS, getKey, setKey, getModel, setModel, hasKey, testKey, openExternal, chatProvider, setChatProvider, ask, transcribeOpenAI, agent } from './aiapi.js';
 import { toWav } from './studio.js';
+import { star } from './favs.js';
 
 const SR16 = 16000;
 
@@ -211,11 +212,13 @@ export async function autoCaptions({ lang = 'turkish', size, provider, maxWords 
       });
     } catch (e) { toast(`Düzeltme atlandı: ${e.message}`, 3500); }
   }
-  if (!P.subs) P.subs = clone(SUB_BASE);
-  P.subs.cues = cues;
-  P.subs.offset = 0;
-  P.subs.words = cues.flatMap((c) => c.words || []);
-  P.subs.source = provider === 'openai' ? 'openai' : segment ? 'asr-segment' : 'asr-word';
+  const PN = app.P;
+  if (!PN || PN.id !== P.id) throw new Error('Proje değişti; altyazı eklenmedi');
+  if (!PN.subs) PN.subs = clone(SUB_BASE);
+  PN.subs.cues = cues;
+  PN.subs.offset = 0;
+  PN.subs.words = cues.flatMap((c) => c.words || []);
+  PN.subs.source = provider === 'openai' ? 'openai' : segment ? 'asr-segment' : 'asr-word';
   app.commit();
   onPct(100);
   return cues.length;
@@ -412,11 +415,14 @@ const AI_TASKS = [
 
 async function callAI(prompt) { return ask(prompt, { maxTokens: 1800 }); }
 
+let asstPanel = null;
 export function openAssistant() {
   const st = { task: 'hooks', topic: '', out: '', running: false, key: lsGet('alpicut.aiKey', ''), prov: lsGet('alpicut.aiProv', 'anthropic'), model: lsGet('alpicut.aiModel', '') };
   openSheet({
     title: 'Yapay zekâ asistanı', tall: true, tabs: ['Asistan', 'Ayarlar'],
-    render: (body, tab) => {
+    render: (body, tab, panel) => {
+      if (panel) asstPanel = panel;
+      const cues = app.P?.subs?.cues || [];
       if (tab === 'Ayarlar' || !chatProvider()) { accountsBody(body); return; }
       if (false) {
         body.append(h('p', { class: 'hint', html: 'Asistan isteğe bağlıdır ve <b>kendi API anahtarınla</b> çalışır (kullanımı sağlayıcı faturalandırır). Anahtar yalnızca bu telefonda saklanır. Gönderilen veri: seçtiğin görev, yazdığın konu ve gerekiyorsa altyazı metni — video veya ses gönderilmez.' }));
@@ -425,8 +431,8 @@ export function openAssistant() {
           { label: 'API anahtarı', path: 'key', type: 'text' },
           { label: 'Model (boş = varsayılan)', path: 'model', type: 'text' },
         ]));
-        body.append(h('button', { class: 'btn block primary', onclick: () => { lsSet('alpicut.aiKey', st.key.trim()); lsSet('alpicut.aiProv', st.prov); lsSet('alpicut.aiModel', st.model.trim()); toast('Kaydedildi'); refreshSheet(); } }, 'Kaydet'));
-        if (lsGet('alpicut.aiKey', '')) body.append(h('button', { class: 'btn block danger', style: { marginTop: '6px' }, onclick: () => { lsSet('alpicut.aiKey', ''); st.key = ''; refreshSheet(); } }, 'Anahtarı sil'));
+        body.append(h('button', { class: 'btn block primary', onclick: () => { lsSet('alpicut.aiKey', st.key.trim()); lsSet('alpicut.aiProv', st.prov); lsSet('alpicut.aiModel', st.model.trim()); toast('Kaydedildi'); WM.refresh(asstPanel); } }, 'Kaydet'));
+        if (lsGet('alpicut.aiKey', '')) body.append(h('button', { class: 'btn block danger', style: { marginTop: '6px' }, onclick: () => { lsSet('alpicut.aiKey', ''); st.key = ''; WM.refresh(asstPanel); } }, 'Anahtarı sil'));
         return;
       }
       body.append(fields(st, [
@@ -439,9 +445,9 @@ export function openAssistant() {
         const subs = cues.map((c, i) => `${i + 1}) [${fmt(c.start + (app.P.subs.offset || 0))}] ${c.text}`).join('\n');
         const texts = app.P.layers.filter((l) => l.kind === 'text').map((l) => l.text.replace(/\*/g, '')).join(' / ');
         const prompt = `${t[2]}\n\nProje adı: ${app.P.name}\nVideodaki yazılar: ${texts || '-'}\nKonu/not: ${st.topic || '-'}\n${subs ? `Altyazılar:\n${subs.slice(0, 12000)}` : ''}`;
-        st.running = true; refreshSheet();
+        st.running = true; WM.refresh(asstPanel);
         try { st.out = await callAI(prompt); } catch (e) { toast(e.message, 4500); }
-        st.running = false; refreshSheet();
+        st.running = false; WM.refresh(asstPanel);
       } }));
       if (st.out) {
         const pre = h('div', { class: 'ai-out' }, st.out);
@@ -484,12 +490,12 @@ export function accountsBody(body, focus) {
     const inp = h('input', { type: 'password', placeholder: pr.keyHint, value: st.key, autocomplete: 'off', spellcheck: 'false' });
     card.append(inp);
     const mdl = h('div', { class: 'chips scroll', style: { margin: '8px 0' } });
-    pr.models.forEach(([m, n]) => mdl.append(h('button', { class: st.model === m ? 'on' : '', onclick: () => { setModel(id, m); refreshSheet(); } }, n)));
+    pr.models.forEach(([m, n]) => mdl.append(h('button', { class: st.model === m ? 'on' : '', onclick: () => { setModel(id, m); WM.refresh(WM.find('accounts') || WM.find('Yapay zekâ asistanı') || undefined); } }, n)));
     card.append(mdl);
     const row = h('div', { class: 'btn-row three' },
       h('button', { class: 'btn', onclick: () => openExternal(pr.keyUrl) }, 'Anahtar al'),
-      h('button', { class: 'btn', onclick: async (e) => { setKey(id, inp.value); const b = e.currentTarget; b.textContent = 'Deneniyor…'; try { const r = await testKey(id); toast(`✓ ${pr.name}: ${r}`, 3500); } catch (er) { toast(er.message, 5000); } refreshSheet(); } }, 'Kaydet + dene'),
-      on ? h('button', { class: 'btn danger', onclick: () => { setKey(id, ''); refreshSheet(); } }, 'Kaldır') : h('button', { class: 'btn primary', onclick: () => { setKey(id, inp.value); toast('Kaydedildi'); refreshSheet(); } }, 'Kaydet'));
+      h('button', { class: 'btn', onclick: async (e) => { setKey(id, inp.value); const b = e.currentTarget; b.textContent = 'Deneniyor…'; try { const r = await testKey(id); toast(`✓ ${pr.name}: ${r}`, 3500); } catch (er) { toast(er.message, 5000); } WM.refresh(WM.find('accounts') || WM.find('Yapay zekâ asistanı') || undefined); } }, 'Kaydet + dene'),
+      on ? h('button', { class: 'btn danger', onclick: () => { setKey(id, ''); WM.refresh(WM.find('accounts') || WM.find('Yapay zekâ asistanı') || undefined); } }, 'Kaldır') : h('button', { class: 'btn primary', onclick: () => { setKey(id, inp.value); toast('Kaydedildi'); WM.refresh(WM.find('accounts') || WM.find('Yapay zekâ asistanı') || undefined); } }, 'Kaydet'));
     card.append(row);
     body.append(card);
   });
@@ -598,8 +604,7 @@ Aşırıya kaçma: her 3-5 saniyede en fazla bir vurgu. Son mesajında yaptıkla
 export function openAIHub() {
   openSheet({
     id: 'aihub', title: 'Yapay zekâ araçları',
-    render: async (body) => {
-      const { star } = await import('./favs.js');
+    render: (body) => {
       const card = (ic, t, d, fn, tag) => { const c = h('div', { class: 'ai-card', role: 'button' }, h('span', { class: 'ai-ic', html: I[ic] }), h('span', { class: 'ai-t' }, h('b', {}, t), h('small', {}, d)), tag ? h('em', {}, tag) : star('tool', `ai:${t}`, { name: t })); c.addEventListener('click', fn); return c; };
       const target = (tab) => () => { if (app.aiTarget) app.aiTarget(tab); };
       body.append(

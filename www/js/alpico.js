@@ -3,6 +3,7 @@
 import { app, h, toast, uid, clone, fmt, selected } from './state.js';
 import { I } from './icons.js';
 import { openSheet, refreshSheet } from './sheets.js';
+import * as WM from './wm.js';
 import { layoutClips } from './engine.js';
 import { TEXT_BASE, TEXT_TEMPLATES, CTA_BASE, CTA_PRESETS, RATIOS, anim, FILTER_PRESETS, DEFAULT_FILTERS } from './presets.js';
 import { findSilences } from './audiotools.js';
@@ -316,11 +317,11 @@ export function doctorIssues() {
 export function openDoctor() {
   openSheet({
     id: 'doctor', title: 'Proje kontrolü',
-    render: (body) => {
+    render: (body, tab, panel) => {
       body.append(h('p', { class: 'hint' }, 'Alpi-co projeni yaygın hatalara karşı kontrol etti. "Düzelt" ile tek dokunuşta onar; hepsi geri alınabilir.'));
       doctorIssues().forEach((x) => {
         const row = h('div', { class: `doc-row ${x.sev}` }, h('span', { class: 'doc-dot' }), h('span', { class: 'doc-t' }, x.text));
-        if (x.fix) row.append(h('button', { class: 'btn', onclick: async () => { await x.fix(); refreshSheet(); } }, x.fixLabel));
+        if (x.fix) row.append(h('button', { class: 'btn', onclick: async () => { await x.fix(); WM.refresh(panel); } }, x.fixLabel));
         body.append(row);
       });
     },
@@ -343,9 +344,10 @@ function parseLocal(text) {
   if (/(9:16|dikey|shorts|reels|tiktok)/.test(t) && /(oran|yap|cevir)/.test(t)) cmds.push(['set_ratio', { ratio: '9:16' }]);
   else if (/(16:9|yatay|youtube)/.test(t) && /(oran|yap|cevir)/.test(t)) cmds.push(['set_ratio', { ratio: '16:9' }]);
   else if (/(1:1|kare)/.test(t) && /(oran|yap|cevir)/.test(t)) cmds.push(['set_ratio', { ratio: '1:1' }]);
-  if (/(abone|subscribe)/.test(t)) cmds.push(['add_cta', { kind: 'subscribe' }]);
-  else if (/(begen|like)/.test(t) && /(buton|ekle)/.test(t)) cmds.push(['add_cta', { kind: 'like' }]);
-  if (/(baslik|yazi|hook)/.test(t) && /(ekle|koy|yaz)/.test(t)) cmds.push(['add_text', { text: quoted || (/hook/.test(t) ? 'BUNU KİMSE *BEKLEMİYORDU*' : 'YAZI'), position: /alt/.test(t) ? 'bottom' : /orta/.test(t) ? 'center' : 'top', style: /hook/.test(t) ? 'hook' : undefined }]);
+  const tq = quoted ? norm(text.replace(quoted, '')) : t;
+  if (/(abone|subscribe)/.test(tq)) cmds.push(['add_cta', { kind: 'subscribe' }]);
+  else if (/(begen|like)/.test(tq) && /(buton|ekle)/.test(tq)) cmds.push(['add_cta', { kind: 'like' }]);
+  if (/(baslik|(?<!alt)yazi\b|hook)/.test(t) && /(ekle|koy|yaz\b)/.test(t)) cmds.push(['add_text', { text: quoted || (/hook/.test(t) ? 'BUNU KİMSE *BEKLEMİYORDU*' : 'YAZI'), position: /\balta?\b|altta/.test(t) ? 'bottom' : /orta/.test(t) ? 'center' : 'top', style: /hook/.test(t) ? 'hook' : undefined }]);
   const fx = t.match(/(whoosh|vuus|boom|bum|ding|pop|riser|alkis|kalabalik|para|kasa|kamera|glitch|davul|bas)/);
   if (fx && /(efekt|sfx|\bses)/.test(t) && !/gecis/.test(t)) cmds.push(['add_sfx', { query: { vuus: 'whoosh', bum: 'boom', kasa: 'para', alkis: 'alkış', kalabalik: 'kalabalık' }[fx[1]] || fx[1] }]);
   const fl = FILTER_PRESETS.find((f) => t.includes(norm(f[1])) && f[0] !== 'none');
@@ -388,7 +390,7 @@ async function send(text) {
       chat.history.push({ role: 'user', content: `${text}\n\n(Oynatıcı: ${fmt(app.engine.t)} · Süre: ${fmt(app.engine.duration())})` });
       if (chat.history.length > 40) chat.history = chat.history.slice(-30);
       // ilk mesaj kullanıcı olmalı (araç sonuçları yarım kalmasın)
-      while (chat.history.length && chat.history[0].role !== 'user') chat.history.shift();
+      while (chat.history.length && (chat.history[0].role !== 'user' || (Array.isArray(chat.history[0].content) && chat.history[0].content.some((c) => c.type === 'tool_result')))) chat.history.shift();
       const reply = await agent({
         provider: prov, system: system(), history: chat.history, tools: toolsSpec(),
         exec: async (name, args) => { status(`${name} çalışıyor…`); const r = await runCommand(name, args, { quiet: true }); steps.push({ name, r }); return r ? { ...r, before: undefined } : { ok: false }; },
@@ -497,3 +499,4 @@ function bubble(m) {
 }
 
 void selected; void lsGet;
+export { parseLocal };

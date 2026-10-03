@@ -117,7 +117,7 @@ export async function openFilters(target) {
   openSheet({
     id: 'filters', title: `Filtreler · ${FILTERS.length - 1}`, tabs: ['★', ...FILTER_CATS], tab: st.cat,
     render: (body, tab) => {
-      const tgt = target || null;
+      const tgt = target ? (app.P.clips.find((c) => c.id === target.id) || app.P.layers.find((l) => l.id === target.id) || null) : null;
       body.append(h('p', { class: 'hint', html: tgt ? 'Filtre <b>seçili klibe</b> uygulanır. Renk sekmesinden ince ayar yapabilirsin.' : 'Filtre <b>tüm kliplere</b> uygulanır. Tek bir klip için klibe dokunup Filtre\'yi aç.' }));
       const list = tab === '★' ? FILTERS.filter((f) => favIds('filter').includes(f[0])) : FILTERS.filter((f) => f[2] === tab);
       if (!list.length) { body.append(h('p', { class: 'hint' }, 'Henüz favori filtre yok. ☆ ile ekle.')); return; }
