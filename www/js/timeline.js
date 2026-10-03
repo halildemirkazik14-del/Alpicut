@@ -7,7 +7,7 @@ import { allKeyTimes } from './kf.js';
 let drag = null;
 let touching = false;
 
-const KIND_ICON = { group: I.layer, social: I.bubble, text: I.text, media: I.layer, cta: I.cta, score: I.score, shape: I.shape, sticker: I.sticker, fx: I.fx, adjust: I.adjust };
+const KIND_ICON = { wave: I.beat, group: I.layer, social: I.bubble, text: I.text, media: I.layer, cta: I.cta, score: I.score, shape: I.shape, sticker: I.sticker, fx: I.fx, adjust: I.adjust };
 const FX_NAMES = { shake: 'Sarsıntı', zoompulse: 'Zoom nabzı', punch: 'Darbe zoom', wobble: 'Sallanma', beatzoom: 'Ritim zoom', beatflash: 'Ritim flaş', beatshake: 'Ritim sarsıntı', rgb: 'RGB', glitch: 'Glitch', vhs: 'VHS', pixel: 'Piksel', noise: 'Gürültü', flash: 'Flaş', leak: 'Işık sızıntısı', bloom: 'Bloom', fadeblack: 'Karartma', bwpop: 'S/B pop', poster: 'Posterize', invert: 'Negatif', mirror: 'Ayna', film: 'Eski film', cinema: 'Sinema' };
 
 function diamonds(el, o, pps) {
@@ -21,6 +21,7 @@ function itemLabel(l) {
   if (l.kind === 'cta') return l.label || 'CTA';
   if (l.kind === 'score') return `${l.teamA} ${l.scoreA}-${l.scoreB} ${l.teamB}`;
   if (l.kind === 'media') return app.engine.media.get(l.mediaId)?.name || 'Katman';
+  if (l.kind === 'wave') return 'Ses dalgası';
   if (l.kind === 'group') return `${l.name || 'Grup'}`;
   if (l.kind === 'social') return l.name || l.title || l.text || 'Sosyal';
   if (l.kind === 'fx') return FX_NAMES[l.effect] || 'Efekt';

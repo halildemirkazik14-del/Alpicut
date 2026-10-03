@@ -1,7 +1,7 @@
 // Alpicut — ana uygulama
 import { app, $, h, uid, clone, fmt, toast, busy, selected } from './state.js';
 import { I, LOGO } from './icons.js';
-import { Engine, layoutClips } from './engine.js';
+import { Engine, layoutClips, curvePts } from './engine.js';
 import { RATIOS, DEFAULT_FILTERS, SUB_BASE, FX_BASE, TEXT_BASE, anim } from './presets.js';
 import { renderTimeline, bindTimeline, syncScroll, setZoom } from './timeline.js';
 import { layerAt, hasKeys, setKey, writeProp, splitKeys } from './kf.js';
@@ -11,6 +11,7 @@ import { openAIHub, smartReframe, prepareProjectAI } from './ai.js';
 import { openSfxLibrary, openMusicLibrary } from './library.js';
 import { processVoice, STUDIO_PRESETS } from './studio.js';
 import { ensureProjectFonts, getCatalog } from './fonts.js';
+import { PROJECT_TEMPLATES } from './templates.js';
 import {
   openMixer, openMic, openEffects, openStickers, addAdjustLayer, openBrand, openCover, openSilence, findBeats, normalizeItem,
   openVersions, exportPackage, importPackage, openRelink,
@@ -56,6 +57,8 @@ function init() {
   bindPreview();
 
   $('newProject').addEventListener('click', () => newProject());
+  $('fromTemplate').innerHTML = `${I.template} Şablondan başla`;
+  $('fromTemplate').addEventListener('click', openProjectTemplates);
   $('importPkg').innerHTML = `${I.upload} Yedekten aç (.alpicut)`;
   $('importPkg').addEventListener('click', async () => {
     const files = await pickFiles('', false);
@@ -108,7 +111,7 @@ async function loadFonts() {
 // Seçime göre değişen araç çubuğu
 function buildToolbar() { renderToolbar(); }
 
-const KIND_NAME = { group: 'Grup', social: 'Sosyal', text: 'Yazı', media: 'Katman', cta: 'Çağrı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma', fx: 'Efekt', adjust: 'Ayar katmanı' };
+const KIND_NAME = { wave: 'Ses dalgası', group: 'Grup', social: 'Sosyal', text: 'Yazı', media: 'Katman', cta: 'Çağrı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma', fx: 'Efekt', adjust: 'Ayar katmanı' };
 
 function selLabel() {
   const s = app.sel, o = selected();
@@ -154,6 +157,7 @@ function renderToolbar() {
     tool('cta', 'Çağrı', openCTAs);
     tool('bubble', 'Sosyal', () => openSocial());
     tool('score', 'Skor', openScoreMenu);
+    tool('beat', 'Ses dalgası', () => addLayer({ kind: 'wave', style: 'mirror', bars: 36, w: 0.8, h: 0.16, color: '#A855F7', color2: '#22D3EE', glow: true, x: 0.5, y: 0.6, rot: 0, sc: 1, opacity: 1, kf: {}, anim: anim('fade', 'fade') }, 5));
     tool('adjust', 'Renk katmanı', addAdjustLayer);
     tool('mixer', 'Mikser', openMixer);
     tool('marker', 'İşaret', toggleMarker);
@@ -191,12 +195,12 @@ function renderToolbar() {
   } else if (s.type === 'layer') {
     const tabs = {
       text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'], media: ['Düzen', 'Arka plan', 'Chroma', 'Maske', 'Renk', 'Animasyon', 'Keyframe', 'Konum'],
-      group: ['Grup', 'Animasyon', 'Keyframe', 'Konum'],
+      group: ['Grup', 'Animasyon', 'Keyframe', 'Konum'], wave: ['Dalga', 'Animasyon', 'Keyframe', 'Konum'],
       cta: ['Buton', 'Animasyon', 'Keyframe', 'Konum'], score: ['Skor', 'Animasyon', 'Keyframe', 'Konum'], shape: ['Şekil', 'Animasyon', 'Keyframe', 'Konum'],
       sticker: ['Çıkartma', 'Animasyon', 'Keyframe', 'Konum'], fx: ['Efekt', 'Zaman'], adjust: ['Renk', 'Zaman'],
       social: ['İçerik', 'Animasyon', 'Keyframe', 'Konum'],
     }[o.kind] || [];
-    const icon = { Grup: 'layer', 'Arka plan': 'adjust', İçerik: 'edit', Metin: 'text', Stil: 'brand', Animasyon: 'anim', Keyframe: 'diamond', Konum: 'layer', Düzen: 'edit', Maske: 'shape', Renk: 'color', Chroma: 'adjust', Buton: 'cta', Skor: 'score', Şekil: 'shape', Çıkartma: 'sticker', Efekt: 'fx', Zaman: 'versions' };
+    const icon = { Dalga: 'beat', Grup: 'layer', 'Arka plan': 'adjust', İçerik: 'edit', Metin: 'text', Stil: 'brand', Animasyon: 'anim', Keyframe: 'diamond', Konum: 'layer', Düzen: 'edit', Maske: 'shape', Renk: 'color', Chroma: 'adjust', Buton: 'cta', Skor: 'score', Şekil: 'shape', Çıkartma: 'sticker', Efekt: 'fx', Zaman: 'versions' };
     tabs.forEach((t) => tool(icon[t], t, insp(t)));
     tool('split', 'Böl', splitSel);
     tool(o.hidden ? 'eyeOff' : 'eye', o.hidden ? 'Göster' : 'Gizle', () => { o.hidden = !o.hidden; commit(); renderToolbar(); });
@@ -300,15 +304,29 @@ async function deleteProject(id) {
   await store.delProject(id);
 }
 
-function newProject() {
+function openProjectTemplates() {
+  openSheet({
+    title: 'Şablondan başla', tall: true,
+    render: (body) => {
+      body.append(h('p', { class: 'hint' }, 'Hazır yerleşimle başla; sonra kendi videolarını, fotoğraflarını ve sesini ekle. Her şey düzenlenebilir.'));
+      PROJECT_TEMPLATES.forEach((t) => body.append(h('button', { class: 'ai-card', onclick: () => { closeSheet(); newProject(t); } },
+        h('span', { class: 'ai-ic', style: { fontSize: '24px' } }, t.icon), h('span', { class: 'ai-t' }, h('b', {}, t.name), h('small', {}, t.desc)), h('em', {}, t.ratio))));
+    },
+  });
+}
+
+function newProject(tpl) {
   const n = (Number(lsGet('alpicut.count', '0')) || 0) + 1;
   lsSet('alpicut.count', String(n));
+  const built = tpl ? tpl.build() : null;
   const P = {
-    id: uid(), name: `Proje ${n}`, ratio: app.newRatio, clips: [], layers: [], audio: [],
+    id: uid(), name: tpl ? tpl.name : `Proje ${n}`, ratio: tpl ? tpl.ratio : app.newRatio, clips: [], layers: built ? built.layers : [], audio: [],
     subs: clone(SUB_BASE), fx: clone(FX_BASE), created: Date.now(), v: PROJECT_VERSION,
   };
+  if (built) { P.subs = built.subs; P.fx = built.fx; }
   showEditor(P);
   saveNow();
+  if (tpl) setTimeout(() => toast('Şablon hazır — şimdi alttan Medya ekle', 3500), 600);
 }
 
 async function openProject(id) {
@@ -890,6 +908,7 @@ function splitSel(quiet = false) {
   if (s.type === 'clip') {
     const L = layoutClips(P.clips).find((x) => x.clip === o);
     const local = t - L.start;
+    if (curvePts(o)) { toast('Hız eğrili klip bölünemez; önce Düzen > Hız eğrisi > Sabit seç'); return; }
     if (local < 0.1 || local > L.len - 0.1) { toast('Bölmek için oynatıcıyı klibin üzerine getir'); return; }
     const n = clone(o); n.id = uid(); n.trans = { type: 'none', dur: 0.5 };
     if (o.type === 'image' || o.freeze) { n.dur = L.len - local; o.dur = local; } else { const st = o.in + local * (o.speed || 1); o.out = st; n.in = st; }
@@ -1081,6 +1100,79 @@ function studioClean(o) {
   });
 }
 
+// Ters oynatma: kareleri sondan başa çizip yeni bir video olarak kaydeder (sesi de ters çevrilir)
+async function reverseClip(c) {
+  const m = app.engine.media.get(c.mediaId);
+  if (!m || m.kind !== 'video') return;
+  const len = c.out - c.in;
+  if (len > 60) { toast('Ters çevirme en fazla 60 saniyelik kırpılmış klipte yapılabilir'); return; }
+  const b = busy('Ters çevriliyor…');
+  try {
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = m.url;
+    await new Promise((r, j) => { v.onloadeddata = r; v.onerror = () => j(new Error('Video açılamadı')); });
+    const k = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight));
+    const cv = document.createElement('canvas'); cv.width = Math.round(v.videoWidth * k / 2) * 2; cv.height = Math.round(v.videoHeight * k / 2) * 2;
+    const x = cv.getContext('2d');
+    const fps = 30, n = Math.max(1, Math.round(len * fps));
+    const frames = [];
+    for (let i = 0; i < n; i++) {
+      v.currentTime = Math.max(c.in, c.out - (i + 0.5) / fps);
+      await new Promise((r) => { v.onseeked = r; });
+      x.drawImage(v, 0, 0, cv.width, cv.height);
+      frames.push(await createImageBitmap(cv));
+      if (i % 10 === 0) b.set(`Kareler okunuyor… %${Math.round((i / n) * 70)}`);
+    }
+    // ses: ters çevrilmiş AudioBuffer
+    let audioBuf = null;
+    try {
+      const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      const dec = await new OAC(2, 48000, 48000).decodeAudioData(await m.blob.arrayBuffer());
+      const s0 = Math.floor(c.in * dec.sampleRate), s1 = Math.min(dec.length, Math.floor(c.out * dec.sampleRate));
+      const ac0 = new OAC(dec.numberOfChannels, Math.max(1, s1 - s0), dec.sampleRate);
+      audioBuf = ac0.createBuffer(dec.numberOfChannels, Math.max(1, s1 - s0), dec.sampleRate);
+      for (let ch = 0; ch < dec.numberOfChannels; ch++) { const src = dec.getChannelData(ch).subarray(s0, s1); const dst = audioBuf.getChannelData(ch); for (let i = 0; i < src.length; i++) dst[i] = src[src.length - 1 - i]; }
+    } catch (_) { audioBuf = null; }
+    // kaydet
+    const stream = cv.captureStream(0);
+    const track = stream.getVideoTracks()[0];
+    let ac = null;
+    if (audioBuf) {
+      ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: audioBuf.sampleRate });
+      const dest = ac.createMediaStreamDestination();
+      const srcN = ac.createBufferSource(); srcN.buffer = audioBuf; srcN.connect(dest);
+      dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+      ac._src = srcN;
+    }
+    const mime = Engine.pickMime() || '';
+    const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8e6 } : undefined);
+    const chunks = [];
+    rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    const done = new Promise((r) => { rec.onstop = r; });
+    rec.start(200);
+    if (ac) ac._src.start();
+    const t0 = performance.now();
+    for (let i = 0; i < frames.length; i++) {
+      const due = t0 + (i * 1000) / fps;
+      const wait = due - performance.now();
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      x.drawImage(frames[i], 0, 0); track.requestFrame && track.requestFrame();
+      if (i % 10 === 0) b.set(`Kaydediliyor… %${70 + Math.round((i / frames.length) * 30)}`);
+    }
+    await new Promise((r) => setTimeout(r, 200));
+    rec.stop(); await done;
+    if (ac) ac.close();
+    frames.forEach((f) => f.close && f.close());
+    const type = (mime || 'video/webm').split(';')[0];
+    const file = new File(chunks, `${(m.name || 'klip').replace(/\.\w+$/, '')}_ters.${type.includes('mp4') ? 'mp4' : 'webm'}`, { type });
+    const recs = await importFiles([file]);
+    if (!recs[0]) throw new Error('Kaydedilemedi');
+    c.mediaId = recs[0].id; c.in = 0; c.out = recs[0].duration || len; c.kf = {}; c.reversed = !c.reversed;
+    commit();
+    toast('Klip ters çevrildi');
+  } catch (e) { toast(e.message || 'Ters çevrilemedi', 4000); } finally { b.close(); }
+}
+
 const PROJECT_VERSION = 3;
 function migrate(P) {
   // eski projeleri yeni sürüme taşı
@@ -1213,7 +1305,7 @@ Object.assign(app, {
   openInspector: (tab) => openInspector(tab),
   addMedia, addLayer, splitSel, dupSel, delSel, moveClip, layerOrder, importSRT, freezeFrame, addSfx,
   beginEdit, endEdit, cutSourceRanges, pickColor, relinkMedia, pickFiles, importFiles, renderToolbar,
-  registerMedia, cutTimelineRanges, studioClean, toggleMulti, ungroup, openSilenceFor: (o) => openSilence(o, app.sel?.type === 'clip' ? 'clip' : 'audio'),
+  registerMedia, cutTimelineRanges, studioClean, toggleMulti, ungroup, reverseClip, openSilenceFor: (o) => openSilence(o, app.sel?.type === 'clip' ? 'clip' : 'audio'),
   getStyles, saveStyle, deleteStyle, exportStyles, importStyles,
   layout: () => layoutClips(app.P.clips),
   fitStage,

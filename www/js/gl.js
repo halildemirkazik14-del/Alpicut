@@ -6,7 +6,7 @@ const VS = `attribute vec2 p; varying vec2 v; void main(){ v = p * 0.5 + 0.5; gl
 const FS = `precision mediump float;
 varying vec2 v;
 uniform sampler2D t; uniform sampler2D curve; uniform sampler2D lut;
-uniform float exposure, contrast, sat, vib, temp, tint, shadows, highlights, lutMix, lutSize;
+uniform float exposure, contrast, sat, vib, temp, tint, shadows, highlights, lutMix, lutSize, smoothAmt, sharpAmt;
 uniform int curveOn, lutOn, keyOn, fx;
 uniform vec3 keyColor; uniform float keyTol, keySoft, keySpill;
 uniform float fxAmt, time, uvZoom, uvRot; uniform vec2 res, uvOff;
@@ -37,6 +37,22 @@ void main(){
     s.b = texture2D(t, clamp(uv - vec2(o, 0.0), 0.0, 1.0)).b;
   }
   vec3 c = s.rgb;
+  if (smoothAmt > 0.001 || sharpAmt > 0.001) {
+    vec2 px = 1.0 / res;
+    vec3 acc = vec3(0.0); float wsum = 0.0; vec3 blur = vec3(0.0);
+    for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) {
+      vec2 o = vec2(float(i), float(j)) * px * 1.6;
+      vec3 q = texture2D(t, clamp(uv + o, 0.0, 1.0)).rgb;
+      float wgt = exp(-dot(q - c, q - c) * 28.0) * exp(-float(i * i + j * j) * 0.18);
+      acc += q * wgt; wsum += wgt; blur += q;
+    }
+    blur /= 25.0;
+    vec3 smoothC = acc / wsum;
+    // cilt tonlarında daha güçlü
+    float skin = smoothstep(0.02, 0.12, c.r - c.b) * smoothstep(0.0, 0.08, c.r - c.g + 0.04);
+    c = mix(c, smoothC, smoothAmt * (0.35 + 0.65 * skin));
+    c = c + (c - blur) * sharpAmt * 1.6;
+  }
   c *= pow(2.0, exposure);
   c.r *= 1.0 + temp * 0.18; c.b *= 1.0 - temp * 0.18; c.g *= 1.0 - tint * 0.12; c.r *= 1.0 + tint * 0.05;
   float l = dot(c, LUM);
@@ -89,7 +105,7 @@ class Grader {
     const loc = gl.getAttribLocation(pr, 'p');
     gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     this.u = {};
-    ['t', 'curve', 'lut', 'exposure', 'contrast', 'sat', 'vib', 'temp', 'tint', 'shadows', 'highlights', 'lutMix', 'lutSize', 'curveOn', 'lutOn', 'keyOn', 'fx',
+    ['t', 'curve', 'lut', 'smoothAmt', 'sharpAmt', 'exposure', 'contrast', 'sat', 'vib', 'temp', 'tint', 'shadows', 'highlights', 'lutMix', 'lutSize', 'curveOn', 'lutOn', 'keyOn', 'fx',
       'keyColor', 'keyTol', 'keySoft', 'keySpill', 'fxAmt', 'time', 'uvZoom', 'uvRot', 'res', 'uvOff'].forEach((n) => { this.u[n] = gl.getUniformLocation(pr, n); });
     this.tex = this._tex(0);
     this.curveTex = this._tex(1);
@@ -152,6 +168,8 @@ class Grader {
     gl.uniform1f(u.tint, c.tint || 0);
     gl.uniform1f(u.shadows, c.shadows || 0);
     gl.uniform1f(u.highlights, c.highlights || 0);
+    gl.uniform1f(u.smoothAmt, c.smooth || 0);
+    gl.uniform1f(u.sharpAmt, c.sharp || 0);
     gl.uniform1i(u.curveOn, p.curve ? 1 : 0);
     if (p.curve) this.setCurve(p.curve.key, p.curve.data);
     gl.uniform1i(u.lutOn, p.lut ? 1 : 0);
@@ -184,7 +202,7 @@ export function getGrader() {
 }
 
 // ---------- renk yardımcıları ----------
-export const COLOR_BASE = { exposure: 0, contrast: 1, sat: 1, vib: 0, temp: 0, tint: 0, shadows: 0, highlights: 0 };
+export const COLOR_BASE = { exposure: 0, contrast: 1, sat: 1, vib: 0, temp: 0, tint: 0, shadows: 0, highlights: 0, smooth: 0, sharp: 0 };
 
 export function colorActive(c) {
   if (!c) return false;

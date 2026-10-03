@@ -106,11 +106,13 @@ export function animState(L, t, W, H) {
 // ---------- Medya çizimi ----------
 export function mediaSize(el) {
   if (!el) return [0, 0];
+  if (el.tagName === 'CANVAS') return [el.width, el.height];
   if (el.videoWidth) return [el.videoWidth, el.videoHeight];
   return [el.naturalWidth || el.width || 0, el.naturalHeight || el.height || 0];
 }
 export function isReady(el) {
   if (!el) return false;
+  if (el.tagName === 'CANVAS') return el.width > 0;
   if (el.tagName === 'VIDEO') return el.readyState >= 2 && el.videoWidth > 0;
   return el.complete !== false && (el.naturalWidth || el.width) > 0;
 }
@@ -128,9 +130,33 @@ export function drawFit(ctx, el, x, y, w, h, fit = 'cover', zoom = 1, panX = 0, 
   ctx.drawImage(el, dx, dy, dw, dh);
 }
 
+// Videonun son hazır karesi: arama sırasında boş (siyah) kare çizilmesin
+const lastFrames = new WeakMap();
+function stableSource(el) {
+  if (!el || el.tagName !== 'VIDEO') return el;
+  const ready = el.readyState >= 2 && el.videoWidth > 0 && !el.seeking;
+  let c = lastFrames.get(el);
+  if (ready) {
+    if (!c) { c = document.createElement('canvas'); lastFrames.set(el, c); }
+    const k = Math.min(1, 1280 / Math.max(el.videoWidth, el.videoHeight));
+    const w = Math.round(el.videoWidth * k), h = Math.round(el.videoHeight * k);
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    c._t = el.currentTime;
+    c._dirty = true;
+    return el;
+  }
+  return c && c._ok ? c : el;
+}
+function rememberFrame(el) {
+  const c = el && el.tagName === 'VIDEO' ? lastFrames.get(el) : null;
+  if (c && c._dirty) { try { c.getContext('2d').drawImage(el, 0, 0, c.width, c.height); c._ok = true; } catch (_) { /* yoksay */ } c._dirty = false; }
+}
+
 export function drawClip(ctx, clip, el, localT, len, env) {
   const { W, H, S } = env;
-  if (!isReady(el)) return;
+  const orig = el;
+  el = stableSource(el);
+  if (el !== orig) { /* son kare kullanılıyor */ } else if (!isReady(el)) return; else if (env.playing || env.exporting) rememberFrame(el);
   const raw = el;
   const gp = gradeParams(clip);
   if (gp) { const [sw, sh] = mediaSize(el); el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280); }
@@ -634,6 +660,7 @@ export function drawLayer(ctx, L, t, env, el, still = false) {
   else if (L.kind === 'shape') box = drawShape(ctx, L, t, env);
   else if (L.kind === 'sticker') box = drawSticker(ctx, L, t, env);
   else if (L.kind === 'social') box = drawSocial(ctx, L, t, env);
+  else if (L.kind === 'wave') box = drawWave(ctx, L, t, env);
   else if (L.kind === 'media') box = drawMediaLayer(ctx, L, t, env, el, st);
   ctx.restore();
   if (!box) return null;
@@ -662,6 +689,56 @@ function drawGroup(ctx, G, t, env, still) {
   if (x0 === Infinity) return { w: 200, h: 200, x: kv.x * W, y: kv.y * H, rot: kv.rot };
   const cx = (x0 + x1) / 2 - W / 2, cy = (y0 + y1) / 2 - H / 2;
   return { w: (x1 - x0) * kv.s, h: (y1 - y0) * kv.s, x: kv.x * W + cx * kv.s, y: kv.y * H + cy * kv.s, rot: kv.rot };
+}
+
+// ---------- Ses dalgası (podcast görselleştirici) ----------
+const waveBuf = { f: null, last: null };
+export function drawWave(ctx, L, t, env) {
+  const { W, S } = env;
+  const w = (L.w || 0.8) * W, h = (L.h || 0.18) * W;
+  const n = Math.max(8, Math.min(96, L.bars || 40));
+  const an = env.analyser;
+  let vals = new Float32Array(n);
+  if (an) {
+    if (!waveBuf.f || waveBuf.f.length !== an.frequencyBinCount) waveBuf.f = new Uint8Array(an.frequencyBinCount);
+    an.getByteFrequencyData(waveBuf.f);
+    const maxBin = Math.floor(waveBuf.f.length * 0.55);
+    for (let i = 0; i < n; i++) {
+      const a = Math.floor(Math.pow(i / n, 1.6) * maxBin), b = Math.max(a + 1, Math.floor(Math.pow((i + 1) / n, 1.6) * maxBin));
+      let m = 0; for (let k = a; k < b; k++) m = Math.max(m, waveBuf.f[k]);
+      vals[i] = m / 255;
+    }
+  }
+  const quiet = vals.every((v) => v < 0.02);
+  if (quiet) for (let i = 0; i < n; i++) vals[i] = 0.12 + 0.1 * Math.abs(Math.sin(i * 0.7 + t * 2.2));
+  if (waveBuf.last && waveBuf.last.length === n) for (let i = 0; i < n; i++) vals[i] = Math.max(vals[i], waveBuf.last[i] * 0.82);
+  waveBuf.last = vals;
+  ctx.save();
+  const g = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+  g.addColorStop(0, L.color || '#A855F7'); g.addColorStop(1, L.color2 || '#22D3EE');
+  ctx.fillStyle = g;
+  if (L.glow) { ctx.shadowColor = L.color || '#A855F7'; ctx.shadowBlur = 24 * S; }
+  const style = L.style || 'bars';
+  if (style === 'line') {
+    ctx.strokeStyle = g; ctx.lineWidth = Math.max(4, h * 0.05); ctx.lineJoin = 'round'; ctx.beginPath();
+    for (let i = 0; i < n; i++) { const x = -w / 2 + (i / (n - 1)) * w; const y = (i % 2 ? -1 : 1) * vals[i] * h / 2; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+  } else if (style === 'circle') {
+    const r = Math.min(w, h * 2.2) * 0.28;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, l = r * 0.2 + vals[i] * r * 0.9;
+      ctx.save(); ctx.rotate(a); roundRect(ctx, -w * 0.006, r, w * 0.012, l, w * 0.006); ctx.fill(); ctx.restore();
+    }
+  } else {
+    const bw = w / n;
+    for (let i = 0; i < n; i++) {
+      const bh = Math.max(bw * 0.6, vals[i] * h);
+      roundRect(ctx, -w / 2 + i * bw + bw * 0.18, style === 'mirror' ? -bh / 2 : h / 2 - bh, bw * 0.64, bh, bw * 0.32);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+  return { w, h: style === 'circle' ? w * 0.7 : h };
 }
 
 // ---------- Şekiller ----------

@@ -36,6 +36,8 @@ export function colorTab(body, o) {
     { label: 'Ton (yeşil↔mor)', path: 'color.tint', type: 'range', min: -1, max: 1, fmt: sgn },
     { label: 'Gölgeler', path: 'color.shadows', type: 'range', min: -1, max: 1, fmt: sgn },
     { label: 'Parlak alanlar', path: 'color.highlights', type: 'range', min: -1, max: 1, fmt: sgn },
+    { label: 'Cilt yumuşatma (güzellik)', path: 'color.smooth', type: 'range', min: 0, max: 1, fmt: pct, def: 0 },
+    { label: 'Keskinleştir', path: 'color.sharp', type: 'range', min: 0, max: 1, fmt: pct, def: 0 },
   ]));
   body.append(curveEditor(o));
   body.append(lutPicker(o));
@@ -228,6 +230,7 @@ export function audioFxTab(body, o, defRole) {
   ].forEach(([n, v]) => presets.append(h('button', { onclick: () => { o.afx = { ...v }; app.change(true); refreshSheet(); } }, n)));
   body.append(h('div', { class: 'field full' }, h('label', {}, 'Hazır ses ayarları'), presets));
   body.append(fields(o, [
+    { label: 'Ses efekti', path: 'afx.vfx', type: 'chips', options: [['none', 'Yok'], ['echo', 'Eko'], ['room', 'Oda'], ['hall', 'Salon'], ['stadium', 'Stadyum'], ['phone', 'Telefon'], ['radio', 'Radyo'], ['megaphone', 'Megafon'], ['robot', 'Robot'], ['underwater', 'Su altı']] },
     { label: 'Uğultu filtresi (90 Hz)', path: 'afx.hp', type: 'toggle' },
     { label: 'Bas (160 Hz)', path: 'afx.low', type: 'range', min: -12, max: 12, step: 0.5, fmt: db },
     { label: 'Orta (2.5 kHz)', path: 'afx.mid', type: 'range', min: -12, max: 12, step: 0.5, fmt: db },

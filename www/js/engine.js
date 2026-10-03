@@ -5,8 +5,43 @@ import { applyLayerFx } from './fxlib.js';
 import { transGL } from './gltrans.js';
 import { hasKeys, propAt } from './kf.js';
 
+// Hız eğrileri (CapCut tarzı): 0..1 arası 7 kontrol noktasında hız çarpanı
+export const SPEED_CURVES = {
+  montage: ['Montaj', [1.8, 1.8, 0.35, 0.35, 1.8, 1.8, 1.8]],
+  hero: ['Kahraman anı', [1.6, 1.6, 0.25, 0.25, 0.25, 1.6, 1.6]],
+  bullet: ['Mermi', [2.2, 0.3, 0.2, 0.2, 0.3, 2.2, 2.2]],
+  jump: ['Zıplama', [0.6, 2.4, 0.6, 2.4, 0.6, 2.4, 0.6]],
+  flashIn: ['Hızlı giriş', [3, 2.4, 1.6, 1, 1, 1, 1]],
+  flashOut: ['Hızlı çıkış', [1, 1, 1, 1, 1.6, 2.4, 3]],
+  slowEnd: ['Sonda yavaşla', [1.5, 1.5, 1.4, 1.2, 0.8, 0.4, 0.3]],
+  ramp: ['Yavaştan hızlıya', [0.4, 0.6, 0.9, 1.2, 1.6, 2, 2.4]],
+};
+export function curvePts(c) { return Array.isArray(c.curve) ? c.curve : SPEED_CURVES[c.curve]?.[1]; }
+export function curveSpeed(c, u) {
+  const p = curvePts(c); if (!p) return c.speed || 1;
+  const x = Math.max(0, Math.min(1, u)) * (p.length - 1), i = Math.min(p.length - 2, Math.floor(x)), f = x - i;
+  return Math.max(0.1, p[i] + (p[i + 1] - p[i]) * f);
+}
+const curveCache = new Map();
+function curveTable(c) {
+  const p = curvePts(c); const key = p.join(',');
+  if (curveCache.has(key)) return curveCache.get(key);
+  const N = 200, cum = new Float32Array(N + 1);
+  for (let i = 1; i <= N; i++) cum[i] = cum[i - 1] + (curveSpeed(c, (i - 0.5) / N)) / N;
+  const tb = { cum, mean: cum[N] };
+  curveCache.set(key, tb); return tb;
+}
+// klip içi zaman -> kaynak zamanı
+export function curveSrc(c, local, len) {
+  const tb = curveTable(c); const N = tb.cum.length - 1;
+  const u = Math.max(0, Math.min(1, local / len)) * N, i = Math.min(N - 1, Math.floor(u)), f = u - i;
+  const I = tb.cum[i] + (tb.cum[i + 1] - tb.cum[i]) * f;
+  return c.in + (c.out - c.in) * (I / tb.mean);
+}
+
 export function clipLen(c) {
   if (c.type === 'image' || c.freeze) return Math.max(0.2, c.dur || 3);
+  if (curvePts(c)) return Math.max(0.1, (c.out - c.in) / curveTable(c).mean);
   return Math.max(0.1, (c.out - c.in) / (c.speed || 1));
 }
 
@@ -186,7 +221,9 @@ export class Engine {
       const hi = ac.createBiquadFilter(); hi.type = 'highshelf'; hi.frequency.value = 8000;
       const comp = ac.createDynamicsCompressor(); comp.ratio.value = 1; comp.threshold.value = 0;
       src.connect(gain); gain.connect(hp); hp.connect(lo); lo.connect(mid); mid.connect(hi); hi.connect(comp);
-      const node = { gain, hp, lo, mid, hi, comp, role: null, sig: '' };
+      const dry = ac.createGain(), out = ac.createGain();
+      comp.connect(dry); dry.connect(out);
+      const node = { gain, hp, lo, mid, hi, comp, dry, out, wet: [], role: null, sig: '', vfx: 'none' };
       this.nodes.set(el, node);
       this._route(node, 'voice');
     } catch (e) { console.warn('ses bağlanamadı', e); }
@@ -195,8 +232,8 @@ export class Engine {
 
   _route(node, role) {
     if (node.role === role) return;
-    try { node.comp.disconnect(); } catch (_) { /* yoksay */ }
-    node.comp.connect(this.buses[role] || this.buses.voice);
+    try { node.out.disconnect(); } catch (_) { /* yoksay */ }
+    node.out.connect(this.buses[role] || this.buses.voice);
     node.role = role;
   }
 
@@ -209,6 +246,7 @@ export class Engine {
     n.gain.gain.value = vol;
     this._route(n, o.role || defRole);
     const a = o.afx || {};
+    if ((a.vfx || 'none') !== n.vfx) this._voiceFx(n, a.vfx || 'none');
     const sig = `${a.hp ? 1 : 0}|${a.low || 0}|${a.mid || 0}|${a.high || 0}|${a.comp ? 1 : 0}`;
     if (sig === n.sig) return;
     n.sig = sig;
@@ -219,6 +257,50 @@ export class Engine {
   }
 
   setVol(el, v) { this.setChain(el, v, {}, 'voice'); }
+
+  // Ses efektleri (gerçek zamanlı): eko, salon, telefon, megafon, robot, su altı, radyo
+  _voiceFx(n, type) {
+    const ac = this.ac;
+    n.wet.forEach((x) => { try { x.disconnect(); } catch (_) { /* yoksay */ } if (x.stop) try { x.stop(); } catch (_) { /* yoksay */ } });
+    n.wet = [];
+    try { n.comp.disconnect(); } catch (_) { /* yoksay */ }
+    n.comp.connect(n.dry);
+    n.dry.gain.value = 1;
+    n.vfx = type;
+    if (type === 'none') return;
+    const W = (x) => { n.wet.push(x); return x; };
+    const wetOut = W(ac.createGain());
+    wetOut.connect(n.out);
+    const bp = (f, q) => { const b = W(ac.createBiquadFilter()); b.type = 'bandpass'; b.frequency.value = f; b.Q.value = q; return b; };
+    const shaper = (k) => { const ws = W(ac.createWaveShaper()); const c = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = (i / 512) - 1; c[i] = ((1 + k) * x) / (1 + k * Math.abs(x)); } ws.curve = c; return ws; };
+    const impulse = (sec, decay) => { const len = Math.floor(ac.sampleRate * sec); const b = ac.createBuffer(2, len, ac.sampleRate); for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); } return b; };
+    switch (type) {
+      case 'echo': {
+        const d = W(ac.createDelay(1)); d.delayTime.value = 0.28;
+        const fb = W(ac.createGain()); fb.gain.value = 0.42;
+        n.comp.connect(d); d.connect(fb); fb.connect(d); d.connect(wetOut); wetOut.gain.value = 0.6; break;
+      }
+      case 'hall': case 'room': {
+        const cv = W(ac.createConvolver()); cv.buffer = impulse(type === 'hall' ? 2.8 : 0.9, type === 'hall' ? 2.2 : 3);
+        n.comp.connect(cv); cv.connect(wetOut); wetOut.gain.value = type === 'hall' ? 0.55 : 0.4; break;
+      }
+      case 'phone': { const f = bp(1700, 1.1); const s2 = shaper(6); n.comp.connect(f); f.connect(s2); s2.connect(wetOut); n.dry.gain.value = 0; wetOut.gain.value = 1.6; break; }
+      case 'megaphone': { const f = bp(1300, 0.8); const s2 = shaper(30); n.comp.connect(f); f.connect(s2); s2.connect(wetOut); n.dry.gain.value = 0; wetOut.gain.value = 0.9; break; }
+      case 'radio': { const f = bp(1500, 0.7); const s2 = shaper(12); n.comp.connect(f); f.connect(s2); s2.connect(wetOut); n.dry.gain.value = 0.15; wetOut.gain.value = 1.2; break; }
+      case 'robot': {
+        const osc = W(ac.createOscillator()); osc.frequency.value = 55; osc.type = 'square';
+        const ring = W(ac.createGain()); ring.gain.value = 0;
+        osc.connect(ring.gain); osc.start();
+        n.comp.connect(ring); ring.connect(wetOut); n.dry.gain.value = 0.2; wetOut.gain.value = 1.4; break;
+      }
+      case 'underwater': { const lp = W(ac.createBiquadFilter()); lp.type = 'lowpass'; lp.frequency.value = 500; lp.Q.value = 6; n.comp.connect(lp); lp.connect(wetOut); n.dry.gain.value = 0; wetOut.gain.value = 1.3; break; }
+      case 'stadium': {
+        const cv = W(ac.createConvolver()); cv.buffer = impulse(3.6, 1.6);
+        const d = W(ac.createDelay(1)); d.delayTime.value = 0.12;
+        n.comp.connect(d); d.connect(cv); cv.connect(wetOut); wetOut.gain.value = 0.7; break;
+      }
+    }
+  }
 
   // ---------- elemanlar ----------
   elFor(item) {
@@ -299,7 +381,10 @@ export class Engine {
         if (el && !active && t < L.start && L.start - t < 1.5) this._prepare(el, c.freezeAt);
         return;
       }
-      this._syncEl(el, active, c.in + local * (c.speed || 1), c.speed || 1, vol, c, 'voice');
+      if (curvePts(c)) {
+        const sT = curveSrc(c, local, L.len);
+        this._syncEl(el, active, sT, Math.max(0.0625, Math.min(16, curveSpeed(c, local / L.len))), vol, c, 'voice');
+      } else this._syncEl(el, active, c.in + local * (c.speed || 1), c.speed || 1, vol, c, 'voice');
       if (!active && t < L.start && L.start - t < 1.5) this._prepare(el, c.in);
     });
     flatLayers(P).forEach((l) => {
@@ -329,7 +414,7 @@ export class Engine {
   }
 
   // ---------- çizim ----------
-  env() { return { W: this.W, H: this.H, S: this.scale, exporting: this.exporting, img: (id) => this.imgForMedia(id), seg: this.seg, elFor: (it) => this.elFor(it) }; }
+  env() { return { W: this.W, H: this.H, S: this.scale, exporting: this.exporting, img: (id) => this.imgForMedia(id), seg: this.seg, elFor: (it) => this.elFor(it), analyser: this.preMeter, playing: this.playing }; }
 
   imgForMedia(id) {
     const m = this.media.get(id);

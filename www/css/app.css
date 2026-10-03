@@ -336,3 +336,5 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 7px; }
 .mus-t small { color: var(--muted); font-size: 11.5px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mus-row .btn, .sfx4 .btn { padding: 8px 12px; font-size: 13.5px; }
 .sfx-row.sfx4 { grid-template-columns: 44px 1fr 34px auto; }
+.btn.tplbtn { margin-top: 10px; background: var(--surface-2); border-color: var(--primary); color: var(--primary-3); }
+.item.k-wave { background: linear-gradient(90deg, #0E7490, #A855F7); }

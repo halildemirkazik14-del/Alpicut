@@ -8,16 +8,16 @@ const W = 'www';
 const UA = { 'User-Agent': 'AlpicutBuild/1.0 (https://github.com/halildemirkazik14-del/Alpicut)' };
 const log = (...a) => console.log('[assets]', ...a);
 const mk = (p) => fs.mkdirSync(p, { recursive: true });
-const get = async (u, tries = 3) => {
+const get = async (u, tries = 3, extra = {}) => {
   for (let i = 0; i < tries; i++) {
-    try { const r = await fetch(u, { headers: UA }); if (r.ok) return r; log('HTTP', r.status, u); } catch (e) { log('fetch hata', u, e.message); }
+    try { const r = await fetch(u, { headers: { ...UA, ...extra }, redirect: 'follow' }); if (r.ok) return r; log('HTTP', r.status, u); report.errors.push(`HTTP ${r.status} ${u.slice(0, 120)}`); } catch (e) { log('fetch hata', u, e.message); }
     await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
   }
   return null;
 };
-const download = async (u, to) => { const r = await get(u); if (!r) return false; fs.writeFileSync(to, Buffer.from(await r.arrayBuffer())); return true; };
+const download = async (u, to, ref) => { const r = await get(u, 3, ref ? { Referer: ref } : {}); if (!r) return false; fs.writeFileSync(to, Buffer.from(await r.arrayBuffer())); return true; };
 const nm = (p) => path.join('node_modules', p);
-const report = { fonts: 0, sfx: 0, music: 0, errors: [] };
+const report = { fonts: 0, sfx: 0, music: 0, errors: [], sfxSources: {} };
 
 // ---------- 1) Paketli fontlar (@fontsource) ----------
 const FONT_PKGS = ['barlow', 'barlow-condensed', 'barlow-semi-condensed', 'anton', 'bebas-neue', 'montserrat', 'poppins', 'oswald', 'roboto', 'inter', 'archivo-black', 'russo-one', 'teko', 'righteous', 'bangers', 'lobster', 'pacifico', 'permanent-marker', 'caveat', 'playfair-display', 'merriweather', 'roboto-mono'];
@@ -75,14 +75,13 @@ const FONT_PKGS = ['barlow', 'barlow-condensed', 'barlow-semi-condensed', 'anton
   mk(`${W}/models`);
   await download('https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite', `${W}/models/selfie_segmenter.tflite`) || report.errors.push('segmenter modeli');
   await download('https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite', `${W}/models/blaze_face_short_range.tflite`) || report.errors.push('yüz modeli');
-  // transformers.js (Whisper) — ONNX wasm dosyaları ilk kullanımda CDN'den gelir
-  cp(nm('@huggingface/transformers/dist/transformers.web.min.js'), `${W}/vendor/transformers/transformers.js`);
+  // transformers.js (Whisper) — tek dosyaya paketlenir; ONNX wasm dosyaları ilk kullanımda CDN'den gelir
+  const esb = (entry, out) => { try { mk(path.dirname(out)); execSync(`npx esbuild "${entry}" --bundle --format=esm --platform=browser --minify --log-level=warning --outfile="${out}" --external:fs --external:path --external:url --external:sharp --external:onnxruntime-node`, { stdio: 'inherit' }); return true; } catch (e) { report.errors.push(`esbuild: ${entry}: ${e.message}`); return false; } };
+  esb(nm('@huggingface/transformers/dist/transformers.web.js'), `${W}/vendor/transformers/transformers.js`);
   // RNNoise
   cp(nm('@shiguredo/rnnoise-wasm/dist/rnnoise.js'), `${W}/vendor/rnnoise/rnnoise.js`);
-  // Piper TTS
-  const pd = nm('@mintplex-labs/piper-tts-web/dist');
-  if (fs.existsSync(pd)) { mk(`${W}/vendor/piper`); for (const f of fs.readdirSync(pd)) if (f.endsWith('.js')) fs.copyFileSync(path.join(pd, f), `${W}/vendor/piper/${f}`); fs.copyFileSync(`${W}/vendor/piper/piper-tts-web.js`, `${W}/vendor/piper/piper.js`); }
-  else report.errors.push('piper yok');
+  // Piper TTS (onnxruntime-web 1.18 ile birlikte paketlenir)
+  esb(nm('@mintplex-labs/piper-tts-web/dist/piper-tts-web.js'), `${W}/vendor/piper/piper-tts-web.js`);
   log('kütüphaneler hazır');
 }
 
@@ -127,11 +126,13 @@ function niceName(f) {
       const dir = path.join(TMP, src.slug); mk(dir);
       for (const z of zips.slice(0, 3)) {
         const fn = path.join(dir, decodeURIComponent(z.split('/').pop()).replace(/[^\w.-]+/g, '_'));
-        if (!(await download(z, fn))) continue;
+        if (!(await download(z, fn, src.k === 'kenney' ? `https://kenney.nl/assets/${src.slug}` : `https://opengameart.org/content/${src.slug}`))) { report.errors.push(`indirilemedi: ${z.slice(0, 120)}`); continue; }
+        report.sfxSources[src.slug] = `${(fs.statSync(fn).size / 1048576).toFixed(1)} MB`;
         if (fn.endsWith('.zip')) { try { execSync(`unzip -qo "${fn}" -d "${dir}/x"`); } catch (_) { report.errors.push(`unzip: ${fn}`); } }
         else { mk(`${dir}/x`); fs.renameSync(fn, `${dir}/x/${path.basename(fn)}`); }
       }
       const files = execSync(`find "${dir}/x" -type f \\( -iname '*.ogg' -o -iname '*.wav' -o -iname '*.mp3' -o -iname '*.flac' \\) 2>/dev/null || true`).toString().split('\n').filter(Boolean);
+      report.sfxSources[src.slug] = `${report.sfxSources[src.slug] || '?'} · ${files.length} dosya`;
       // aynı adın farklı biçimlerinden yalnız birini al
       const seen = new Set();
       for (const f of files.sort()) {
@@ -140,13 +141,13 @@ function niceName(f) {
         const id = `${src.slug.replace(/[^a-z0-9]/g, '')}_${(++n).toString(36)}`;
         const out = `${W}/sfx/${id}.ogg`;
         try {
-          execSync(`ffmpeg -loglevel error -y -i "${f}" -t 20 -ac 1 -ar 44100 -c:a libopus -b:a 56k "${out}"`);
+          execSync(`ffmpeg -loglevel error -y -i "${f}" -t 20 -ac 1 -ar 48000 -c:a libopus -b:a 56k "${out}"`);
           const dur = parseFloat(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 "${out}"`).toString()) || 0;
           if (dur < 0.03) { fs.unlinkSync(out); continue; }
           let cat = src.cat;
           if (src.cat === 'misc' || src.cat === 'rpg') for (const [re, c] of KEYCAT) if (re.test(f)) { cat = c; break; }
           manifest.push({ id, n: niceName(f), c: TR[cat] || cat, d: +dur.toFixed(2), s: src.k === 'kenney' ? `Kenney · ${src.slug}` : `OpenGameArt · ${src.slug}` });
-        } catch (e) { /* bozuk dosya */ }
+        } catch (e) { if (!report.ffmpegErr) report.ffmpegErr = String(e.stderr || e.message).slice(0, 300); }
       }
       lic.push(`${src.k === 'kenney' ? 'Kenney (kenney.nl)' : 'OpenGameArt.org'} — ${src.slug} — CC0 1.0 Public Domain`);
       log('sfx', src.slug, manifest.length);

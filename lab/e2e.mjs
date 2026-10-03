@@ -66,8 +66,10 @@ await step('tts', async () => pg.evaluate(async () => {
 }));
 
 await step('whisper', async () => pg.evaluate(async () => {
-  if (!window.__wav) throw new Error('tts yok');
-  const ab = await window.__wav.arrayBuffer();
+  // İngilizce örnek (JFK) ve varsa Türkçe TTS sesi
+  const src = window.__wav || await (await fetch('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav')).blob();
+  const lang = window.__wav ? 'turkish' : 'english';
+  const ab = await src.arrayBuffer();
   const ctx = new OfflineAudioContext(1, 16000, 16000);
   const buf = await ctx.decodeAudioData(ab);
   const audio = buf.getChannelData(0);
@@ -76,14 +78,17 @@ await step('whisper', async () => pg.evaluate(async () => {
   const res = await new Promise((resolve, reject) => {
     w.onmessage = (e) => { const m = e.data; if (m.type === 'done') resolve(m); else if (m.type === 'error') reject(new Error(m.message)); else if (m.type === 'status') msgs.push(m.text); };
     w.onerror = (e) => reject(new Error(e.message || 'worker'));
-    w.postMessage({ cmd: 'run', audio, size: 'tiny', language: 'turkish', wordLevel: true });
+    w.postMessage({ cmd: 'run', audio, size: 'tiny', language: lang, wordLevel: true });
   });
-  return { text: res.text, words: (res.chunks || []).slice(0, 12).map((c) => `${c.text}@${c.timestamp?.[0]?.toFixed?.(2)}`), segment: res.segment, msgs };
+  return { lang, text: res.text, words: (res.chunks || []).slice(0, 12).map((c) => `${c.text}@${c.timestamp?.[0]?.toFixed?.(2)}`), segment: res.segment, msgs };
 }));
 
 await step('studio', async () => pg.evaluate(async () => {
   const S = await import('./js/studio.js');
-  const src = window.__wav || new Blob([new Uint8Array(1000)]);
+  // sentetik "ses + gürültü" örneği
+  const sr = 48000, n = sr * 3, x = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const t = i / sr; x[i] = 0.3 * Math.sin(2 * Math.PI * 220 * t) * (Math.sin(2 * Math.PI * 3 * t) > 0 ? 1 : 0.05) + (Math.random() - 0.5) * 0.08; }
+  const src = window.__wav || S.toWav(x, sr);
   const out = await S.processVoice(src, S.STUDIO_PRESETS.podcast);
   let rn = 'n/a';
   try { const m = await import('./vendor/rnnoise/rnnoise.js'); const r = await (m.Rnnoise || m.default?.Rnnoise).load(); const st = r.createDenoiseState(); const v = st.processFrame(new Float32Array(480).map(() => (Math.random() - 0.5) * 3000)); st.destroy(); rn = `ok vad=${v.toFixed(3)} frame=${r.frameSize}`; } catch (e) { rn = String(e); }

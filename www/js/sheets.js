@@ -10,9 +10,9 @@ import { bgRemoveTab } from './ai.js';
 import { Engine } from './engine.js';
 import { saveVideo, isNative } from './storage.js';
 import { parseSRT, toSRT, toVTT } from './srt.js';
-import { LAYER_PROPS, CLIP_PROPS, EASES, propAt, hasKeys, keyAt, setKey, delKey, writeProp, allKeyTimes } from './kf.js';
+import { LAYER_PROPS, CLIP_PROPS, EASES, propAt, hasKeys, keyAt, setKey, delKey, writeProp, allKeyTimes, rescaleKeys } from './kf.js';
 import { SFX, renderSfx } from './sfx.js';
-import { layoutClips } from './engine.js';
+import { layoutClips, SPEED_CURVES, curvePts, curveSpeed } from './engine.js';
 import { rangeControl, guessDefault } from './ctl.js';
 import { GL_LIST, transGL } from './gltrans.js';
 import { SOCIAL_TEMPLATES, drawSocial, SOCIAL_FIELDS } from './social.js';
@@ -283,7 +283,7 @@ function clipInspector(c) {
     actions: [
       { icon: I.left, label: 'Sola taşı', onClick: () => app.moveClip(-1) },
       { icon: I.right, label: 'Sağa taşı', onClick: () => app.moveClip(1) },
-      ...(isV && !c.freeze ? [{ icon: I.freeze, label: 'Kareyi dondur', onClick: () => app.freezeFrame() }] : []),
+      ...(isV && !c.freeze ? [{ icon: I.freeze, label: 'Kareyi dondur', onClick: () => app.freezeFrame() }, { icon: I.reverse, label: 'Ters çevir', onClick: () => app.reverseClip(c) }] : []),
     ],
     render: (body, tab) => {
       if (tab === 'Düzen') {
@@ -298,7 +298,8 @@ function clipInspector(c) {
           { type: 'hint', html: c.freeze ? `Bu klip videonun <b>${(+c.freezeAt).toFixed(2)}s</b> anındaki dondurulmuş karesi. Ses içermez.` : '', hide: !c.freeze },
           { label: 'Süre', path: 'dur', type: 'range', min: 0.5, max: 30, step: 0.1, fmt: sec, hide: isV && !c.freeze, post: () => app.refreshTimeline() },
           { label: 'Hız', path: 'speed', type: 'range', min: 0.25, max: 3, step: 0.05, fmt: (x) => `${(+x).toFixed(2)}x`, hide: !isV || c.freeze, post: () => app.refreshTimeline() },
-          { type: 'hint', html: 'Hız değişince ses perdesi korunur. Ters oynatma bu sürümde yok.', hide: !isV || c.freeze },
+          { type: 'el', el: speedCurveEl(c), hide: !isV || c.freeze },
+          { type: 'hint', html: 'Hız değişince ses perdesi korunur. Ters oynatma için üstteki <b>⟲ Ters çevir</b> simgesini kullan.', hide: !isV || c.freeze },
           { label: 'Ses seviyesi', path: 'volume', type: 'range', min: 0, max: 2, fmt: pct, hide: !isV || c.freeze },
           { label: 'Sessiz', path: 'mute', type: 'toggle', hide: !isV || c.freeze },
           { label: 'Kırp: başlangıç', path: 'in', type: 'range', min: 0, max: mdur, step: 0.05, fmt: sec, hide: !isV || c.freeze, post: (o) => { o.in = Math.min(o.in, o.out - 0.2); app.refreshTimeline(); } },
@@ -358,6 +359,30 @@ function clipInspector(c) {
       else if (tab === 'Ses') audioFxTab(body, c, 'voice');
     },
   };
+}
+
+// ---------- Hız eğrisi ----------
+function speedCurveEl(c) {
+  const wrap = h('div', { class: 'field full' });
+  const chips = h('div', { class: 'chips' });
+  const cur = Array.isArray(c.curve) ? 'custom' : (c.curve || 'none');
+  const set = (k) => { const L0 = app.layout().find((x) => x.clip === c); const oldLen = L0?.len || 1; c.curve = k === 'none' ? null : k; const L1 = app.layout().find((x) => x.clip === c); if (L1 && c.kf) rescaleKeys(c, oldLen, L1.len); app.change(true); app.refreshTimeline(); refreshSheet(); };
+  chips.append(h('button', { class: cur === 'none' ? 'on' : '', onclick: () => set('none') }, 'Sabit'));
+  Object.entries(SPEED_CURVES).forEach(([k, [n]]) => chips.append(h('button', { class: cur === k ? 'on' : '', onclick: () => set(k) }, n)));
+  wrap.append(h('label', {}, 'Hız eğrisi'), chips);
+  if (c.curve) {
+    const pts = curvePts(c);
+    const cv = h('canvas', { width: 560, height: 140, class: 'curve-cv' });
+    const x = cv.getContext('2d');
+    x.fillStyle = '#0b0814'; x.fillRect(0, 0, 560, 140);
+    x.strokeStyle = '#2a2044'; x.beginPath(); x.moveTo(0, 140 - (1 / 3) * 140); x.lineTo(560, 140 - (1 / 3) * 140); x.stroke();
+    x.strokeStyle = '#A78BFA'; x.lineWidth = 3; x.beginPath();
+    for (let i = 0; i <= 100; i++) { const u = i / 100; const v = curveSpeed(c, u); const y = 140 - Math.min(1, v / 3) * 130 - 5; i ? x.lineTo(u * 560, y) : x.moveTo(0, y); }
+    x.stroke();
+    wrap.append(cv, h('p', { class: 'hint' }, `Çizgi hız çarpanını gösterir (orta çizgi = 1x). Klip süresi: ${app.layout().find((L) => L.clip === c)?.len.toFixed(1)} sn`));
+    void pts;
+  }
+  return wrap;
 }
 
 // ---------- Maske ----------
@@ -489,13 +514,14 @@ function posTab(body, L) {
 }
 
 function layerInspector(L) {
-  const title = { text: 'Yazı', media: 'Katman', cta: 'Sosyal medya çağrısı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma', social: 'Sosyal medya', group: 'Grup' }[L.kind];
+  const title = { text: 'Yazı', media: 'Katman', cta: 'Sosyal medya çağrısı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma', social: 'Sosyal medya', group: 'Grup', wave: 'Ses dalgası' }[L.kind];
   const tabs = {
     text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'],
     media: ['Düzen', 'Arka plan', 'Chroma', 'Maske', 'Renk', 'Animasyon', 'Keyframe', 'Filtre', 'Konum'],
     sticker: ['Çıkartma', 'Animasyon', 'Keyframe', 'Konum'],
     social: ['İçerik', 'Animasyon', 'Keyframe', 'Konum'],
     group: ['Grup', 'Animasyon', 'Keyframe', 'Konum'],
+    wave: ['Dalga', 'Animasyon', 'Keyframe', 'Konum'],
     cta: ['Buton', 'Animasyon', 'Keyframe', 'Konum'],
     score: ['Skor', 'Animasyon', 'Keyframe', 'Konum'],
     shape: ['Şekil', 'Animasyon', 'Keyframe', 'Konum'],
@@ -510,6 +536,18 @@ function layerInspector(L) {
       if (tab === 'Chroma') return chromaTab(body, L);
       if (tab === 'Arka plan') return bgRemoveTab(body, L);
       if (tab === 'İçerik' && L.kind === 'social') return socialTab(body, L);
+      if (tab === 'Dalga') {
+        body.append(h('p', { class: 'hint' }, 'Videodaki sesle canlı hareket eder (podcast, müzik videoları). Önizlemede oynatınca görürsün.'));
+        return body.append(fields(L, [
+          { label: 'Stil', path: 'style', type: 'chips', options: [['bars', 'Çubuk'], ['mirror', 'Ayna'], ['line', 'Çizgi'], ['circle', 'Daire']] },
+          { label: 'Çubuk sayısı', path: 'bars', type: 'range', min: 8, max: 96, step: 1, def: 36 },
+          { label: 'Genişlik', path: 'w', type: 'range', min: 0.1, max: 1, fmt: pct, def: 0.8 },
+          { label: 'Yükseklik', path: 'h', type: 'range', min: 0.03, max: 0.6, fmt: pct, def: 0.16 },
+          { label: 'Renk 1', path: 'color', type: 'color' },
+          { label: 'Renk 2', path: 'color2', type: 'color' },
+          { label: 'Parlama', path: 'glow', type: 'toggle' },
+        ]));
+      }
       if (tab === 'Grup') {
         body.append(h('p', { class: 'hint', html: `Bu grupta <b>${(L.children || []).length}</b> katman var. Grubu taşı, ölçekle, döndür veya animasyon ver — içindekiler birlikte hareket eder. İçindekileri tek tek düzenlemek için grubu çöz.` }));
         body.append(fields(L, [{ label: 'Grup adı', path: 'name', type: 'text', post: () => app.refreshTimelineSoon() }]));
