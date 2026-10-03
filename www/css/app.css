@@ -233,3 +233,53 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 7px; }
 .sfx-name small { color: var(--muted); font-weight: 400; }
 .sfx-row .btn { padding: 8px 14px; font-size: 14px; }
 .item.k-sfx { background: linear-gradient(90deg, #9A3412, #EA580C); }
+
+/* ---------- Teslimat 3 ---------- */
+.toolbar.ctx { background: #120c1f; }
+.tool.back .ti { background: var(--surface-3); }
+.sel-chip { flex: none; align-self: center; max-width: 150px; padding: 6px 10px; margin: 0 4px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); font-size: 12px; color: var(--primary-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-btn.cancel { color: #FDA4AF; }
+.btn.ghost { margin-top: 10px; background: transparent; border: 1px dashed var(--line); color: var(--muted); font-weight: 600; }
+.ruler .mk { position: absolute; bottom: 0; width: 2px; height: 10px; margin-left: -1px; z-index: 2; }
+.ruler .mk.beat { background: #FACC15; height: 8px; }
+.ruler .mk.user { background: #E879F9; height: 14px; width: 3px; }
+.item.off { opacity: .45; }
+.item.locked { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 6px, transparent 6px 12px) !important; }
+.item.k-fx { background: linear-gradient(90deg, #86198F, #C026D3); }
+.item.k-adjust { background: linear-gradient(90deg, #374151, #6B7280); }
+.item.k-sticker { background: linear-gradient(90deg, #A16207, #EAB308); }
+.item.k-voice { background: linear-gradient(90deg, #155E75, #0891B2); }
+.scope, .curve-cv, .cover-cv { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); display: block; touch-action: none; }
+.cover-cv { max-height: 34vh; width: auto; max-width: 100%; margin: 0 auto 8px; }
+.meter-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; }
+.meter { height: 12px; border-radius: 6px; background: var(--surface-3); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--grad); transition: width .06s linear; }
+.clip-led { font-size: 11px; font-weight: 800; padding: 3px 7px; border-radius: 6px; background: #3a2030; color: #7f4b5e; }
+.clip-led.on { background: #f43f5e; color: #fff; }
+.rec-wrap { display: grid; justify-items: center; gap: 14px; padding: 10px 0 6px; }
+.rec-wrap .meter { width: 100%; }
+.rec-btn { width: 84px; height: 84px; border-radius: 50%; border: 6px solid #fff; background: #ef4444; box-shadow: 0 6px 24px rgba(239,68,68,.4); }
+.rec-btn.on { border-radius: 22px; animation: recpulse 1s ease-in-out infinite; }
+@keyframes recpulse { 50% { box-shadow: 0 0 0 12px rgba(239,68,68,.15); } }
+.fx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fx-card { position: relative; border-radius: 12px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); cursor: pointer; }
+.fx-card canvas { display: block; width: 100%; height: auto; aspect-ratio: 9 / 16; object-fit: cover; }
+.fx-card span { display: block; padding: 5px 7px 0; font-size: 12px; font-weight: 600; }
+.fx-card small { display: block; padding: 0 7px 6px; font-size: 10px; color: var(--muted); }
+.fx-card:not(:has(small)) span { padding-bottom: 7px; }
+.fx-fav { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; border-radius: 9px; background: rgba(14,10,23,.7); display: grid; place-items: center; color: #fff; }
+.fx-fav svg { width: 17px; height: 17px; }
+.fx-fav.on { color: #FACC15; }
+.fx-fav.on svg path { fill: currentColor; }
+.stk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stk { border-radius: 12px; background: radial-gradient(circle at 30% 20%, #3b2470, #150f26); border: 1px solid var(--line); padding: 4px; }
+.stk canvas { width: 100%; height: auto; display: block; }
+.kit-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid #2a2044; }
+.kit-row b { flex: 1; font-size: 14px; }
+.kit-row .muted { color: var(--muted); font-size: 12px; }
+.kit-row .btn { padding: 8px 12px; font-size: 13.5px; }
+.kit-sw { display: flex; }
+.kit-sw i { width: 18px; height: 18px; border-radius: 50%; margin-right: -5px; border: 2px solid var(--surface); }
+.sil-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #2a2044; font-variant-numeric: tabular-nums; font-size: 14px; }
+.sil-row .btn { padding: 7px 12px; font-size: 13px; }
+.opt span { font-size: 12.5px; }

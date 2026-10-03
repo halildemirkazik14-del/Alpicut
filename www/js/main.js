@@ -6,6 +6,11 @@ import { RATIOS, DEFAULT_FILTERS, SUB_BASE, FX_BASE, TEXT_BASE, anim } from './p
 import { renderTimeline, bindTimeline, syncScroll, setZoom } from './timeline.js';
 import { layerAt, hasKeys, setKey, writeProp, splitKeys } from './kf.js';
 import { renderSfx } from './sfx.js';
+import { lutStore } from './gl.js';
+import {
+  openMixer, openMic, openEffects, openStickers, addAdjustLayer, openBrand, openCover, openSilence, findBeats, normalizeItem,
+  openVersions, exportPackage, importPackage, openRelink,
+} from './ui3.js';
 import {
   openSheet, closeSheet, refreshSheet, isSheetOpen, openInspector, openTemplates, openCTAs,
   openScoreMenu, openSubsMenu, openFx, openRatio, openExport, openShapes, openSfx,
@@ -47,6 +52,14 @@ function init() {
   bindPreview();
 
   $('newProject').addEventListener('click', () => newProject());
+  $('importPkg').innerHTML = `${I.upload} Yedekten aç (.alpicut)`;
+  $('importPkg').addEventListener('click', async () => {
+    const files = await pickFiles('', false);
+    if (!files.length) return;
+    const b = busy('Yedek açılıyor…');
+    try { const rec = await importPackage(files[0]); toast(`“${rec.name}” içe aktarıldı`); renderHome(); }
+    catch (e) { toast(e.message || 'Açılamadı', 3500); } finally { b.close(); }
+  });
   $('btnBack').addEventListener('click', () => { if (isSheetOpen()) closeSheet(); goHome(); });
   $('btnPlay').addEventListener('click', () => (app.engine.playing ? app.pause() : app.play()));
   $('btnUndo').addEventListener('click', undo);
@@ -87,26 +100,101 @@ async function loadFonts() {
 }
 
 // ---------- araç çubuğu ----------
-function buildToolbar() {
-  const tools = [
-    ['media', 'Medya', () => addMedia('clip'), true],
-    ['layer', 'Katman', () => addMedia('layer')],
-    ['text', 'Yazı', () => addLayer(clone(TEXT_BASE))],
-    ['template', 'Şablon', openTemplates],
-    ['subtitle', 'Altyazı', openSubsMenu],
-    ['audio', 'Ses', () => addMedia('audio')],
-    ['cta', 'Çağrı', openCTAs],
-    ['score', 'Skor', openScoreMenu],
-    ['shape', 'Şekil', openShapes],
-    ['sfx', 'SFX', openSfx],
-    ['fx', 'Efekt', openFx],
-    ['ratio', 'Oran', openRatio],
-  ];
+// Seçime göre değişen araç çubuğu
+function buildToolbar() { renderToolbar(); }
+
+const KIND_NAME = { text: 'Yazı', media: 'Katman', cta: 'Çağrı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma', fx: 'Efekt', adjust: 'Ayar katmanı' };
+
+function selLabel() {
+  const s = app.sel, o = selected();
+  if (!s || !o) return '';
+  if (s.type === 'clip') return `${o.freeze ? 'Donmuş kare' : o.type === 'image' ? 'Fotoğraf' : 'Video'} · ${app.engine.media.get(o.mediaId)?.name || ''}`;
+  if (s.type === 'audio') return `${o.sfx ? 'SFX' : o.role === 'voice' ? 'Seslendirme' : 'Ses'} · ${app.engine.media.get(o.mediaId)?.name || ''}`;
+  if (s.type === 'subs') return `Altyazı · ${o.cues.length} satır`;
+  const nm = o.kind === 'text' ? (o.text || '').split('\n')[0].replace(/\*/g, '') : o.kind === 'media' ? app.engine.media.get(o.mediaId)?.name : o.kind === 'fx' ? o.effect : o.label || '';
+  return `${KIND_NAME[o.kind] || 'Katman'} · ${nm || ''}`;
+}
+
+function renderToolbar() {
   const bar = $('toolbar');
-  tools.forEach(([ic, label, fn, primary]) => {
-    bar.append(h('button', { class: `tool${primary ? ' primary' : ''}`, onclick: () => { app.pause(); fn(); } },
-      h('span', { class: 'ti', html: I[ic] }), label));
-  });
+  bar.textContent = '';
+  const s = app.sel, o = selected();
+  const tool = (ic, label, fn, cls = '') => bar.append(h('button', { class: `tool ${cls}`, onclick: () => { app.pause(); fn(); } }, h('span', { class: 'ti', html: I[ic] || I.edit }), label));
+  const insp = (tab) => () => openInspector(tab);
+  if (!s || !o) {
+    bar.classList.remove('ctx');
+    tool('media', 'Medya', () => addMedia('clip'), 'primary');
+    tool('layer', 'Katman', () => addMedia('layer'));
+    tool('text', 'Yazı', () => addLayer(clone(TEXT_BASE)));
+    tool('template', 'Şablon', openTemplates);
+    tool('subtitle', 'Altyazı', openSubsMenu);
+    tool('audio', 'Ses', () => addMedia('audio'));
+    tool('mic', 'Kayıt', openMic);
+    tool('sfx', 'SFX', openSfx);
+    tool('fx', 'Efektler', () => openEffects());
+    tool('sticker', 'Çıkartma', () => openStickers());
+    tool('shape', 'Şekil', openShapes);
+    tool('cta', 'Çağrı', openCTAs);
+    tool('score', 'Skor', openScoreMenu);
+    tool('adjust', 'Renk katmanı', addAdjustLayer);
+    tool('mixer', 'Mikser', openMixer);
+    tool('marker', 'İşaret', toggleMarker);
+    tool('brand', 'Marka', openBrand);
+    tool('cover', 'Kapak', openCover);
+    tool('anim', 'Genel', openFx);
+    tool('ratio', 'Oran', openRatio);
+    return;
+  }
+  bar.classList.add('ctx');
+  bar.append(h('button', { class: 'tool back', onclick: () => { if (isSheetOpen()) closeSheet(); deselect(); } }, h('span', { class: 'ti', html: I.back }), 'Bitti'));
+  bar.append(h('div', { class: 'sel-chip' }, selLabel()));
+  if (o.locked) { tool('unlock', 'Kilidi aç', () => { o.locked = false; commit(); renderToolbar(); }); return; }
+  if (s.type === 'clip') {
+    const isV = o.type === 'video' && !o.freeze;
+    tool('edit', 'Düzen', insp('Düzen'));
+    tool('split', 'Böl', splitSel);
+    tool('color', 'Renk', insp('Renk'));
+    if (isV) tool('sfx', 'Ses', insp('Ses'));
+    tool('diamond', 'Keyframe', insp('Keyframe'));
+    tool('plus', 'Geçiş', insp('Geçiş'));
+    tool('fx', 'Efekt', () => openEffects());
+    tool('anim', 'Filtre', insp('Filtre'));
+    if (isV) tool('freeze', 'Dondur', freezeFrame);
+    if (isV) tool('silence', 'Sessizlik', () => openSilence(o, 'clip'));
+    tool('beat', 'Ritimde böl', splitOnBeats);
+    tool('copy', 'Kopyala', dupSel);
+    tool('trash', 'Sil', delSel, 'danger');
+  } else if (s.type === 'layer') {
+    const tabs = {
+      text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'], media: ['Düzen', 'Maske', 'Renk', 'Chroma', 'Animasyon', 'Keyframe', 'Konum'],
+      cta: ['Buton', 'Animasyon', 'Keyframe', 'Konum'], score: ['Skor', 'Animasyon', 'Keyframe', 'Konum'], shape: ['Şekil', 'Animasyon', 'Keyframe', 'Konum'],
+      sticker: ['Çıkartma', 'Animasyon', 'Keyframe', 'Konum'], fx: ['Efekt', 'Zaman'], adjust: ['Renk', 'Zaman'],
+    }[o.kind] || [];
+    const icon = { Metin: 'text', Stil: 'brand', Animasyon: 'anim', Keyframe: 'diamond', Konum: 'layer', Düzen: 'edit', Maske: 'shape', Renk: 'color', Chroma: 'adjust', Buton: 'cta', Skor: 'score', Şekil: 'shape', Çıkartma: 'sticker', Efekt: 'fx', Zaman: 'versions' };
+    tabs.forEach((t) => tool(icon[t], t, insp(t)));
+    tool('split', 'Böl', splitSel);
+    tool(o.hidden ? 'eyeOff' : 'eye', o.hidden ? 'Göster' : 'Gizle', () => { o.hidden = !o.hidden; commit(); renderToolbar(); });
+    tool('lock', 'Kilitle', () => { o.locked = true; commit(); renderToolbar(); if (isSheetOpen()) refreshSheet(); });
+    tool('copy', 'Kopyala', dupSel);
+    tool('trash', 'Sil', delSel, 'danger');
+  } else if (s.type === 'audio') {
+    tool('sfx', 'Ses', insp('Ses'));
+    tool('mixer', 'EQ / grup', insp('Efekt'));
+    tool('diamond', 'Keyframe', insp('Keyframe'));
+    tool('split', 'Böl', splitSel);
+    tool('silence', 'Sessizlik', () => openSilence(o, 'audio'));
+    tool('beat', 'Ritim bul', () => findBeats(o));
+    tool('adjust', 'Seviye eşitle', () => normalizeItem(o));
+    tool(o.mute ? 'mute' : 'sfx', o.mute ? 'Sesi aç' : 'Sessiz', () => { o.mute = !o.mute; commit(); renderToolbar(); });
+    tool('lock', 'Kilitle', () => { o.locked = true; commit(); renderToolbar(); });
+    tool('copy', 'Kopyala', dupSel);
+    tool('trash', 'Sil', delSel, 'danger');
+  } else if (s.type === 'subs') {
+    tool('brand', 'Stil', insp('Stil'));
+    tool('text', 'Satırlar', insp('Satırlar'));
+    tool('edit', 'Ayarlar', insp('Ayarlar'));
+    tool('trash', 'Tümünü sil', delSel, 'danger');
+  }
 }
 
 // ---------- ana ekran ----------
@@ -157,6 +245,8 @@ function projectMenu(p) {
         const n = clone(rec); n.id = uid(); n.name = `${rec.name} (kopya)`; n.data.id = n.id; n.data.name = n.name; n.updated = Date.now();
         await store.putProject(n); closeSheet(); renderHome();
       } }));
+      body.append(h('button', { class: 'btn block', style: { marginBottom: '8px' }, html: `${I.versions} Sürümler`, onclick: () => openVersions(p.id, () => renderHome()) }));
+      body.append(h('button', { class: 'btn block', style: { marginBottom: '8px' }, html: `${I.export} Yedekle (.alpicut)`, onclick: () => { closeSheet(); exportPackage(p.id); } }));
       body.append(h('button', { class: 'btn block danger', html: `${I.trash} Projeyi sil`, onclick: async () => {
         if (!confirm(`"${p.name}" silinsin mi? Bu işlem geri alınamaz.`)) return;
         await deleteProject(p.id); closeSheet(); renderHome();
@@ -203,14 +293,19 @@ async function openProject(id) {
     migrate(P);
     P.subs = P.subs || clone(SUB_BASE);
     P.fx = { ...clone(FX_BASE), ...(P.fx || {}) };
-    let missing = 0;
+    const missing = [];
     for (const mid of mediaIds(P)) {
       if (app.engine.media.has(mid)) continue;
       const m = await store.getMedia(mid);
-      if (m) registerMedia(m); else missing++;
+      if (m) registerMedia(m); else missing.push({ id: mid, name: P.mediaNames?.[mid] || mid });
     }
-    if (missing) toast(`${missing} medya dosyası bulunamadı`);
+    // kullanıcı LUT'ları
+    for (const o of [...P.clips, ...P.layers]) {
+      const lid = o.lut?.id;
+      if (lid && !lid.startsWith('b:') && !lutStore.has(lid)) { const r = await store.getMedia(lid).catch(() => null); if (r) lutStore.set(lid, r); }
+    }
     showEditor(P);
+    if (missing.length) setTimeout(() => openRelink(missing, () => app.engine.requestDraw()), 400);
   } catch (e) {
     toast(`Açılamadı: ${e.message || e}`);
   } finally { b.close(); }
@@ -262,7 +357,11 @@ async function saveNow() {
   const first = P.clips[0];
   const thumb = first ? app.engine.media.get(first.mediaId)?.thumb : null;
   try {
-    await store.putProject({ id: P.id, name: P.name, updated: Date.now(), thumb, duration: app.engine.duration(), data: clone(P) });
+    const prev = await store.getProject(P.id).catch(() => null);
+    let versions = prev?.versions || [];
+    const last = versions[versions.length - 1];
+    if (prev?.data && (!last || Date.now() - last.at > 3 * 60 * 1000)) versions = [...versions, { at: Date.now(), json: JSON.stringify(prev.data) }].slice(-15);
+    await store.putProject({ id: P.id, name: P.name, updated: Date.now(), thumb, duration: app.engine.duration(), data: clone(P), versions });
   } catch (e) { console.warn('kaydedilemedi', e); }
 }
 
@@ -277,6 +376,7 @@ function commit() {
     app.redo = [];
     scheduleSave();
   }
+  app.engine.applyMix();
   app.engine.sync(app.engine.t);
   app.engine.requestDraw();
   renderTimeline();
@@ -298,6 +398,7 @@ function restore(snap) {
   updateTime();
   updateUndo();
   refreshSheet();
+  renderToolbar();
   scheduleSave();
 }
 
@@ -343,9 +444,10 @@ function bindPreview() {
     if (ptrs.size === 1) {
       if (app.engine.playing) app.pause();
       const p = norm(e);
+      if (app.pickMode) { ptrs.delete(e.pointerId); samplePreview(p.x, p.y); return; }
       const hit = app.engine.hitTest(p.x, p.y);
       const kv = hit ? layerAt(hit, app.engine.t) : null;
-      g = { L: hit, p0: p, x0: kv?.x, y0: kv?.y, moved: false, wasSel: hit && app.sel?.id === hit.id };
+      g = { L: hit && !hit.locked ? hit : null, tapL: hit, p0: p, x0: kv?.x, y0: kv?.y, moved: false, wasSel: hit && app.sel?.id === hit.id };
       if (hit && !g.wasSel) { app.sel = { type: 'layer', id: hit.id }; app.engine.selectedId = hit.id; app.engine.requestDraw(); }
     } else if (ptrs.size === 2 && g?.L) {
       const [a, b] = [...ptrs.values()];
@@ -399,7 +501,7 @@ function bindPreview() {
     const G = g; g = null;
     if (!G) return;
     if (G.moved) { commit(); refreshSheet(); return; }
-    if (G.L) select({ type: 'layer', id: G.L.id });
+    if (G.tapL) select({ type: 'layer', id: G.tapL.id });
     else { deselect(); if (isSheetOpen()) closeSheet(); }
   };
   stage.addEventListener('pointerup', up);
@@ -412,12 +514,150 @@ function select(sel, tab, extra) {
   app.engine.selectedId = sel.type === 'layer' ? sel.id : null;
   app.engine.requestDraw();
   renderTimeline();
-  openInspector(tab, extra);
+  renderToolbar();
+  if (tab !== false) openInspector(tab, extra);
 }
 
 function deselect() {
   app.sel = null;
   app.engine.selectedId = null;
+  app.engine.requestDraw();
+  renderTimeline();
+  renderToolbar();
+}
+
+// ---------- düzenleme oturumu (Uygula / İptal) ----------
+function beginEdit() { return { snap: app.snap, ulen: app.undo.length }; }
+function endEdit(tk, apply) {
+  if (!app.P || !tk) return;
+  if (apply) {
+    commit();
+    if (app.undo.length > tk.ulen + 1) { app.undo = app.undo.slice(0, tk.ulen); app.undo.push(tk.snap); updateUndo(); }
+  } else {
+    app.undo = app.undo.slice(0, tk.ulen);
+    app.redo = [];
+    if (tk.snap !== JSON.stringify(app.P)) restore(tk.snap);
+    updateUndo();
+    renderToolbar();
+  }
+}
+
+// ---------- işaretleyiciler ----------
+function toggleMarker() {
+  const P = app.P;
+  P.markers = P.markers || [];
+  const t = app.engine.t;
+  const i = P.markers.findIndex((m) => m.kind !== 'beat' && Math.abs(m.t - t) < 0.08);
+  if (i >= 0) { P.markers.splice(i, 1); toast('İşaret kaldırıldı'); } else { P.markers.push({ id: uid(), t, kind: 'user' }); P.markers.sort((a, b) => a.t - b.t); toast('İşaret eklendi'); }
+  commit();
+}
+
+function splitOnBeats() {
+  const P = app.P, o = selected();
+  const L = layoutClips(P.clips).find((x) => x.clip === o);
+  if (!L) return;
+  const beats = (P.markers || []).filter((m) => m.t > L.start + 0.15 && m.t < L.end - 0.15).map((m) => m.t).sort((a, b) => b - a);
+  if (!beats.length) { toast('Bu klibin üzerinde işaret yok. Önce müziğe dokunup “Ritim bul” kullan.', 3500); return; }
+  const saveT = app.engine.t;
+  beats.forEach((t) => { app.engine.t = t; splitSel(true); });
+  app.engine.seek(saveT);
+  commit();
+  toast(`${beats.length} noktadan bölündü`);
+}
+
+// Kaynak zamanındaki aralıkları kes (sessizlik kaldırma). ripple: sonraki öğeleri de kaydır
+function cutSourceRanges(o, type, ranges, ripple) {
+  const P = app.P;
+  const rs = [...ranges].sort((a, b) => b.s - a.s);
+  const sp = o.speed || 1;
+  let removed = 0;
+  if (type === 'clip') {
+    const L0 = layoutClips(P.clips).find((x) => x.clip === o);
+    let pieces = [o];
+    rs.forEach((r) => {
+      const s = Math.max(r.s, o.in), e = Math.min(r.e, o.out);
+      if (e - s < 0.05) return;
+      // ilgili parçayı bul
+      const piece = pieces.find((p) => s >= p.in - 1e-6 && e <= p.out + 1e-6);
+      if (!piece) return;
+      const idx = P.clips.indexOf(piece);
+      const tl = L0.start + (s - o.in) / sp; // zaman çizelgesindeki konum (sondan başa işlendiği için geçerli)
+      const d = (e - s) / sp;
+      const right = clone(piece); right.id = uid(); right.in = e; right.trans = { type: 'none', dur: 0.5 }; right.kf = {};
+      const leftLen = (s - piece.in);
+      if (leftLen > 0.04) { piece.out = s; P.clips.splice(idx + 1, 0, right); pieces.push(right); }
+      else { piece.in = e; }
+      if (right.out - right.in < 0.04) { const k = P.clips.indexOf(right); if (k >= 0) P.clips.splice(k, 1); }
+      removed += d;
+      if (ripple) shiftAfter(tl, d);
+    });
+  } else {
+    let pieces = [o];
+    rs.forEach((r) => {
+      const s = Math.max(r.s, o.in), e = Math.min(r.e, o.out);
+      if (e - s < 0.05) return;
+      const piece = pieces.find((p) => s >= p.in - 1e-6 && e <= p.out + 1e-6);
+      if (!piece) return;
+      const d = e - s;
+      const right = clone(piece); right.id = uid(); right.kf = {};
+      right.in = e; right.start = piece.start + (s - piece.in);
+      piece.out = s;
+      // bu ses parçasından sonraki parçaları sola kaydır
+      pieces.forEach((p) => { if (p !== piece && p.start > piece.start) p.start -= d; });
+      if (piece.out - piece.in < 0.04) { P.audio.splice(P.audio.indexOf(piece), 1); pieces = pieces.filter((x) => x !== piece); }
+      if (right.out - right.in >= 0.04) { P.audio.push(right); pieces.push(right); }
+      removed += d;
+    });
+  }
+  commit();
+  toast(`${rs.length} bölüm kesildi · ${removed.toFixed(1)} sn kısaldı`);
+}
+
+function shiftAfter(t0, d) {
+  const P = app.P;
+  P.layers.forEach((l) => {
+    if (l.start >= t0) { l.start -= d; l.end -= d; } else if (l.end > t0) { l.end = Math.max(l.start + 0.2, l.end - Math.min(d, l.end - t0)); }
+  });
+  P.audio.forEach((a) => { if (a.start >= t0) a.start -= d; });
+  (P.markers || []).forEach((m) => { if (m.t >= t0) m.t -= d; });
+  if (P.subs?.cues) {
+    const off = P.subs.offset || 0;
+    P.subs.cues = P.subs.cues.filter((c) => !(c.start + off >= t0 && c.end + off <= t0 + d));
+    P.subs.cues.forEach((c) => {
+      if (c.start + off >= t0 + d) { c.start -= d; c.end -= d; } else if (c.end + off > t0) { c.end = Math.max(c.start + 0.1, c.end - Math.min(d, c.end + off - t0)); }
+    });
+  }
+}
+
+// Önizlemeden renk seç (chroma key)
+function pickColor(o, cb) { app.pickMode = { o, cb }; }
+function samplePreview(nx, ny) {
+  const pm = app.pickMode; app.pickMode = null;
+  const o = pm.o;
+  const was = o.key?.on;
+  if (o.key) o.key.on = false;
+  app.engine.draw();
+  const cv = app.engine.canvas;
+  let hex = '#00ff00';
+  try {
+    const d = cv.getContext('2d').getImageData(Math.floor(nx * cv.width), Math.floor(ny * cv.height), 1, 1).data;
+    hex = '#' + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, '0')).join('');
+  } catch (_) { /* yoksay */ }
+  if (o.key) o.key.on = was;
+  app.engine.requestDraw();
+  pm.cb(hex);
+}
+
+async function relinkMedia(id, file) {
+  const kind = kindOf(file);
+  const meta = await probe(file, kind);
+  const rec = { id, kind, name: file.name, blob: file, ...meta };
+  await store.putMedia(rec);
+  const old = app.engine.media.get(id);
+  if (old?.url) URL.revokeObjectURL(old.url);
+  registerMedia(rec);
+  for (const [k, el] of app.engine.els) if (el._mid === id) { el.pause(); app.engine.els.delete(k); }
+  app.engine.imgs.delete(id);
   app.engine.requestDraw();
   renderTimeline();
 }
@@ -485,6 +725,7 @@ function thumbOf(src, w, h) {
 }
 
 function registerMedia(rec) {
+  if (app.P && rec.kind !== 'lut') { app.P.mediaNames = app.P.mediaNames || {}; app.P.mediaNames[rec.id] = rec.name; }
   const url = URL.createObjectURL(rec.blob);
   app.engine.media.set(rec.id, { ...rec, url });
   return app.engine.media.get(rec.id);
@@ -565,7 +806,8 @@ function addLayer(L, dur = 3) {
 }
 
 // ---------- düzenleme işlemleri ----------
-function splitSel() {
+function splitSel(quiet = false) {
+  if (quiet && typeof quiet !== 'boolean') quiet = false;
   const s = app.sel, o = selected();
   const t = app.engine.t;
   const P = app.P;
@@ -592,6 +834,7 @@ function splitSel() {
     const st = o.in + local; o.out = st; n.in = st; n.start = t;
     P.audio.splice(P.audio.indexOf(o) + 1, 0, n);
   }
+  if (quiet) return;
   commit();
   refreshSheet();
   toast('Bölündü');
@@ -773,6 +1016,7 @@ Object.assign(app, {
   select, deselect,
   openInspector: (tab) => openInspector(tab),
   addMedia, addLayer, splitSel, dupSel, delSel, moveClip, layerOrder, importSRT, freezeFrame, addSfx,
+  beginEdit, endEdit, cutSourceRanges, pickColor, relinkMedia, pickFiles, importFiles, renderToolbar,
   getStyles, saveStyle, deleteStyle, exportStyles, importStyles,
   layout: () => layoutClips(app.P.clips),
   fitStage,

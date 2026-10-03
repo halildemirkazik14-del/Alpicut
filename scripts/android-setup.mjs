@@ -15,6 +15,8 @@ const perms = [
   '<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />',
   '<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />',
   '<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />',
+  '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
+  '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
 ];
 for (const p of perms) if (!x.includes(p.split('"')[1])) x = x.replace('</manifest>', `    ${p}\n</manifest>`);
 // Eski cihazlarda paylaşılan depolamaya erişim

@@ -1,6 +1,8 @@
 // Alpicut — oynatma ve dışa aktarma motoru
 import { RATIOS } from './presets.js';
 import { drawClip, drawTransition, drawLayer, drawSubtitles, drawFx, clamp } from './render.js';
+import { applyLayerFx } from './fxlib.js';
+import { hasKeys, propAt } from './kf.js';
 
 export function clipLen(c) {
   if (c.type === 'image' || c.freeze) return Math.max(0.2, c.dur || 3);
@@ -85,33 +87,130 @@ export class Engine {
   duration() { return this.P ? projectDuration(this.P) : 0; }
 
   // ---------- ses ----------
+  // Grafik: öğe -> kazanç -> yüksek geçiren -> 3 bant EQ -> kompresör -> grup (konuşma/müzik/SFX) -> master -> limiter -> çıkış
   ensureAudio() {
     if (this.ac) { if (this.ac.state === 'suspended') this.ac.resume(); return; }
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
-      this.ac = new AC();
-      this.master = this.ac.createGain();
-      this.master.connect(this.ac.destination);
-      this.recDest = this.ac.createMediaStreamDestination();
-      for (const el of this.els.values()) this._connect(el);
+      const ac = this.ac = new AC();
+      this.master = ac.createGain();
+      this.preMeter = ac.createAnalyser(); this.preMeter.fftSize = 1024;
+      this.limiter = ac.createDynamicsCompressor();
+      this.out = ac.createGain();
+      this.postMeter = ac.createAnalyser(); this.postMeter.fftSize = 1024;
+      this.master.connect(this.preMeter);
+      this.master.connect(this.limiter);
+      this.limiter.connect(this.out);
+      this.out.connect(this.postMeter);
+      this.out.connect(ac.destination);
+      this.recDest = ac.createMediaStreamDestination();
+      this.out.connect(this.recDest);
+      this.buses = {};
+      ['voice', 'music', 'sfx'].forEach((r) => { const g = ac.createGain(); this.buses[r] = g; });
+      this.duck = ac.createGain();
+      this.buses.voice.connect(this.master);
+      this.buses.sfx.connect(this.master);
+      this.buses.music.connect(this.duck); this.duck.connect(this.master);
+      this.voiceMeter = ac.createAnalyser(); this.voiceMeter.fftSize = 1024;
+      this.buses.voice.connect(this.voiceMeter);
+      this.duckLevel = 1;
+      this.meter = { peak: -90, clipUntil: 0, duckDb: 0 };
+      this._buf = new Float32Array(1024);
+      this.applyMix();
+      for (const [el, id] of this._elIds()) this._connect(el, id);
     } catch (e) { console.warn('AudioContext yok', e); }
   }
 
-  _connect(el) {
-    if (!this.ac || this.nodes.has(el) || el.tagName === 'IMG') return;
-    try {
-      const src = this.ac.createMediaElementSource(el);
-      const gain = this.ac.createGain();
-      src.connect(gain); gain.connect(this.master); gain.connect(this.recDest);
-      this.nodes.set(el, { gain });
-    } catch (e) { console.warn('ses bağlanamadı', e); }
+  *_elIds() { for (const [id, el] of this.els) yield [el, id]; }
+
+  mix() {
+    const M = this.P?.mix || {};
+    return {
+      voice: M.voice ?? 1, music: M.music ?? 1, sfx: M.sfx ?? 1, master: M.master ?? 1, limiter: M.limiter !== false,
+      duck: { on: !!M.duck?.on, amount: M.duck?.amount ?? 12, threshold: M.duck?.threshold ?? -38, attack: M.duck?.attack ?? 0.08, release: M.duck?.release ?? 0.45 },
+    };
   }
 
-  setVol(el, v) {
-    v = Math.max(0, v);
-    const n = this.nodes.get(el);
-    if (n) { n.gain.gain.value = v; el.volume = 1; } else el.volume = clamp(v);
+  applyMix() {
+    if (!this.ac) return;
+    const m = this.mix();
+    this.buses.voice.gain.value = m.voice; this.buses.music.gain.value = m.music; this.buses.sfx.gain.value = m.sfx;
+    this.master.gain.value = m.master;
+    const L = this.limiter;
+    if (m.limiter) { L.threshold.value = -1.5; L.knee.value = 0; L.ratio.value = 20; L.attack.value = 0.002; L.release.value = 0.12; }
+    else { L.threshold.value = 0; L.knee.value = 0; L.ratio.value = 1; }
+    if (!m.duck.on) { this.duckLevel = 1; this.duck.gain.value = 1; }
   }
+
+  _rms(an) {
+    an.getFloatTimeDomainData(this._buf);
+    let s = 0, pk = 0;
+    for (let i = 0; i < this._buf.length; i++) { const v = this._buf[i]; s += v * v; const a = Math.abs(v); if (a > pk) pk = a; }
+    return { rms: 20 * Math.log10(Math.sqrt(s / this._buf.length) + 1e-9), peak: 20 * Math.log10(pk + 1e-9) };
+  }
+
+  // Her karede: ducking ve seviye ölçerleri
+  _audioTick(dt) {
+    if (!this.ac || !this.buses) return;
+    const m = this.mix();
+    if (m.duck.on) {
+      const v = this._rms(this.voiceMeter).rms;
+      const target = v > m.duck.threshold ? Math.pow(10, -m.duck.amount / 20) : 1;
+      const tau = target < this.duckLevel ? m.duck.attack : m.duck.release;
+      this.duckLevel += (target - this.duckLevel) * (1 - Math.exp(-dt / Math.max(0.01, tau)));
+      this.duck.gain.value = this.duckLevel;
+      this.meter.duckDb = 20 * Math.log10(this.duckLevel);
+    }
+    const pre = this._rms(this.preMeter), post = this._rms(this.postMeter);
+    this.meter.peak = post.peak;
+    if (pre.peak > -0.1) this.meter.clipUntil = performance.now() + 1200;
+  }
+
+  _connect(el, itemId) {
+    if (!this.ac || this.nodes.has(el) || el.tagName === 'IMG') return;
+    try {
+      const ac = this.ac;
+      const src = ac.createMediaElementSource(el);
+      const gain = ac.createGain();
+      const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 10;
+      const lo = ac.createBiquadFilter(); lo.type = 'lowshelf'; lo.frequency.value = 160;
+      const mid = ac.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 2500; mid.Q.value = 0.9;
+      const hi = ac.createBiquadFilter(); hi.type = 'highshelf'; hi.frequency.value = 8000;
+      const comp = ac.createDynamicsCompressor(); comp.ratio.value = 1; comp.threshold.value = 0;
+      src.connect(gain); gain.connect(hp); hp.connect(lo); lo.connect(mid); mid.connect(hi); hi.connect(comp);
+      const node = { gain, hp, lo, mid, hi, comp, role: null, sig: '' };
+      this.nodes.set(el, node);
+      this._route(node, 'voice');
+    } catch (e) { console.warn('ses bağlanamadı', e); }
+    void itemId;
+  }
+
+  _route(node, role) {
+    if (node.role === role) return;
+    try { node.comp.disconnect(); } catch (_) { /* yoksay */ }
+    node.comp.connect(this.buses[role] || this.buses.voice);
+    node.role = role;
+  }
+
+  // ses öğesinin zincir ayarlarını uygula
+  setChain(el, vol, o, defRole) {
+    const n = this.nodes.get(el);
+    vol = Math.max(0, vol);
+    if (!n) { el.volume = clamp(vol); return; }
+    el.volume = 1;
+    n.gain.gain.value = vol;
+    this._route(n, o.role || defRole);
+    const a = o.afx || {};
+    const sig = `${a.hp ? 1 : 0}|${a.low || 0}|${a.mid || 0}|${a.high || 0}|${a.comp ? 1 : 0}`;
+    if (sig === n.sig) return;
+    n.sig = sig;
+    n.hp.frequency.value = a.hp ? 90 : 10;
+    n.lo.gain.value = a.low || 0; n.mid.gain.value = a.mid || 0; n.hi.gain.value = a.high || 0;
+    if (a.comp) { n.comp.threshold.value = -24; n.comp.ratio.value = 4; n.comp.knee.value = 6; n.comp.attack.value = 0.005; n.comp.release.value = 0.15; }
+    else { n.comp.threshold.value = 0; n.comp.ratio.value = 1; }
+  }
+
+  setVol(el, v) { this.setChain(el, v, {}, 'voice'); }
 
   // ---------- elemanlar ----------
   elFor(item) {
@@ -147,13 +246,13 @@ export class Engine {
   }
 
   // Bir eleman için hedef zamanı uygula
-  _syncEl(el, active, srcT, rate, vol) {
+  _syncEl(el, active, srcT, rate, vol, o = {}, defRole = 'voice') {
     if (!el || el.tagName === 'IMG') return;
     if (!active) {
       if (!el.paused) el.pause();
       return;
     }
-    this.setVol(el, vol);
+    this.setChain(el, vol, o, defRole);
     if (Math.abs(el.playbackRate - rate) > 0.01) el.playbackRate = rate;
     if (this.playing) {
       if (Math.abs(el.currentTime - srcT) > 0.3) el.currentTime = srcT;
@@ -183,6 +282,7 @@ export class Engine {
       if (active && L.td > 0 && local < L.td) vol *= local / L.td;
       const next = lay[i + 1];
       if (active && next && next.td > 0 && t > next.start) vol *= 1 - (t - next.start) / next.td;
+      if (hasKeys(c, 'vol')) vol *= propAt(c, 'vol', local);
       if (c.mute) vol = 0;
       if (c.freeze) {
         // donmuş kare: oynatma yok, ses yok
@@ -191,7 +291,7 @@ export class Engine {
         if (el && !active && t < L.start && L.start - t < 1.5) this._prepare(el, c.freezeAt);
         return;
       }
-      this._syncEl(el, active, c.in + local * (c.speed || 1), c.speed || 1, vol);
+      this._syncEl(el, active, c.in + local * (c.speed || 1), c.speed || 1, vol, c, 'voice');
       if (!active && t < L.start && L.start - t < 1.5) this._prepare(el, c.in);
     });
     P.layers.forEach((l) => {
@@ -202,7 +302,7 @@ export class Engine {
       const local = t - l.start;
       const srcLen = Math.max(0.1, (l.out ?? el.duration ?? 1) - (l.in || 0));
       const srcT = (l.in || 0) + (l.loop ? local % srcLen : Math.min(local, srcLen - 0.05));
-      this._syncEl(el, active, srcT, 1, l.mute ? 0 : (l.volume ?? 0));
+      this._syncEl(el, active, srcT, 1, (l.mute || l.hidden) ? 0 : (l.volume ?? 0), l, 'voice');
       if (!active && t < l.start && l.start - t < 1.5) this._prepare(el, l.in || 0);
     });
     P.audio.forEach((a) => {
@@ -213,13 +313,15 @@ export class Engine {
       let vol = a.volume ?? 1;
       if (a.fadeIn > 0) vol *= clamp(local / a.fadeIn);
       if (a.fadeOut > 0) vol *= clamp((len - local) / a.fadeOut);
-      this._syncEl(el, active, a.in + local, 1, vol);
+      if (hasKeys(a, 'vol')) vol *= propAt(a, 'vol', local);
+      if (a.mute) vol = 0;
+      this._syncEl(el, active, a.in + local, 1, vol, a, a.sfx ? 'sfx' : 'music');
       if (!active && t < a.start && a.start - t < 1.5) this._prepare(el, a.in);
     });
   }
 
   // ---------- çizim ----------
-  env() { return { W: this.W, H: this.H, S: this.scale }; }
+  env() { return { W: this.W, H: this.H, S: this.scale, exporting: this.exporting }; }
 
   draw(t = this.t) {
     const P = this.P;
@@ -246,7 +348,8 @@ export class Engine {
 
     this.boxes.clear();
     P.layers.forEach((l) => {
-      if (t < l.start || t >= l.end) return;
+      if (t < l.start || t >= l.end || l.hidden) return;
+      if (l.kind === 'adjust' || l.kind === 'fx') { applyLayerFx(ctx, l, t, env, P.markers); return; }
       const still = !this.playing && !this.exporting && l.id === this.selectedId;
       const box = drawLayer(ctx, l, t, env, l.kind === 'media' ? this.elFor(l) : null, still);
       if (box) this.boxes.set(l.id, box);
@@ -290,7 +393,7 @@ export class Engine {
   // Ön izlemede dokunma ile katman bul
   hitTest(nx, ny) {
     const x = nx * this.W, y = ny * this.H;
-    const list = this.P.layers.filter((l) => this.t >= l.start && this.t < l.end).reverse();
+    const list = this.P.layers.filter((l) => this.t >= l.start && this.t < l.end && !l.hidden && l.kind !== 'adjust' && l.kind !== 'fx').reverse();
     for (const l of list) {
       const b = this.boxes.get(l.id);
       if (!b) continue;
@@ -343,6 +446,7 @@ export class Engine {
       }
       this.sync(this.t);
       this.draw();
+      this._audioTick(1 / 60);
       if (this.onTime) this.onTime(this.t);
     } else if (this._needDraw) {
       this._needDraw = false;

@@ -1,6 +1,8 @@
 // Alpicut — çizim fonksiyonları (klip, katman, yazı, CTA, skor, altyazı, efektler)
 import { filterString } from './presets.js';
 import { layerAt, clipAt } from './kf.js';
+import { gradeParams, gradeSource } from './gl.js';
+import { drawSticker } from './fxlib.js';
 
 export const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
@@ -109,6 +111,8 @@ export function drawFit(ctx, el, x, y, w, h, fit = 'cover', zoom = 1, panX = 0, 
 export function drawClip(ctx, clip, el, localT, len, env) {
   const { W, H, S } = env;
   if (!isReady(el)) return;
+  const gp = gradeParams(clip);
+  if (gp) { const [sw, sh] = mediaSize(el); el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280); }
   const fit = clip.fit || 'cover';
   const kv = clipAt(clip, localT);
   let zoom = kv.zoom || 1;
@@ -490,6 +494,7 @@ export function drawLayer(ctx, L, t, env, el, still = false) {
   else if (L.kind === 'cta') box = drawCTA(ctx, L, t, env);
   else if (L.kind === 'score') box = drawScore(ctx, L, t, env);
   else if (L.kind === 'shape') box = drawShape(ctx, L, t, env);
+  else if (L.kind === 'sticker') box = drawSticker(ctx, L, t, env);
   else if (L.kind === 'media') box = drawMediaLayer(ctx, L, t, env, el, st);
   ctx.restore();
   if (!box) return null;
@@ -576,6 +581,8 @@ function drawMediaLayer(ctx, L, t, env, el, st) {
   const w = (L.w || 0.6) * W;
   if (!isReady(el)) return { w, h: w };
   const [sw, sh] = mediaSize(el);
+  const gp = gradeParams(L);
+  if (gp) el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280);
   const h = cropH(L, w, sw, sh, env);
   let zoom = L.zoom || 1;
   if (L.kenburns) zoom *= 1 + 0.15 * clamp((t - L.start) / Math.max(0.1, L.end - L.start));

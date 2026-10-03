@@ -7,7 +7,8 @@ import { allKeyTimes } from './kf.js';
 let drag = null;
 let touching = false;
 
-const KIND_ICON = { text: I.text, media: I.layer, cta: I.cta, score: I.score, shape: I.shape };
+const KIND_ICON = { text: I.text, media: I.layer, cta: I.cta, score: I.score, shape: I.shape, sticker: I.sticker, fx: I.fx, adjust: I.adjust };
+const FX_NAMES = { shake: 'Sarsıntı', zoompulse: 'Zoom nabzı', punch: 'Darbe zoom', wobble: 'Sallanma', beatzoom: 'Ritim zoom', beatflash: 'Ritim flaş', beatshake: 'Ritim sarsıntı', rgb: 'RGB', glitch: 'Glitch', vhs: 'VHS', pixel: 'Piksel', noise: 'Gürültü', flash: 'Flaş', leak: 'Işık sızıntısı', bloom: 'Bloom', fadeblack: 'Karartma', bwpop: 'S/B pop', poster: 'Posterize', invert: 'Negatif', mirror: 'Ayna', film: 'Eski film', cinema: 'Sinema' };
 
 function diamonds(el, o, pps) {
   allKeyTimes(o).forEach((t) => el.append(h('div', { class: 'kf-dia', style: { left: `${t * pps}px` } })));
@@ -20,6 +21,9 @@ function itemLabel(l) {
   if (l.kind === 'cta') return l.label || 'CTA';
   if (l.kind === 'score') return `${l.teamA} ${l.scoreA}-${l.scoreB} ${l.teamB}`;
   if (l.kind === 'media') return app.engine.media.get(l.mediaId)?.name || 'Katman';
+  if (l.kind === 'fx') return FX_NAMES[l.effect] || 'Efekt';
+  if (l.kind === 'adjust') return 'Renk ayarı';
+  if (l.kind === 'sticker') return l.glyph || (l.badge || '').toUpperCase();
   if (l.kind === 'shape') return { rect: 'Kutu', circle: 'Çember', line: 'Çizgi', arrow: 'Ok', frame: 'Çerçeve' }[l.shape] || 'Şekil';
   return '';
 }
@@ -44,6 +48,9 @@ export function renderTimeline() {
     ruler.append(h('div', { class: `tick${major ? ' major' : ''}`, style: { left: `${H + t * pps}px` } }));
     if (major) ruler.append(h('div', { class: 'lbl', style: { left: `${H + t * pps}px` } }, fmt(t, false)));
   }
+  (P.markers || []).forEach((m) => {
+    ruler.append(h('div', { class: `mk ${m.kind === 'beat' ? 'beat' : 'user'}`, style: { left: `${H + m.t * pps}px` } }));
+  });
   inner.append(ruler);
 
   // ana video izi
@@ -80,9 +87,9 @@ export function renderTimeline() {
     const isSel = sel?.type === 'layer' && sel.id === l.id;
     const m = l.kind === 'media' ? engine.media.get(l.mediaId) : null;
     row.append(h('div', {
-      class: `item k-${l.kind}${isSel ? ' sel' : ''}`, 'data-type': 'layer', 'data-id': l.id,
+      class: `item k-${l.kind}${isSel ? ' sel' : ''}${l.hidden ? ' off' : ''}${l.locked ? ' locked' : ''}`, 'data-type': 'layer', 'data-id': l.id,
       style: { left: `${H + l.start * pps}px`, width: `${Math.max(8, (l.end - l.start) * pps - 2)}px`, backgroundImage: m?.thumb ? `url(${m.thumb})` : '' },
-    }, h('span', { class: 'nm', html: `${KIND_ICON[l.kind] || ''}` }, itemLabel(l)),
+    }, h('span', { class: 'nm', html: `${l.locked ? I.lock : l.hidden ? I.eyeOff : KIND_ICON[l.kind] || ''}` }, itemLabel(l)),
     h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' })));
     if (isSel) { const dw = h('div', { style: { position: 'absolute', left: `${H + l.start * pps}px`, top: 0, bottom: 0, width: '0' } }); diamonds(dw, l, pps); row.append(dw); }
     inner.append(row);
@@ -106,9 +113,9 @@ export function renderTimeline() {
     const row = h('div', { class: 'row' });
     const isSel = sel?.type === 'audio' && sel.id === a.id;
     row.append(h('div', {
-      class: `item ${a.sfx ? 'k-sfx' : 'k-audio'}${isSel ? ' sel' : ''}`, 'data-type': 'audio', 'data-id': a.id,
+      class: `item ${a.sfx ? 'k-sfx' : a.role === 'voice' ? 'k-voice' : 'k-audio'}${isSel ? ' sel' : ''}${a.mute ? ' off' : ''}${a.locked ? ' locked' : ''}`, 'data-type': 'audio', 'data-id': a.id,
       style: { left: `${H + a.start * pps}px`, width: `${Math.max(8, (a.out - a.in) * pps - 2)}px` },
-    }, h('div', { class: 'wave' }), h('span', { class: 'nm', html: I.audio }, engine.media.get(a.mediaId)?.name || 'Ses'),
+    }, h('div', { class: 'wave' }), h('span', { class: 'nm', html: a.locked ? I.lock : a.mute ? I.mute : I.audio }, engine.media.get(a.mediaId)?.name || 'Ses'),
     h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' })));
     inner.append(row);
   });
@@ -135,6 +142,7 @@ function findItem(type, id) {
 function snapT(t) {
   const pt = app.engine.t;
   if (Math.abs(t - pt) * app.pps < 10) return pt;
+  for (const m of app.P.markers || []) if (Math.abs(t - m.t) * app.pps < 8) return m.t;
   return t;
 }
 
@@ -200,6 +208,7 @@ export function bindTimeline() {
     const type = it.dataset.type, id = it.dataset.id;
     const obj = findItem(type, id);
     if (!obj) return;
+    if (obj.locked) { return; }
     const hd = e.target.closest('[data-h]');
     const mode = hd ? hd.dataset.h : 'move';
     if (type === 'clip' && mode === 'move') return;

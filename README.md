@@ -21,10 +21,21 @@ Dikey kısa videolar (Shorts / Reels / TikTok) için mor temalı, telefonda çal
 - **Dosya boyutu sınırlı çıktı (v1.1):** 10/30/50/100 MB, sonuç ölçülür ve gerekirse yeniden kodlanır; tek kare PNG
 - **Altyazı (v1.1):** VTT içe/dışa, satır böl/birleştir, videoya gömme açık/kapalı
 - **Kişisel stiller (v1.1):** yazı ve altyazı stillerini kaydet, dosya olarak paylaş
+- **Bağlama duyarlı araç çubuğu (v1.2):** seçili öğeye göre değişen araçlar; panellerde Uygula/İptal, tek geri alma adımı
+- **Renk (v1.2):** pozlama, kontrast, doygunluk, canlılık, sıcaklık, ton, gölge/parlak; RGB eğrileri; 7 yerleşik LUT + .cube yükleme; histogram ve dalga formu; renk kopyala/yapıştır; ayarlama katmanı
+- **Chroma key (v1.2):** önizlemeden renk seçme, tolerans, kenar yumuşatma, renk taşması azaltma
+- **Efekt kataloğu (v1.2):** 22 efekt (sarsıntı, darbe zoom, ritim zoom/flaş, RGB, glitch, VHS, piksel, ışık sızıntısı, bloom, eski film…), önizlemeli kartlar, favoriler, son kullanılanlar
+- **Çıkartmalar (v1.2):** GOL!, VAR, Ofsayt, kırmızı/sarı kart, penaltı, MVP, canlı… ve emoji
+- **Profesyonel ses (v1.2):** konuşma/müzik/SFX grupları, mikser, master limiter, seviye ölçer ve clip uyarısı, otomatik ducking, EQ + uğultu filtresi + kompresör, ses keyframe'i, seviye eşitleme
+- **Seslendirme kaydı (v1.2):** mikrofonla, video sessiz oynarken
+- **Sessizlikleri kes (v1.2):** analiz, dinleyerek seçme, kesip boşlukları kapatma (altyazı/katmanlar da kayar)
+- **Ritim (v1.2):** müzikte vuruş tespiti, ritim işaretleri, ritimde böl, işaretlere yapışma
+- **Slip, katman gizle/kilitle/sessiz (v1.2)**
+- **Marka kitleri, kapak (thumbnail) editörü, proje sürümleri, .alpicut yedek paketi, eksik medyayı yeniden bağlama (v1.2)**
 - Projeler cihazda otomatik kaydedilir, geri al / yinele
 
 ## Henüz yok (planlanan)
-Ters oynatma, otomatik altyazı, ses temizleme/ducking, renk eğrileri/LUT, chroma key, yüz takibi.
+Otomatik altyazı ve metinden kurgu, nesne/yüz takibi, otomatik arka plan kaldırma, ters oynatma, çok kameralı kurgu, metinden sese (TTS).
 
 ## APK nasıl oluşur?
 Bu depoya her `push` yapıldığında GitHub Actions APK'yı otomatik derler.

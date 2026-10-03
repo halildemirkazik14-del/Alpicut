@@ -12,6 +12,7 @@ import { parseSRT, toSRT, toVTT } from './srt.js';
 import { LAYER_PROPS, CLIP_PROPS, EASES, propAt, hasKeys, keyAt, setKey, delKey, writeProp, allKeyTimes } from './kf.js';
 import { SFX, renderSfx } from './sfx.js';
 import { layoutClips } from './engine.js';
+import { colorTab, chromaTab, audioFxTab, audioToolsTab, slipControl, fxLayerInspector, openStickers } from './ui3.js';
 
 // ---------- panel altyapısı ----------
 let cur = null;
@@ -20,6 +21,7 @@ export function isSheetOpen() { return !!cur; }
 
 export function openSheet(cfg) {
   const wasOpen = !!cur;
+  if (cur && cur.onClose) { const f = cur.onClose; cur.onClose = null; f(); }
   cur = { tab: cfg.tab || (cfg.tabs && cfg.tabs[0]) || null, ...cfg };
   $('sheetTitle').textContent = cfg.title || '';
   const sh = $('sheet');
@@ -54,6 +56,9 @@ export function refreshSheet() {
 function renderActions() {
   const box = $('sheetActions');
   box.textContent = '';
+  if (cur.onCancel) {
+    box.append(h('button', { class: 'icon-btn cancel', html: I.close, 'aria-label': 'İptal', title: 'İptal (değişiklikleri geri al)', onclick: () => { const f = cur.onCancel; cur.onClose = null; f(); closeSheet(); } }));
+  }
   (cur.actions || []).forEach((a) => {
     box.append(h('button', { class: `icon-btn${a.danger ? ' danger' : ''}`, html: a.icon, 'aria-label': a.label, title: a.label, onclick: a.onClick }));
   });
@@ -172,6 +177,7 @@ export function itemStart(o) {
 }
 export function itemLen(o) {
   if (o.end != null) return o.end - o.start;
+  if (o.out != null && o.start != null && !o.type) return o.out - o.in;
   const L = layoutClips(app.P.clips).find((x) => x.clip === o);
   return L ? L.len : 0;
 }
@@ -187,29 +193,53 @@ export function openInspector(tab, extra = {}) {
   if (!s) return;
   const o = selected();
   if (!o) return;
-  let cfg;
-  if (s.type === 'clip') cfg = clipInspector(o);
-  else if (s.type === 'layer') cfg = layerInspector(o);
-  else if (s.type === 'audio') cfg = audioInspector(o);
-  else if (s.type === 'subs') cfg = subsInspector(extra);
+  const build = (ob) => {
+    if (ob.locked) return lockedInspector(ob, s.type);
+    if (s.type === 'clip') return clipInspector(ob);
+    if (s.type === 'layer') return (ob.kind === 'fx' || ob.kind === 'adjust') ? fxLayerInspector(ob) : layerInspector(ob);
+    if (s.type === 'audio') return audioInspector(ob);
+    return subsInspector(extra);
+  };
+  const cfg = build(o);
   if (!cfg) return;
   cfg.refresh = () => {
     const ob = selected();
     if (!ob) return false;
-    const n = s.type === 'clip' ? clipInspector(ob) : s.type === 'layer' ? layerInspector(ob) : s.type === 'audio' ? audioInspector(ob) : subsInspector({});
+    const n = build(ob);
     cur.render = n.render; cur.title = n.title; cur.actions = n.actions;
+    if (n.tabs && JSON.stringify(n.tabs) !== JSON.stringify(cur.tabs)) { cur.tabs = n.tabs; if (!n.tabs.includes(cur.tab)) cur.tab = n.tabs[0]; }
     $('sheetTitle').textContent = n.title;
     return true;
   };
   if (tab && cfg.tabs?.includes(tab)) cfg.tab = tab;
-  cfg.onClose = () => {};
+  // Uygula / İptal: panelde yapılan her şey tek geri alma adımı olur
+  const token = app.beginEdit();
+  cfg.onClose = () => app.endEdit(token, true);
+  cfg.onCancel = () => app.endEdit(token, false);
   openSheet(cfg);
+}
+
+function lockedInspector(o, type) {
+  return {
+    title: 'Kilitli öğe', tabs: [],
+    actions: [{ icon: I.unlock, label: 'Kilidi aç', onClick: () => { o.locked = false; app.change(true); refreshSheet(); } }],
+    render: (body) => body.append(h('p', { class: 'hint', html: 'Bu öğe <b>kilitli</b>; taşınamaz ve düzenlenemez. Düzenlemek için üstteki kilit simgesiyle kilidi aç.' })),
+  };
+  void type;
+}
+
+function flagActions(o, kind) {
+  const a = [];
+  if (kind === 'layer') a.push({ icon: o.hidden ? I.eyeOff : I.eye, label: o.hidden ? 'Göster' : 'Gizle', onClick: () => { o.hidden = !o.hidden; app.change(true); refreshSheet(); } });
+  if (kind === 'audio') a.push({ icon: o.mute ? I.mute : I.sfx, label: o.mute ? 'Sesi aç' : 'Sessize al', onClick: () => { o.mute = !o.mute; app.change(true); refreshSheet(); } });
+  a.push({ icon: I.lock, label: 'Kilitle', onClick: () => { o.locked = true; app.change(true); refreshSheet(); toast('Kilitlendi'); } });
+  return a;
 }
 
 function commonActions(kind) {
   const a = [];
-  if (kind !== 'subs') a.push({ icon: I.split, label: 'Böl', onClick: () => app.splitSel() });
-  if (kind !== 'subs') a.push({ icon: I.copy, label: 'Kopyala', onClick: () => app.dupSel() });
+  // Böl / Kopyala alttaki bağlamsal araç çubuğunda
+  void kind;
   a.push({ icon: I.trash, label: 'Sil', danger: true, onClick: () => app.delSel() });
   return a;
 }
@@ -242,12 +272,11 @@ function clipInspector(c) {
   const idx = app.P.clips.indexOf(c);
   return {
     title: c.freeze ? 'Donmuş kare' : isV ? 'Video klip' : 'Fotoğraf',
-    tabs: ['Düzen', 'Keyframe', 'Geçiş', 'Filtre'],
+    tabs: isV && !c.freeze ? ['Düzen', 'Renk', 'Ses', 'Keyframe', 'Geçiş', 'Filtre'] : ['Düzen', 'Renk', 'Keyframe', 'Geçiş', 'Filtre'],
     actions: [
       { icon: I.left, label: 'Sola taşı', onClick: () => app.moveClip(-1) },
       { icon: I.right, label: 'Sağa taşı', onClick: () => app.moveClip(1) },
       ...(isV && !c.freeze ? [{ icon: I.freeze, label: 'Kareyi dondur', onClick: () => app.freezeFrame() }] : []),
-      ...commonActions('clip'),
     ],
     render: (body, tab) => {
       if (tab === 'Düzen') {
@@ -268,6 +297,7 @@ function clipInspector(c) {
           { label: 'Kırp: başlangıç', path: 'in', type: 'range', min: 0, max: mdur, step: 0.05, fmt: sec, hide: !isV || c.freeze, post: (o) => { o.in = Math.min(o.in, o.out - 0.2); app.refreshTimeline(); } },
           { label: 'Kırp: bitiş', path: 'out', type: 'range', min: 0, max: mdur, step: 0.05, fmt: sec, hide: !isV || c.freeze, post: (o) => { o.out = Math.max(o.out, o.in + 0.2); app.refreshTimeline(); } },
         ]));
+        if (isV && !c.freeze) body.append(slipControl(c, mdur));
       } else if (tab === 'Geçiş') {
         if (idx === 0) { body.append(h('p', { class: 'hint', html: 'İlk klibe geçiş eklenemez. Geçiş, <b>bu klipten önceki</b> klip ile bu klip arasında uygulanır.' })); return; }
         if (!c.trans) c.trans = { type: 'none', dur: 0.5 };
@@ -286,7 +316,9 @@ function clipInspector(c) {
           app.P.clips.forEach((x, i) => { if (i > 0) x.trans = clone(c.trans); }); app.change(true); app.refreshTimeline(); toast('Geçiş tüm kliplere uygulandı');
         } }, 'Tüm kliplere uygula'));
       } else if (tab === 'Filtre') filterTab(body, c);
-      else if (tab === 'Keyframe') kfTab(body, c, CLIP_PROPS, true);
+      else if (tab === 'Keyframe') kfTab(body, c, isV && !c.freeze ? [...CLIP_PROPS, ['vol', 'Ses seviyesi', 0, 2, 0.01]] : CLIP_PROPS, true);
+      else if (tab === 'Renk') colorTab(body, c);
+      else if (tab === 'Ses') audioFxTab(body, c, 'voice');
     },
   };
 }
@@ -405,20 +437,29 @@ function posTab(body, L) {
 }
 
 function layerInspector(L) {
-  const title = { text: 'Yazı', media: 'Katman', cta: 'Sosyal medya çağrısı', score: 'Skor kartı', shape: 'Şekil' }[L.kind];
+  const title = { text: 'Yazı', media: 'Katman', cta: 'Sosyal medya çağrısı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma' }[L.kind];
   const tabs = {
     text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'],
-    media: ['Düzen', 'Maske', 'Animasyon', 'Keyframe', 'Filtre', 'Konum'],
+    media: ['Düzen', 'Maske', 'Renk', 'Chroma', 'Animasyon', 'Keyframe', 'Filtre', 'Konum'],
+    sticker: ['Çıkartma', 'Animasyon', 'Keyframe', 'Konum'],
     cta: ['Buton', 'Animasyon', 'Keyframe', 'Konum'],
     score: ['Skor', 'Animasyon', 'Keyframe', 'Konum'],
     shape: ['Şekil', 'Animasyon', 'Keyframe', 'Konum'],
   }[L.kind];
-  const actions = commonActions('layer');
+  const actions = [...flagActions(L, 'layer'), ...commonActions('layer')];
   if (L.kind === 'text') actions.unshift({ icon: I.save, label: 'Stili kaydet', onClick: () => app.saveStyle('text', L) });
   return {
     title, tabs, actions,
     render: (body, tab) => {
       if (tab === 'Keyframe') return kfTab(body, L, LAYER_PROPS);
+      if (tab === 'Renk') return colorTab(body, L);
+      if (tab === 'Chroma') return chromaTab(body, L);
+      if (tab === 'Çıkartma') {
+        return body.append(fields(L, [
+          { label: 'Boyut', path: 'size', type: 'range', min: 40, max: 900, step: 1 },
+          { type: 'el', el: h('button', { class: 'btn block', onclick: () => openStickers(L) }, 'Çıkartmayı değiştir') },
+        ]));
+      }
       if (tab === 'Animasyon') return animTab(body, L);
       if (tab === 'Konum') return posTab(body, L);
       if (tab === 'Filtre') return filterTab(body, L);
@@ -532,8 +573,12 @@ function layerInspector(L) {
 function audioInspector(a) {
   const mdur = app.engine.media.get(a.mediaId)?.duration || 600;
   return {
-    title: 'Ses', tabs: [], actions: commonActions('audio'),
-    render: (body) => {
+    title: a.sfx ? 'SFX' : a.role === 'voice' ? 'Seslendirme' : 'Ses', tabs: ['Ses', 'Efekt', 'Keyframe', 'Araçlar'],
+    actions: [...flagActions(a, 'audio'), ...commonActions('audio')],
+    render: (body, tab) => {
+      if (tab === 'Efekt') return audioFxTab(body, a, a.sfx ? 'sfx' : 'music');
+      if (tab === 'Keyframe') return kfTab(body, a, [['vol', 'Ses seviyesi', 0, 2, 0.01]]);
+      if (tab === 'Araçlar') return audioToolsTab(body, a);
       body.append(fields(a, [
         { label: 'Ses seviyesi', path: 'volume', type: 'range', min: 0, max: 2, fmt: pct },
         { label: 'Yavaşça aç', path: 'fadeIn', type: 'range', min: 0, max: 5, step: 0.1, fmt: sec },
