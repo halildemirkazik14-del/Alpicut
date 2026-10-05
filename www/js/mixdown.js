@@ -4,7 +4,7 @@
 // gerçek zamandan bağımsız ve kayıpsız olarak üretir. Hızlandırılmış kliplerde ses perdesi korunur (WSOLA).
 import { layoutClips, curvePts, curveSpeed, flatLayers } from './engine.js';
 import { hasKeys, propAt } from './kf.js';
-import * as MB from './lib/mediabunny.mjs';
+import * as MB from './lib/mediabunny.js';
 
 const OAC = () => window.OfflineAudioContext || window.webkitOfflineAudioContext;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));

@@ -40,32 +40,31 @@ async function addAudioBlob(id, name, blobOrUrl, opts = {}) {
   return a;
 }
 
+const SFX_ORDER = ['Whoosh', 'Riser', 'Darbe & boom', 'Sinematik', 'Gerilim', 'Glitch', 'Düşüş & drop', 'Pop & tık', 'Bildirim & zil', 'Komik & meme', 'Spor', 'Ortam'];
 export function openSfxLibrary() {
-  const st = openSfxLibrary.st || (openSfxLibrary.st = { q: '', cat: 'Favoriler', limit: 60 });
+  const st = openSfxLibrary.st || (openSfxLibrary.st = { q: '', cat: 'Whoosh', limit: 80 });
   openSheet({
     id: 'sfx', title: 'Ses efektleri',
     onClose: stopPreview,
     render: async (body) => {
       if (!sfxIndex) { body.append(h('div', { class: 'spinner' })); sfxIndex = await loadJSON('sfx/index.json', []); refreshSheet(); return; }
-      const all = [
-        ...SFX.map(([id, n, d, c]) => ({ id: `syn:${id}`, n, c: c || 'Spor & temel', d, s: 'Alpicut (uygulama içinde üretildi)' })),
-        ...sfxIndex,
-      ];
-      const cats = ['Favoriler', 'Viral & YouTuber', 'Tümü', ...new Set(all.map((x) => x.c).filter((c) => c !== 'Viral & YouTuber'))];
-      if (!cats.includes(st.cat)) st.cat = 'Tümü';
-      const q = h('input', { type: 'text', class: 'search', placeholder: `${all.length} ses efektinde ara…`, value: st.q });
+      // kütüphane yoksa (geliştirme ortamı) eski uygulama içi sentez listesi
+      const all = sfxIndex.length ? sfxIndex : SFX.map(([id, n, d, c]) => ({ id: `syn:${id}`, n, c: c || 'Temel', d, t: '' }));
+      const counts = {};
+      all.forEach((x) => { counts[x.c] = (counts[x.c] || 0) + 1; });
+      const cats = ['★', 'Tümü', ...SFX_ORDER.filter((c) => counts[c]), ...Object.keys(counts).filter((c) => !SFX_ORDER.includes(c))];
+      if (!cats.includes(st.cat)) st.cat = 'Whoosh';
+      const q = h('input', { type: 'text', class: 'search', placeholder: `${all.length} ses efektinde ara (whoosh, riser, boom…)`, value: st.q });
       const chips = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
-      cats.forEach((c) => chips.append(h('button', { class: st.cat === c ? 'on' : '', onclick: () => { st.cat = c; st.limit = 60; refreshSheet(); } }, c)));
+      cats.forEach((c) => chips.append(h('button', { class: st.cat === c ? 'on' : '', onclick: () => { st.cat = c; st.limit = 80; refreshSheet(); } }, c === '★' ? '★ Favoriler' : counts[c] ? `${c} · ${counts[c]}` : c)));
       body.append(q, chips);
       const fv = favs();
       const k = st.q.trim().toLocaleLowerCase('tr-TR');
-      let list = st.cat === 'Favoriler' ? all.filter((x) => fv.includes(x.id)) : st.cat === 'Tümü' ? all : all.filter((x) => x.c === st.cat);
-      if (k) list = list.filter((x) => `${x.n} ${x.c}`.toLocaleLowerCase('tr-TR').includes(k));
-      if (st.cat === 'Favoriler' && !list.length && !k) body.append(h('p', { class: 'hint' }, 'Henüz favori yok. Sesin yanındaki ☆ ile ekleyebilirsin. Aşağıda tüm sesler:'));
-      if (st.cat === 'Favoriler' && !list.length && !k) list = all;
+      let list = k ? all : st.cat === '★' ? all.filter((x) => fv.includes(x.id)) : st.cat === 'Tümü' ? all : all.filter((x) => x.c === st.cat);
+      if (k) list = list.filter((x) => `${x.n} ${x.c} ${x.t || ''} ${x.id}`.toLocaleLowerCase('tr-TR').includes(k));
+      if (st.cat === '★' && !list.length && !k) body.append(h('p', { class: 'hint' }, 'Henüz favori yok. Sesin yanındaki ☆ ile ekleyebilirsin.'));
       const box = h('div');
       list.slice(0, st.limit).forEach((x) => {
-        const isF = fv.includes(x.id);
         const pb = h('button', { class: 'icon-btn', html: I.play, 'aria-label': 'Dinle' });
         pb.addEventListener('click', async () => {
           if (x.id.startsWith('syn:')) { const r = await renderSfx(x.id.slice(4)); preview(URL.createObjectURL(r.blob), pb); }
@@ -73,20 +72,17 @@ export function openSfxLibrary() {
         });
         const star = favStar('sfx', x.id, { name: x.n });
         box.append(h('div', { class: 'sfx-row sfx4' }, pb,
-          h('span', { class: 'sfx-name' }, x.n, h('small', {}, ` ${x.d.toFixed(1)} sn · ${x.c}`)), star,
+          h('span', { class: 'sfx-name' }, x.n, h('small', {}, ` ${(+x.d).toFixed(1)} sn${st.cat === 'Tümü' || k ? ` · ${x.c}` : ''}`)), star,
           h('button', { class: 'btn', onclick: async () => {
             stopPreview();
-            try {
-              if (x.id.startsWith('syn:')) await app.addSfx(x.id.slice(4), x.n);
-              else { await addAudioBlob(`sfxlib-${x.id}`, `SFX · ${x.n}`, `sfx/${x.id}.ogg`, { sfx: true }); toast(`${x.n} eklendi`); }
-            } catch (e) { toast('Eklenemedi'); }
+            try { await app.addSfx(x.id.startsWith('syn:') ? x.id.slice(4) : x.id, x.n); } catch (e) { toast('Eklenemedi'); }
           } }, 'Ekle')));
       });
       if (list.length > st.limit) box.append(h('button', { class: 'btn block', onclick: () => { st.limit += 100; refreshSheet(); } }, `Daha fazla (${list.length - st.limit})`));
       body.append(box);
-      body.append(h('p', { class: 'hint', html: 'Tüm efektler CC0 (kamu malı) lisanslıdır: Kenney.nl, OpenGameArt.org ve Alpicut. Ticari kullanım dahil serbesttir, atıf gerekmez.' }));
+      body.append(h('p', { class: 'hint', html: 'Tüm efektler <b>Alpicut Ses Fabrikası</b>nda sıfırdan üretilmiştir: telif yok, atıf gerekmez, ticari kullanım serbest. ▶ dinle · <b>Ekle</b> oynatıcının olduğu yere koyar.' }));
       let tm = null;
-      q.addEventListener('input', () => { st.q = q.value; clearTimeout(tm); tm = setTimeout(() => { st.limit = 60; refreshSheet(); setTimeout(() => { const el = document.querySelector('.panel.focused .search'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }, 250); });
+      q.addEventListener('input', () => { st.q = q.value; clearTimeout(tm); tm = setTimeout(() => { st.limit = 80; refreshSheet(); setTimeout(() => { const el = document.querySelector('.panel.focused .search'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }, 250); });
     },
   });
 }
@@ -139,8 +135,7 @@ export function openMusicLibrary() {
 
 registerFav('sfx', async (id, x) => {
   if (!app.P) return;
-  if (id.startsWith('syn:')) await app.addSfx(id.slice(4), x.name);
-  else { await addAudioBlob(`sfxlib-${id}`, `SFX · ${x.name}`, `sfx/${id}.ogg`, { sfx: true }); toast(`${x.name} eklendi`); }
+  await app.addSfx(id.startsWith('syn:') ? id.slice(4) : id, x.name);
 });
 registerFav('music', async (u, x) => {
   if (!app.P) return;

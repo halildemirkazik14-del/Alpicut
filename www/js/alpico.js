@@ -66,6 +66,18 @@ export const COMMANDS = {
       return { ok: true, summary: `${n} altyazı satırı oluşturuldu` };
     },
   },
+  set_caption_style: {
+    desc: 'Altyazıya hazır görünüm uygular. template: c_barlow, c_barlow_pop, c_barlow_box, c_hormozi, c_beast, c_single, c_karaoke, c_reels, c_marker, c_netflix, c_podcast, c_neon, c_sport, c_gold… (veya şablon adı).',
+    params: { type: 'object', properties: { template: { type: 'string' } }, required: ['template'] },
+    run: async (a) => {
+      const { CAPTION_TEMPLATES, applyCaptionTemplate } = await import('./captions.js');
+      const q = norm(a.template || '');
+      const t = CAPTION_TEMPLATES.find((x) => x.id === a.template) || CAPTION_TEMPLATES.find((x) => norm(`${x.id} ${x.name} ${x.cat}`).includes(q));
+      if (!t) return { ok: false, error: 'Şablon bulunamadı' };
+      applyCaptionTemplate(t);
+      return { ok: true, summary: `Altyazı görünümü: ${t.name}` };
+    },
+  },
   add_text: {
     desc: 'Videoya yazı ekler. position: top|center|bottom. style: hook|kinetic|breaking|simple veya şablon id.',
     params: { type: 'object', properties: { text: { type: 'string' }, start: { type: 'number' }, duration: { type: 'number' }, position: { type: 'string' }, style: { type: 'string' } }, required: ['text'] },
@@ -113,24 +125,21 @@ export const COMMANDS = {
     },
   },
   add_sfx: {
-    desc: 'Ses efekti ekler. query: whoosh, boom, ding, pop, riser, kalabalık, alkış, para, kamera, glitch… at: saniye (varsayılan oynatıcı).',
+    desc: 'Ses efekti ekler. query: whoosh, swish, riser, braam, boom, impact, subdrop, tension, glitch, pop, ding, whistle, crowd, airhorn, cash… at: saniye (varsayılan oynatıcı).',
     params: { type: 'object', properties: { query: { type: 'string' }, at: { type: 'number' } }, required: ['query'] },
     run: async (a) => {
       const q = norm(a.query);
       const { SFX } = await import('./sfx.js');
-      const syn = SFX.find(([id, n]) => norm(`${id} ${n}`).includes(q));
+      const idx = (await loadJSON('sfx/index.json')) || [];
       const t0 = app.engine.t;
       if (a.at != null) app.engine.t = a.at;
       try {
+        // önce yeni kütüphane (ad, kategori, etiket), sonra eski sentez listesi
+        const hit = idx.find((x) => norm(`${x.id} ${x.n} ${x.c} ${x.t || ''}`).includes(q)) || idx.find((x) => q.split(/\s+/).some((w) => w.length > 2 && norm(`${x.id} ${x.n} ${x.t || ''}`).includes(w)));
+        if (hit) { await app.addSfx(hit.id, hit.n); return { ok: true, summary: `${hit.n} eklendi (${sec(a.at ?? t0)})` }; }
+        const syn = SFX.find(([id, n]) => norm(`${id} ${n}`).includes(q));
         if (syn) { await app.addSfx(syn[0], syn[1]); return { ok: true, summary: `${syn[1]} eklendi (${sec(a.at ?? t0)})` }; }
-        const idx = await loadJSON('sfx/index.json');
-        const m = idx.find((x) => norm(`${x.n} ${x.c}`).includes(q));
-        if (!m) return { ok: false, error: `“${a.query}” bulunamadı` };
-        const blob = await (await fetch(`sfx/${m.id}.ogg`)).blob();
-        const recs = await app.importFiles([new File([blob], `SFX · ${m.n}.ogg`, { type: 'audio/ogg' })], true);
-        app.P.audio.push({ id: uid(), mediaId: recs[0].id, start: a.at ?? t0, in: 0, out: recs[0].duration, volume: 1, fadeIn: 0, fadeOut: 0, sfx: true });
-        app.commit();
-        return { ok: true, summary: `${m.n} eklendi (${sec(a.at ?? t0)})` };
+        return { ok: false, error: `“${a.query}” bulunamadı` };
       } finally { app.engine.t = t0; }
     },
   },
@@ -445,7 +454,7 @@ function helpText() {
 • "3. saniyeye zoom ekle" · "Kesimlere flaş geçiş ekle"
 • "Sona abone ol butonu koy" · "Boom ses efekti ekle"
 • "Projeyi kontrol et"
-${chatProvider() ? '' : '\nClaude veya ChatGPT hesabını bağlarsan (Hesaplar) serbest cümlelerle tüm kurguyu da yapabilirim.'}`;
+${chatProvider() ? '' : '\nClaude, ChatGPT, DeepSeek, Gemini gibi bir yapay zekâ bağlarsan (Hesaplar) serbest cümlelerle tüm kurguyu da yapabilirim.'}`;
 }
 
 let chatPanel = null;
@@ -462,7 +471,7 @@ export function openAlpico(prefill) {
       body.classList.add('chat-body');
       const prov = chatProvider();
       const head = h('div', { class: 'chat-mode' },
-        h('span', { class: `chat-dot ${prov ? 'on' : ''}` }), prov ? `${PROVIDERS[prov].name.split(' ')[0]} bağlı · serbest konuş` : 'İnternetsiz mod · komutlarla çalışır',
+        h('span', { class: `chat-dot ${prov ? 'on' : ''}` }), prov ? `${PROVIDERS[prov].short} bağlı · serbest konuş` : 'İnternetsiz mod · komutlarla çalışır',
         h('button', { class: 'chat-link', onclick: async () => { const { openAccounts } = await import('./ai.js'); openAccounts(); } }, prov ? 'Değiştir' : 'Claude / ChatGPT bağla'));
       const list = h('div', { class: 'chat-list' });
       if (!chat.msgs.length) list.append(bubble({ role: 'bot', text: helpText() }));
@@ -482,7 +491,7 @@ export function openAlpico(prefill) {
   });
 }
 
-const STEP_NAMES = { project_info: 'Proje incelendi', get_transcript: 'Konuşma okundu', jumpcut: 'Jumpcut', auto_captions: 'Altyazı', add_text: 'Yazı', add_cta: 'Buton', add_music: 'Müzik', add_sfx: 'Ses efekti', zoom: 'Zoom', add_transitions: 'Geçiş', set_ratio: 'Oran', apply_filter: 'Filtre', set_speed: 'Hız', set_volume: 'Ses seviyesi', denoise: 'Ses temizliği', duck_music: 'Müzik kısma', delete_range: 'Kesim', add_effect: 'Efekt', check_project: 'Kontrol', seek: 'Git' };
+const STEP_NAMES = { project_info: 'Proje incelendi', get_transcript: 'Konuşma okundu', jumpcut: 'Jumpcut', auto_captions: 'Altyazı', set_caption_style: 'Altyazı görünümü', add_text: 'Yazı', add_cta: 'Buton', add_music: 'Müzik', add_sfx: 'Ses efekti', zoom: 'Zoom', add_transitions: 'Geçiş', set_ratio: 'Oran', apply_filter: 'Filtre', set_speed: 'Hız', set_volume: 'Ses seviyesi', denoise: 'Ses temizliği', duck_music: 'Müzik kısma', delete_range: 'Kesim', add_effect: 'Efekt', check_project: 'Kontrol', seek: 'Git' };
 function bubble(m) {
   const b = h('div', { class: `chat-b${m.err ? ' err' : ''}` }, m.text);
   if (m.steps?.length) {

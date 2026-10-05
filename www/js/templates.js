@@ -14,7 +14,7 @@ export const PROJECT_TEMPLATES = [
       T('hook', 0, 3, { text: 'BU POZİSYON\n*PENALTI MI?*' }),
       T('playerName', 6, 10),
       C('subscribe', 25, 29),
-    ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), preset: 'karaoke', accent: '#FACC15' } }, fx: { ...clone(FX_BASE), progress: true } }) },
+    ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), mode: 'line', hl: 'color', accent: '#FACC15' } }, fx: { ...clone(FX_BASE), progress: true } }) },
   { id: 'news', name: 'Son dakika haberi', desc: 'Son dakika bandı, haber alt bandı, takip çağrısı', ratio: '9:16', icon: '📰',
     build: () => ({ dur: 20, layers: [
       T('breaking', 0, 20),
@@ -28,7 +28,7 @@ export const PROJECT_TEMPLATES = [
       T('chapter', 0, 6, { text: 'BÖLÜM 1\n*Konu başlığı*', y: 0.36 }),
       { id: uid(), kind: 'wave', style: 'mirror', bars: 36, w: 0.8, h: 0.16, color: '#A855F7', color2: '#22D3EE', glow: true, x: 0.5, y: 0.62, rot: 0, sc: 1, opacity: 1, start: 0, end: 60, kf: {}, anim: anim('fade', 'fade') },
       C('handle', 0, 60, { y: 0.93, scale: 0.7 }),
-    ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), preset: 'pop', y: 0.8 } }, fx: { ...clone(FX_BASE), bg: '#0E0A17' } }) },
+    ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), mode: 'group', group: 3, anim: 'pop', y: 0.8 } }, fx: { ...clone(FX_BASE), bg: '#0E0A17' } }) },
   { id: 'ai', name: 'Yapay zekâ videosu', desc: 'Sinematik başlık, sinema şeritleri, “yapay zekâ ile üretildi” etiketi', ratio: '9:16', icon: '🤖',
     build: () => ({ dur: 15, layers: [
       T('bebas', 0.3, 4, { text: 'GELECEK ŞİMDİ' }),
@@ -39,7 +39,7 @@ export const PROJECT_TEMPLATES = [
     build: () => ({ dur: 20, layers: [
       T('cleanCaption', 0, 4, { text: 'Bugün neler yaptık?' }),
       C('follow', 16, 20),
-    ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), preset: 'box', upper: false, font: 'Poppins', weight: 600 } }, fx: clone(FX_BASE) }) },
+    ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), mode: 'line', hl: 'none', box: 'line', upper: false, font: 'Poppins', weight: 600 } }, fx: clone(FX_BASE) }) },
   { id: 'youtube', name: 'YouTube yatay video', desc: '16:9 başlık, abone bandı, bölüm etiketleri', ratio: '16:9', icon: '▶️',
     build: () => ({ dur: 60, layers: [
       T('mrbeast', 0, 4, { size: 120, y: 0.2 }),
@@ -63,5 +63,41 @@ PROJECT_TEMPLATES.push(
   { id: 'matchday', name: 'Maç günü / derbi', desc: 'VS kartı, oyuncu kartı, haber bandı, geri sayım', ratio: '9:16', icon: '🏟️',
     build: () => ({ dur: 15, layers: [SO('versus', 0, 4), SO('player', 4, 9), SO('ticker', 0, 15), T('s_derby', 9, 12)], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), vignette: 0.3 } }) },
   { id: 'interview', name: 'Röportaj / yorumcu', desc: 'Alt bant isim/unvan, kelime vurgulu altyazı, abone bandı', ratio: '9:16', icon: '🎤',
-    build: () => ({ dur: 30, layers: [SO('lower', 1, 6), C('subscribe', 25, 29)], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), preset: 'karaoke', accent: '#FACC15' } }, fx: clone(FX_BASE) }) },
+    build: () => ({ dur: 30, layers: [SO('lower', 1, 6), C('subscribe', 25, 29)], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), mode: 'line', hl: 'color', accent: '#FACC15' } }, fx: clone(FX_BASE) }) },
+);
+
+// ---- v1.5: her sektöre proje şablonları ----
+const ST = (sd, start, end, extra = {}) => ({ kind: 'sticker', sd: { ...sd }, badge: null, glyph: null, size: 240, x: 0.5, y: 0.4, rot: 0, sc: 1, opacity: 1, anim: anim('pop', 'pop', 'none', 0.35), ...extra, id: uid(), start, end, kf: {} });
+const SUBX = (style) => ({ ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), ...style } });
+PROJECT_TEMPLATES.push(
+  { id: 'product', name: 'Ürün tanıtımı', desc: 'İndirim çıkartması, fiyat etiketi, ücretsiz kargo, sipariş çağrısı', ratio: '9:16', icon: '🛍️',
+    build: () => ({ dur: 15, layers: [T('ec_new', 0, 3), ST({ text: '%30 İNDİRİM', bg: '#DC2626', fg: '#fff', shape: 'burst' }, 3, 8, { x: 0.78, y: 0.2, size: 220 }), T('ec_price', 3, 9), T('ec_free', 6, 12), T('ec_order', 10, 15)], subs: SUBX({ tpl: 'c_reels', font: 'Poppins', weight: 700, size: 60, color: '#111111', accent: '#7C3AED', strokeW: 0, shadow: 0, box: 'line', boxColor: '#FFFFFF', boxOpacity: 1, upper: false }), fx: clone(FX_BASE) }) },
+  { id: 'recipe', name: 'Yemek tarifi', desc: 'Tarif başlığı, malzeme etiketleri, adım adım yazılar, afiyet olsun', ratio: '9:16', icon: '🍝',
+    build: () => ({ dur: 30, layers: [T('fd_recipe', 0, 3.5), T('fd_ing', 3.5, 7), T('fd_step', 7, 12), T('fd_step', 12, 17, { text: '*2* sosu hazırla' }), T('fd_step', 17, 22, { text: '*3* birleştir ve servis et' }), T('fd_cal', 22, 27), T('fd_yum', 26, 30)], subs: SUBX({ tpl: 'c_clean', font: 'Inter', weight: 800, size: 64, strokeW: 0, shadow: 0.9, upper: false }), fx: { ...clone(FX_BASE), vignette: 0.2 } }) },
+  { id: 'travel', name: 'Seyahat videosu', desc: 'Büyük destinasyon başlığı, konum etiketi, bütçe, gezi ipucu', ratio: '9:16', icon: '✈️',
+    build: () => ({ dur: 25, layers: [T('tr_dest', 0, 3.5), T('vl_loc', 0.5, 25), T('tr_budget', 4, 8), T('tr_tip', 15, 20), C('follow', 21, 25)], subs: SUBX({ tpl: 'c_semi', font: 'Barlow Semi Condensed', weight: 700, size: 70, strokeW: 0, shadow: 0.9, upper: false }), fx: { ...clone(FX_BASE), grain: 0.12 } }) },
+  { id: 'hotel', name: 'Otel / mekan tanıtımı', desc: 'Lüks başlık, oda tanıtımı, menü, rezervasyon çağrısı (altın tonlar)', ratio: '9:16', icon: '🏨',
+    build: () => ({ dur: 30, layers: [T('ht_welcome', 0, 4), T('ht_room', 5, 12), T('ht_lux', 12, 16), T('ht_menu', 17, 23), ST({ text: '★★★★★', bg: '#111', fg: '#FACC15', shape: 'pill' }, 23, 27, { y: 0.2 }), T('ht_book', 24, 30)], subs: SUBX({ tpl: 'c_gold', font: 'Playfair Display', weight: 700, size: 66, color: '#F3DFA2', accent: '#FFFFFF', strokeW: 0, glow: 14, glowColor: '#B8860B', upper: false }), fx: { ...clone(FX_BASE), letterbox: 0.08, vignette: 0.35, grain: 0.08 } }) },
+  { id: 'realestate', name: 'Emlak ilanı', desc: 'Satılık başlığı, özellikler, fiyat, iletişim', ratio: '9:16', icon: '🏠',
+    build: () => ({ dur: 25, layers: [T('re_title', 0, 5), T('re_feat', 5, 15), T('re_price', 15, 20), T('ec_order', 20, 25, { text: 'BİLGİ İÇİN *ARA* 📞' })], subs: SUBX({ tpl: 'c_blackbox', font: 'Inter', weight: 700, size: 58, strokeW: 0, shadow: 0, box: 'line', boxColor: '#000000', boxOpacity: 0.62, upper: false }), fx: clone(FX_BASE) }) },
+  { id: 'fitness', name: 'Antrenman', desc: 'Gün başlığı, set/tekrar, süre sayacı, motivasyon', ratio: '9:16', icon: '💪',
+    build: () => ({ dur: 30, layers: [T('ft_day', 0, 3.5), T('ft_rep', 4, 10), T('ft_timer', 10, 16), T('ft_rep', 16, 22, { text: '3 SET × *15*' }), T('ft_mot', 25, 30)], subs: SUBX({ tpl: 'c_sport', font: 'Barlow Condensed', weight: 900, size: 98, italic: true, accent: '#F97316', strokeW: 12, mode: 'group', group: 3, anim: 'pop' }), fx: { ...clone(FX_BASE), vignette: 0.3 } }) },
+  { id: 'edu', name: 'Eğitim / bilgi', desc: 'Bunu biliyor muydun, adım kartları, tanım, doğru/yanlış', ratio: '9:16', icon: '🎓',
+    build: () => ({ dur: 30, layers: [T('ed_fact', 0, 4), T('ed_step', 4, 12), T('ed_def', 12, 20), T('ed_myth', 20, 25), C('follow', 26, 30)], subs: SUBX({ tpl: 'c_karaoke', font: 'Montserrat', weight: 900, size: 72, accent: '#22D3EE', strokeW: 9, hl: 'karaoke' }), fx: clone(FX_BASE) }) },
+  { id: 'business', name: 'İş / finans ipucu', desc: 'İpucu numarası, büyüme rakamı, kurumsal alt bant, söz', ratio: '9:16', icon: '📈',
+    build: () => ({ dur: 30, layers: [T('bz_tip', 0, 30), T('bz_name', 1, 6), T('bz_stat', 8, 13), T('bz_quote', 22, 28)], subs: SUBX({ tpl: 'c_block', font: 'Montserrat', weight: 800, size: 60, strokeW: 0, shadow: 0, box: 'block', boxColor: '#15141B', boxOpacity: 0.92, upper: false, anim: 'slide' }), fx: clone(FX_BASE) }) },
+  { id: 'wedding', name: 'Düğün / nişan', desc: 'İsimler, tarih, zarif yazılar, yumuşak geçişler', ratio: '9:16', icon: '💍',
+    build: () => ({ dur: 30, layers: [T('wd_names', 0, 6), T('wd_date', 1, 6), T('ev_invite', 20, 26), T('mo_soft', 26, 30, { text: 'sonsuza *dek*' })], subs: SUBX({ tpl: 'c_serif', font: 'Playfair Display', weight: 700, italic: true, size: 66, strokeW: 0, shadow: 0.9, upper: false }), fx: { ...clone(FX_BASE), vignette: 0.35, grain: 0.1 } }) },
+  { id: 'event', name: 'Etkinlik duyurusu', desc: 'Davet, geri sayım, bilet çıkartması, tarih', ratio: '9:16', icon: '🎉',
+    build: () => ({ dur: 15, layers: [T('ev_invite', 0, 4), T('ev_count', 4, 9), ST({ text: '🎟️ BİLET', bg: '#7C3AED', fg: '#fff', shape: 'tag' }, 9, 15, { y: 0.65 }), T('wd_date', 9, 15, { text: 'CUMARTESİ · 21:00', y: 0.4 })], subs: clone(SUB_BASE), fx: clone(FX_BASE) }) },
+  { id: 'motivation', name: 'Motivasyon sözü', desc: 'Günün sözü etiketi, büyük söz, sinema şeritleri, hafif gren', ratio: '9:16', icon: '🔥',
+    build: () => ({ dur: 12, layers: [T('mo_day', 0, 12), T('mo_quote', 0.5, 12)], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), letterbox: 0.1, grain: 0.18, vignette: 0.4 } }) },
+  { id: 'gaming', name: 'Oyun highlight', desc: 'Seri öldürme, seviye atlama, zafer ekranı, neon altyazı', ratio: '9:16', icon: '🎮',
+    build: () => ({ dur: 20, layers: [T('gm_kill', 3, 6), T('gm_lvl', 9, 12), T('gm_win', 16, 20)], subs: SUBX({ tpl: 'c_gaming', font: 'Russo One', weight: 400, size: 80, accent: '#22C55E', strokeColor: '#052E16', strokeW: 10, mode: 'group', group: 2, hl: 'scale', anim: 'pop', rot: -3 }), fx: { ...clone(FX_BASE), vignette: 0.25 } }) },
+  { id: 'beforeafter', name: 'Önce / sonra', desc: 'Önce-sonra etiketleri, dönüşüm vurgusu', ratio: '9:16', icon: '✨',
+    build: () => ({ dur: 10, layers: [ST({ text: 'ÖNCE', bg: '#374151', fg: '#fff', shape: 'tag' }, 0, 5, { x: 0.25, y: 0.12, size: 200 }), ST({ text: 'SONRA', bg: '#16A34A', fg: '#fff', shape: 'tag' }, 5, 10, { x: 0.25, y: 0.12, size: 200 }), T('fs_glow', 5, 10, { y: 0.8 })], subs: clone(SUB_BASE), fx: clone(FX_BASE) }) },
+  { id: 'top5', name: 'İlk 5 listesi', desc: 'Liste başlığı ve 5 sıra numarası, her biri 5 sn', ratio: '9:16', icon: '🔢',
+    build: () => ({ dur: 27, layers: [T('top5', 0, 27, { text: 'EN İYİ *5* …' }), ...[5, 4, 3, 2, 1].map((n, i) => T('number', 2 + i * 5, 6 + i * 5, { text: `#${n}`, y: 0.3 }))], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), progress: true } }) },
+  { id: 'music', name: 'Müzik / şarkı', desc: 'Şimdi çalıyor bandı, ses dalgası, kelime kelime söz', ratio: '9:16', icon: '🎵',
+    build: () => ({ dur: 20, layers: [{ id: uid(), kind: 'wave', style: 'mirror', bars: 40, w: 0.84, h: 0.16, color: '#A855F7', color2: '#F472B6', glow: true, x: 0.5, y: 0.62, rot: 0, sc: 1, opacity: 1, start: 0, end: 20, kf: {}, anim: anim('fade', 'fade') }, T('mu_now', 0, 20)], subs: SUBX({ tpl: 'c_neon', font: 'Righteous', weight: 400, size: 82, color: '#F5D0FE', accent: '#FFFFFF', strokeW: 0, glow: 26, glowColor: '#D946EF', mode: 'group', group: 3, hl: 'scale', anim: 'pop' }), fx: { ...clone(FX_BASE), bg: '#0B0710' } }) },
 );

@@ -5,13 +5,12 @@ import {
   FONTS, WEIGHTS, ANIM_IN, ANIM_OUT, ANIM_LOOP, TRANSITIONS, FILTER_PRESETS, DEFAULT_FILTERS,
   TEXT_BASE, TEXT_TEMPLATES, CTA_BASE, CTA_PRESETS, SCORE_BASE, SUB_PRESETS, SUB_BASE, RATIOS, SHAPE_BASE, SHAPE_PRESETS,
 } from './presets.js';
-import { drawText, drawCTA, drawScore, drawShape, drawFit, ICON_NAMES, BLENDS, SHAPES, CROPS, MASK_SHAPES } from './render.js';
+import { drawText, drawCTA, drawScore, drawShape, drawFit, ICON_NAMES, BLENDS, SHAPES, CROPS, MASK_SHAPES, capStyle } from './render.js';
 import { bgRemoveTab } from './ai.js';
 import { Engine } from './engine.js';
 import { saveVideo, isNative } from './storage.js';
 import { parseSRT, toSRT, toVTT } from './srt.js';
 import { LAYER_PROPS, CLIP_PROPS, EASES, propAt, hasKeys, keyAt, setKey, delKey, writeProp, allKeyTimes, rescaleKeys } from './kf.js';
-import { SFX, renderSfx } from './sfx.js';
 import { layoutClips, SPEED_CURVES, curvePts, curveSpeed } from './engine.js';
 import { rangeControl, guessDefault } from './ctl.js';
 import { curvePicker, graphView } from './kfui.js';
@@ -466,6 +465,10 @@ function layerInspector(L) {
       }
       if (tab === 'Çıkartma') {
         return body.append(fields(L, [
+          { label: 'Metin', path: 'sd.text', type: 'text', hide: !L.sd },
+          { label: 'Zemin rengi', path: 'sd.bg', type: 'color', hide: !L.sd },
+          { label: 'Yazı rengi', path: 'sd.fg', type: 'color', hide: !L.sd },
+          { label: 'Şekil', path: 'sd.shape', type: 'chips', options: [['pill', 'Hap'], ['tag', 'Etiket'], ['burst', 'Patlama'], ['circle', 'Daire'], ['ribbon', 'Kurdele'], ['outline', 'Çerçeve'], ['bubble', 'Balon'], ['arrow', 'Ok'], ['stamp', 'Damga'], ['box', 'Kutu']], hide: !L.sd },
           { label: 'Boyut', path: 'size', type: 'range', min: 40, max: 900, step: 1 },
           { type: 'el', el: h('button', { class: 'btn block', onclick: () => openStickers(L) }, 'Çıkartmayı değiştir') },
         ]));
@@ -609,21 +612,51 @@ function subsInspector(extra = {}) {
           body.append(h('div', { class: 'field full' }, h('label', {}, 'Kayıtlı stillerim'), ch));
         }
         body.append(h('button', { class: 'btn block', style: { marginBottom: '6px' }, html: `${I.save} Bu stili kaydet`, onclick: () => app.saveStyle('subs', S.style) }));
-        body.append(h('p', { class: 'hint', html: 'Not: SRT/VTT dosyaları cümle zamanı içerir. Kelime vurgusu, kelimeler satır süresine <b>yaklaşık</b> dağıtılarak yapılır; gerekirse satırı bölerek zamanlamayı düzelt.' }));
+        // v1.5: şablon şeridi
+        const strip = h('div', { class: 'cap-strip' });
+        body.append(h('div', { class: 'rng-top' }, h('label', { class: 'sub-title', style: { margin: '6px 0' } }, 'Şablonlar'), h('button', { class: 'btn', style: { padding: '6px 12px', fontSize: '13px' }, onclick: () => import('./captions.js').then((m) => m.openCaptionStyles()) }, 'Tümü')), strip);
+        import('./captions.js').then((m) => {
+          m.CAPTION_TEMPLATES.slice(0, 14).forEach((tpl) => strip.append(h('button', { class: `cap-mini${S.style.tpl === tpl.id ? ' on' : ''}`, onclick: () => { m.applyCaptionTemplate(tpl); refreshSheet(); } }, m.miniPreview(tpl), h('span', {}, tpl.name))));
+        });
+        const cs = capStyle(S.style);
+        // eski "preset" stilini yeni alanlara taşı (bir kez)
+        if (!S.style.mode) { Object.assign(S.style, { mode: cs.mode, group: cs.group, hl: cs.hl, anim: cs.anim, box: cs.box }); delete S.style.preset; }
+        body.append(h('div', { class: 'sub-title' }, 'Görünüm'));
         body.append(fields(S.style, [
-          { label: 'Görünüm', path: 'preset', type: 'chips', options: SUB_PRESETS, rerender: true },
+          { label: 'Gösterim', path: 'mode', type: 'chips', options: [['line', 'Tüm satır'], ['group', 'Kelime grubu'], ['single', 'Tek kelime']], rerender: true },
+          { label: 'Grupta kelime', path: 'group', type: 'chips', options: [[2, '2'], [3, '3'], [4, '4'], [5, '5']], hide: S.style.mode !== 'group' },
+          { label: 'Konuşulan kelime', path: 'hl', type: 'chips', options: [['color', 'Renk'], ['box', 'Kutu'], ['underline', 'Alt çizgi'], ['scale', 'Büyüt'], ['glow', 'Parlama'], ['karaoke', 'Karaoke dolum'], ['none', 'Yok']], rerender: true },
+          { label: 'Animasyon', path: 'anim', type: 'chips', options: [['fade', 'Belir'], ['pop', 'Pop'], ['words', 'Kelime kelime'], ['slide', 'Kay'], ['typewriter', 'Daktilo'], ['none', 'Yok']] },
+          { label: 'Arka plan', path: 'box', type: 'chips', options: [['none', 'Yok'], ['line', 'Satır kutusu'], ['block', 'Tek kart']], rerender: true },
+        ]));
+        body.append(h('div', { class: 'sub-title' }, 'Yazı'));
+        body.append(fields(S.style, [
           { type: 'el', el: fontButton(S.style, 'font', () => app.openInspector('Stil')) },
           { label: 'Kalınlık', path: 'weight', type: 'chips', options: weightOptions(S.style.font) },
           { label: 'Boyut', path: 'size', type: 'range', min: 30, max: 180, step: 1 },
           { label: 'Renk', path: 'color', type: 'color' },
           { label: 'Vurgu rengi', path: 'accent', type: 'color' },
+          { label: 'Kutudaki yazı rengi', path: 'hlText', type: 'color', hide: S.style.hl !== 'box' },
           { label: 'Kontur', path: 'strokeW', type: 'range', min: 0, max: 24, step: 0.5 },
-          { label: 'Kontur rengi', path: 'strokeColor', type: 'color' },
-          { label: 'Kutu rengi', path: 'boxColor', type: 'color', hide: S.style.preset !== 'box' },
+          { label: 'Kontur rengi', path: 'strokeColor', type: 'color', hide: !(S.style.strokeW > 0) },
+          { label: 'Gölge', path: 'shadow', type: 'range', min: 0, max: 1, fmt: pct, def: 0.5 },
+          { label: 'Parlama', path: 'glow', type: 'range', min: 0, max: 60, step: 1, def: 0 },
+          { label: 'Parlama rengi', path: 'glowColor', type: 'color', hide: !(S.style.glow > 0) },
+          { label: 'Kutu rengi', path: 'boxColor', type: 'color', hide: (S.style.box || 'none') === 'none' },
+          { label: 'Kutu saydamlığı', path: 'boxOpacity', type: 'range', min: 0, max: 1, fmt: pct, def: 0.72, hide: (S.style.box || 'none') === 'none' },
           { label: 'BÜYÜK HARF', path: 'upper', type: 'toggle' },
-          { label: 'Dikey konum', path: 'y', type: 'range', min: 0.08, max: 0.95, step: 0.005, fmt: pct },
-          { label: 'Satır genişliği', path: 'maxW', type: 'range', min: 0.4, max: 1, fmt: pct },
+          { label: 'İtalik', path: 'italic', type: 'toggle' },
+          { label: 'Noktalamayı gizle', path: 'noPunct', type: 'toggle' },
+          { label: 'Harf aralığı', path: 'spacing', type: 'range', min: -2, max: 12, step: 0.5, def: 0 },
+          { label: 'Eğim', path: 'rot', type: 'range', min: -10, max: 10, step: 0.5, def: 0, fmt: deg },
         ]));
+        body.append(h('div', { class: 'sub-title' }, 'Yerleşim'));
+        body.append(fields(S.style, [
+          { label: 'Dikey konum', path: 'y', type: 'range', min: 0.08, max: 0.95, step: 0.005, fmt: pct, post: (o) => { o._yUser = true; } },
+          { label: 'Satır genişliği', path: 'maxW', type: 'range', min: 0.4, max: 1, fmt: pct },
+          { label: 'En çok satır', path: 'maxLines', type: 'chips', options: [[1, '1'], [2, '2'], [3, '3']] },
+        ]));
+        body.append(h('p', { class: 'hint', html: 'Not: SRT/VTT dosyaları cümle zamanı içerir; kelime vurgusu kelimeler satır süresine <b>yaklaşık</b> dağıtılarak yapılır.' }));
       } else if (tab === 'Satırlar') {
         body.append(h('button', { class: 'btn block primary', style: { marginBottom: '10px' }, html: `${I.plus} Oynatıcı konumuna satır ekle`, onclick: () => {
           const t = app.engine.t - (S.offset || 0);
@@ -881,27 +914,7 @@ export function openShapes() {
   });
 }
 
-let sfxCtx = null;
-export function openSfx() {
-  openSheet({
-    title: 'Ses efektleri', tall: true,
-    render: (body) => {
-      body.append(h('p', { class: 'hint', html: 'Efektler uygulamanın içinde üretilir, telif sorunu yoktur. ▶ ile dinle, <b>Ekle</b> ile oynatıcı konumuna yerleştir. Kendi ses dosyan için alttaki <b>Ses</b> aracını kullan.' }));
-      SFX.forEach(([id, name, dur]) => {
-        body.append(h('div', { class: 'sfx-row' },
-          h('button', { class: 'icon-btn', html: I.play, 'aria-label': `${name} dinle`, onclick: async () => {
-            const r = await renderSfx(id);
-            try {
-              sfxCtx = sfxCtx || new (window.AudioContext || window.webkitAudioContext)();
-              const src = sfxCtx.createBufferSource(); src.buffer = r.buffer; src.connect(sfxCtx.destination); src.start();
-            } catch (_) { /* yoksay */ }
-          } }),
-          h('span', { class: 'sfx-name' }, name, h('small', {}, ` ${dur.toFixed(1)} sn`)),
-          h('button', { class: 'btn', onclick: () => app.addSfx(id, name) }, 'Ekle')));
-      });
-    },
-  });
-}
+export async function openSfx() { const m = await import('./library.js'); m.openSfxLibrary(); }
 
 export function openScoreMenu() {
   app.addLayer(clone(SCORE_BASE), 5);
@@ -915,6 +928,7 @@ export function openSubsMenu() {
       body.append(h('button', { class: 'btn block primary', html: `${I.ai} Otomatik altyazı (yapay zekâ)`, onclick: () => { closeSheet(); setTimeout(() => import('./ai.js').then((m) => m.openAutoCaptions()), 230); } }));
       body.append(h('p', { class: 'hint', html: 'Konuşmayı telefonda yazıya döker; kelime kelime zamanlı, Türkçe dahil. Yazı tipi varsayılan olarak <b>Barlow Condensed</b>.' }));
       body.append(h('button', { class: 'btn block', html: `${I.upload} SRT / VTT dosyası yükle`, onclick: () => { closeSheet(); app.importSRT(); } }));
+      body.append(h('button', { class: 'btn block', style: { marginTop: '8px' }, html: `${I.brand} Altyazı şablonu seç`, onclick: () => import('./captions.js').then((m) => m.openCaptionStyles()) }));
       body.append(h('button', { class: 'btn block', style: { marginTop: '8px' }, html: `${I.edit} Elle yaz`, onclick: () => {
         if (!app.P.subs) app.P.subs = clone(SUB_BASE);
         const t = app.engine.t;

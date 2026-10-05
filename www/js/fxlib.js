@@ -125,7 +125,99 @@ export function applyLayerFx(ctx, L, t, env, markers) {
 }
 
 // ---------- Çıkartmalar ----------
-export const STICKER_EMOJI = ['⚽', '🔥', '😱', '👀', '💯', '🏆', '👏', '😂', '😡', '🤯', '❤️', '✅', '❌', '⭐', '🎯', '🚀', '💪', '🙏', '📢', '⚡', '🥅', '🧤', '👑', '🤔'];
+export const STICKER_EMOJI = ['⚽', '🔥', '😱', '👀', '💯', '🏆', '👏', '😂', '😡', '🤯', '❤️', '✅', '❌', '⭐', '🎯', '🚀', '💪', '🙏', '📢', '⚡', '🥅', '🧤', '👑', '🤔',
+  '😍', '🥰', '😎', '🤩', '🥳', '😭', '😅', '🙈', '🤫', '😴', '🤑', '🫶', '👍', '👎', '👉', '👇', '☝️', '✌️', '🤝', '💥', '✨', '🌟', '💫', '🎉',
+  '🎁', '🛍️', '💸', '💰', '📈', '📉', '🏠', '🔑', '✈️', '🌍', '🏖️', '🏔️', '📍', '🍕', '🍔', '🍰', '☕', '🍷', '🥗', '🍳', '🎵', '🎧', '🎬', '📸',
+  '🎮', '🕹️', '💻', '📱', '🤖', '🧠', '📚', '✏️', '💡', '⏰', '⚠️', '🚫', '🆕', '🔔', '❗', '❓', '💬', '👑', '💎', '🌹', '💍', '🎂', '🐶', '🐱'];
+
+// v1.5: veriyle tanımlı genel çıkartmalar (metni ve renkleri sonradan değiştirilebilir)
+// shape: pill | tag | burst | circle | ribbon | outline | bubble | arrow | box | stamp
+const SD = (id, text, bg, fg, shape = 'pill', extra = {}) => ({ id, text, bg, fg, shape, ...extra });
+export const STICKER_SETS = {
+  'Satış': [SD('s_sale', '%50 İNDİRİM', '#DC2626', '#fff', 'burst'), SD('s_new', 'YENİ', '#7C3AED', '#fff', 'pill'), SD('s_hot', '🔥 HOT', '#EA580C', '#fff', 'pill'), SD('s_free', 'ÜCRETSİZ', '#16A34A', '#fff', 'stamp'), SD('s_limited', 'SINIRLI SÜRE', '#111', '#FACC15', 'tag'), SD('s_last', 'SON 3 ÜRÜN', '#B91C1C', '#fff', 'ribbon'), SD('s_price', '₺199', '#FACC15', '#111', 'circle'), SD('s_order', 'SİPARİŞ VER', '#2563EB', '#fff', 'pill'), SD('s_ship', '🚚 ÜCRETSİZ KARGO', '#0EA5E9', '#fff', 'pill'), SD('s_best', 'ÇOK SATAN', '#F59E0B', '#111', 'ribbon'), SD('s_sold', 'TÜKENDİ', '#6B7280', '#fff', 'stamp'), SD('s_gift', '🎁 HEDİYE', '#DB2777', '#fff', 'pill')],
+  'Sosyal medya': [SD('m_link', 'LİNK BİYODA', '#fff', '#111', 'pill'), SD('m_dm', '📩 DM AT', '#8B5CF6', '#fff', 'pill'), SD('m_save', 'KAYDET 🔖', '#111', '#fff', 'pill'), SD('m_share', 'PAYLAŞ ↗', '#0EA5E9', '#fff', 'pill'), SD('m_part2', 'PART 2 👉', '#111', '#FACC15', 'tag'), SD('m_comment', 'YORUMA YAZ 💬', '#16A34A', '#fff', 'bubble'), SD('m_follow', '+ TAKİP', '#E11D48', '#fff', 'pill'), SD('m_viral', 'VİRAL', '#F43F5E', '#fff', 'burst'), SD('m_pov', 'POV', '#000', '#fff', 'box'), SD('m_wait', 'SONUNU BEKLE', '#FACC15', '#111', 'tag'), SD('m_stitch', 'STITCH', '#25F4EE', '#111', 'pill'), SD('m_live', '● CANLI', '#DC2626', '#fff', 'pill')],
+  'Bilgi & ipucu': [SD('i_tip', '💡 İPUCU', '#FACC15', '#111', 'pill'), SD('i_note', 'NOT', '#fff', '#111', 'tag'), SD('i_warn', '⚠️ DİKKAT', '#F59E0B', '#111', 'box'), SD('i_fact', 'GERÇEK', '#2563EB', '#fff', 'stamp'), SD('i_myth', 'EFSANE', '#9333EA', '#fff', 'stamp'), SD('i_yes', '✅ DOĞRU', '#16A34A', '#fff', 'pill'), SD('i_no', '❌ YANLIŞ', '#DC2626', '#fff', 'pill'), SD('i_step1', 'ADIM 1', '#111', '#fff', 'circle'), SD('i_here', 'BURADA', '#E11D48', '#fff', 'arrow'), SD('i_look', 'BAK 👀', '#fff', '#111', 'arrow'), SD('i_before', 'ÖNCE', '#374151', '#fff', 'tag'), SD('i_after', 'SONRA', '#16A34A', '#fff', 'tag')],
+  'Tepki': [SD('r_wow', 'WOW!', '#FACC15', '#111', 'burst'), SD('r_omg', 'OMG', '#EC4899', '#fff', 'burst'), SD('r_lol', 'LOL 😂', '#fff', '#111', 'bubble'), SD('r_yes', 'EVET!', '#16A34A', '#fff', 'bubble'), SD('r_no', 'HAYIR!', '#DC2626', '#fff', 'bubble'), SD('r_what', 'NE?!', '#7C3AED', '#fff', 'bubble'), SD('r_boom', 'BOOM', '#F97316', '#fff', 'burst'), SD('r_love', 'BAYILDIM ❤️', '#E11D48', '#fff', 'pill'), SD('r_fire', 'EFSANE 🔥', '#111', '#FB923C', 'pill'), SD('r_cringe', 'CRINGE', '#A3A3A3', '#111', 'stamp'), SD('r_win', 'KAZANDIK', '#FACC15', '#111', 'ribbon'), SD('r_fail', 'FAIL', '#991B1B', '#fff', 'stamp')],
+  'Seyahat & mekan': [SD('t_loc', '📍 KONUM', '#fff', '#111', 'pill'), SD('t_visit', 'MUTLAKA GİT', '#0EA5E9', '#fff', 'ribbon'), SD('t_hidden', 'GİZLİ CENNET', '#059669', '#fff', 'tag'), SD('t_5star', '★★★★★', '#111', '#FACC15', 'pill'), SD('t_open', 'AÇIK', '#16A34A', '#fff', 'box'), SD('t_book', 'REZERVASYON', '#D4AF37', '#111', 'pill'), SD('t_view', 'MANZARA ✨', '#1E3A8A', '#fff', 'pill'), SD('t_lux', 'LUXURY', '#0B0B0B', '#F3DFA2', 'outline')],
+  'Yemek': [SD('f_yum', 'NEFİS 😋', '#F97316', '#fff', 'bubble'), SD('f_recipe', 'TARİF', '#16A34A', '#fff', 'tag'), SD('f_vegan', '🌱 VEGAN', '#22C55E', '#fff', 'pill'), SD('f_spicy', '🌶️ ACI', '#DC2626', '#fff', 'pill'), SD('f_min', '15 DK', '#FACC15', '#111', 'circle'), SD('f_chef', 'ŞEFİN SEÇİMİ', '#111', '#F3DFA2', 'ribbon')],
+  'Etkinlik': [SD('e_save', 'TARİHİ KAYDET', '#DB2777', '#fff', 'ribbon'), SD('e_soon', 'ÇOK YAKINDA', '#111', '#fff', 'outline'), SD('e_today', 'BUGÜN', '#E11D48', '#fff', 'stamp'), SD('e_ticket', '🎟️ BİLET', '#7C3AED', '#fff', 'tag'), SD('e_party', 'PARTİ 🎉', '#F59E0B', '#111', 'burst'), SD('e_vip', 'VIP', '#0B0B0B', '#D4AF37', 'outline')],
+};
+
+function drawShapeSticker(ctx, d, t) {
+  const fg = d.fg || '#fff', bg = d.bg || '#111';
+  const text = d.text || '';
+  const font = (sz) => `900 ${sz}px "Barlow Condensed", "Barlow", sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  let size = 64;
+  ctx.font = font(size);
+  let tw = ctx.measureText(text).width;
+  const maxW = d.shape === 'circle' || d.shape === 'burst' ? 170 : 360;
+  if (tw > maxW) { size = Math.max(28, size * maxW / tw); ctx.font = font(size); tw = ctx.measureText(text).width; }
+  const padX = 34, hh = size * 1.45;
+  const label = (y = 0) => { ctx.shadowColor = 'transparent'; ctx.fillStyle = fg; ctx.fillText(text, 0, y + size * 0.05); };
+  switch (d.shape) {
+    case 'burst': {
+      const r = Math.max(110, tw / 2 + 36);
+      star(ctx, 14, r, r * 0.8); ctx.fillStyle = bg; ctx.fill();
+      ctx.shadowColor = 'transparent'; ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.stroke();
+      ctx.rotate(-0.12); label(); return { w: r * 2.1, h: r * 2.1 };
+    }
+    case 'circle': {
+      const r = Math.max(90, tw / 2 + 30);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = bg; ctx.fill();
+      ctx.shadowColor = 'transparent'; ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(0, 0, r - 10, 0, Math.PI * 2); ctx.stroke();
+      label(); return { w: r * 2, h: r * 2 };
+    }
+    case 'tag': {
+      const w = tw + padX * 2 + 30;
+      ctx.beginPath(); ctx.moveTo(-w / 2 + 30, -hh / 2); ctx.lineTo(w / 2, -hh / 2); ctx.lineTo(w / 2, hh / 2); ctx.lineTo(-w / 2 + 30, hh / 2); ctx.lineTo(-w / 2, 0); ctx.closePath();
+      ctx.fillStyle = bg; ctx.fill(); ctx.shadowColor = 'transparent';
+      ctx.beginPath(); ctx.arc(-w / 2 + 34, 0, 8, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fill();
+      ctx.translate(14, 0); label(); return { w, h: hh };
+    }
+    case 'ribbon': {
+      const w = tw + padX * 2;
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.moveTo(-w / 2 - 34, -hh / 2 + 14); ctx.lineTo(-w / 2, -hh / 2 + 14); ctx.lineTo(-w / 2, hh / 2 + 14); ctx.lineTo(-w / 2 - 34, hh / 2 + 14); ctx.lineTo(-w / 2 - 18, 14); ctx.closePath(); ctx.globalAlpha = 0.75; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(w / 2 + 34, -hh / 2 + 14); ctx.lineTo(w / 2, -hh / 2 + 14); ctx.lineTo(w / 2, hh / 2 + 14); ctx.lineTo(w / 2 + 34, hh / 2 + 14); ctx.lineTo(w / 2 + 18, 14); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillRect(-w / 2, -hh / 2, w, hh); label(); return { w: w + 70, h: hh + 28 };
+    }
+    case 'outline': {
+      const w = tw + padX * 2;
+      ctx.fillStyle = bg; roundRect(ctx, -w / 2, -hh / 2, w, hh, 8); ctx.fill(); ctx.shadowColor = 'transparent';
+      ctx.lineWidth = 4; ctx.strokeStyle = fg; roundRect(ctx, -w / 2 + 9, -hh / 2 + 9, w - 18, hh - 18, 4); ctx.stroke();
+      label(); return { w, h: hh };
+    }
+    case 'bubble': {
+      const w = tw + padX * 2;
+      roundRect(ctx, -w / 2, -hh / 2, w, hh, hh / 2.4); ctx.fillStyle = bg; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-w / 4, hh / 2 - 4); ctx.lineTo(-w / 4 - 26, hh / 2 + 34); ctx.lineTo(-w / 4 + 26, hh / 2 - 4); ctx.closePath(); ctx.fill();
+      label(); return { w, h: hh + 40 };
+    }
+    case 'arrow': {
+      const w = tw + padX * 2;
+      roundRect(ctx, -w / 2, -hh / 2 - 40, w, hh, 14); ctx.fillStyle = bg; ctx.fill();
+      const bob = Math.sin(t * 6) * 10;
+      ctx.beginPath(); ctx.moveTo(-30, hh / 2 - 30 + bob); ctx.lineTo(30, hh / 2 - 30 + bob); ctx.lineTo(0, hh / 2 + 22 + bob); ctx.closePath(); ctx.fill();
+      ctx.translate(0, -40); label(); return { w, h: hh + 120 };
+    }
+    case 'stamp': {
+      const w = tw + padX * 2;
+      ctx.rotate(-0.16); ctx.shadowColor = 'transparent';
+      ctx.lineWidth = 9; ctx.strokeStyle = bg; roundRect(ctx, -w / 2, -hh / 2, w, hh, 12); ctx.stroke();
+      ctx.lineWidth = 3; roundRect(ctx, -w / 2 + 12, -hh / 2 + 12, w - 24, hh - 24, 6); ctx.stroke();
+      ctx.fillStyle = bg; ctx.fillText(text, 0, size * 0.05); return { w: w + 20, h: hh + 40 };
+    }
+    case 'box': {
+      const w = tw + padX * 2;
+      ctx.fillStyle = bg; ctx.fillRect(-w / 2, -hh / 2, w, hh); label(); return { w, h: hh };
+    }
+    default: { // pill
+      const w = tw + padX * 2;
+      roundRect(ctx, -w / 2, -hh / 2, w, hh, hh / 2); ctx.fillStyle = bg; ctx.fill(); label(); return { w, h: hh };
+    }
+  }
+}
 export const STICKER_BADGES = [
   ['gol', 'GOL!'], ['var', 'VAR'], ['ofsayt', 'Ofsayt'], ['kirmizi', 'Kırmızı kart'], ['sari', 'Sarı kart'],
   ['penalti', 'Penaltı'], ['mvp', 'MVP'], ['live', 'Canlı'], ['vs', 'VS'], ['yeni', 'Yeni'], ['trend', 'Trend'], ['transfer', 'Transfer'],
@@ -155,7 +247,9 @@ export function drawSticker(ctx, L, t, env) {
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 18 * S; ctx.shadowOffsetY = 6 * S;
   let box = { w: 200, h: 200 };
-  if (L.glyph) {
+  if (L.sd) {
+    box = drawShapeSticker(ctx, L.sd, t);
+  } else if (L.glyph) {
     ctx.font = '170px "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(L.glyph, 0, 8);

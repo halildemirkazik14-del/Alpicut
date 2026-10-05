@@ -4,7 +4,7 @@ import { app, h, clone, fmt, toast, busy, uid, selected } from './state.js';
 import { I } from './icons.js';
 import { fields, openSheet, closeSheet, refreshSheet, itemStart, itemLen } from './sheets.js';
 import { COLOR_BASE, BUILTIN_LUTS, lutStore, parseCube, curveSamples, CURVE_IDENTITY, getGrader } from './gl.js';
-import { FX_LIST, FX_CATS, STICKER_EMOJI, STICKER_BADGES, applyLayerFx, drawSticker } from './fxlib.js';
+import { FX_LIST, FX_CATS, STICKER_EMOJI, STICKER_BADGES, STICKER_SETS, applyLayerFx, drawSticker } from './fxlib.js';
 import { decodeMono, findSilences, detectBeats, loudness, startMic } from './audiotools.js';
 import { layoutClips } from './engine.js';
 import { anim, RATIOS, FONTS, TEXT_BASE, TEXT_TEMPLATES } from './presets.js';
@@ -581,15 +581,17 @@ function stickerPreview(L) {
 
 export function openStickers(replace) {
   openSheet({
-    title: 'Çıkartmalar', tall: true, tabs: ['Futbol', 'Emoji'],
+    id: 'stickers', title: 'Çıkartmalar', tall: true, tabs: [...Object.keys(STICKER_SETS), 'Spor', 'Emoji'],
     render: (body, tab) => {
-      const grid = h('div', { class: 'stk-grid' });
-      const items = tab === 'Futbol' ? STICKER_BADGES.map(([id, n]) => ({ badge: id, name: n })) : STICKER_EMOJI.map((g) => ({ glyph: g, name: g }));
+      const grid = h('div', { class: `stk-grid${STICKER_SETS[tab] ? ' wide' : ''}` });
+      const items = tab === 'Spor' ? STICKER_BADGES.map(([id, n]) => ({ badge: id, name: n }))
+        : tab === 'Emoji' ? STICKER_EMOJI.map((g) => ({ glyph: g, name: g }))
+          : (STICKER_SETS[tab] || []).map((d) => ({ sd: d, name: d.text }));
       items.forEach((it) => {
-        const L = { kind: 'sticker', badge: it.badge, glyph: it.glyph };
+        const L = { kind: 'sticker', badge: it.badge, glyph: it.glyph, sd: it.sd };
         grid.append(h('button', { class: 'stk', title: it.name, onclick: () => {
-          if (replace) { replace.badge = it.badge; replace.glyph = it.glyph; app.change(true); closeSheet(); return; }
-          app.addLayer({ kind: 'sticker', badge: it.badge || null, glyph: it.glyph || null, size: 260, x: 0.5, y: 0.4, rot: 0, sc: 1, opacity: 1, anim: anim('pop', 'pop', 'none', 0.35) }, 2.5);
+          if (replace) { replace.badge = it.badge || null; replace.glyph = it.glyph || null; replace.sd = it.sd ? { ...it.sd } : null; app.change(true); closeSheet(); return; }
+          app.addLayer({ kind: 'sticker', badge: it.badge || null, glyph: it.glyph || null, sd: it.sd ? { ...it.sd } : null, size: 260, x: 0.5, y: 0.4, rot: 0, sc: 1, opacity: 1, anim: anim('pop', 'pop', 'none', 0.35) }, 2.5);
         } }, stickerPreview(L)));
       });
       body.append(grid);

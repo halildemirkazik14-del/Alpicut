@@ -944,60 +944,119 @@ export function wordTimings(cue) {
   return words.map((w, i) => { const s = acc; acc += (weights[i] / sum) * d; return { t: w, s, e: acc }; });
 }
 
+// v1.5 altyazı stili: eski "preset" alanı yeni ayrıntılı seçeneklere eşlenir
+const LEGACY = {
+  karaoke: { mode: 'line', hl: 'color', anim: 'fade' },
+  pop: { mode: 'group', group: 3, hl: 'color', anim: 'pop' },
+  single: { mode: 'single', hl: 'color', anim: 'pop', scale: 1.5 },
+  classic: { mode: 'line', hl: 'none', anim: 'fade' },
+  box: { mode: 'line', hl: 'none', anim: 'fade', box: 'line' },
+};
+export function capStyle(st0 = {}) {
+  const lg = st0.mode ? {} : (LEGACY[st0.preset] || LEGACY.karaoke);
+  return {
+    font: 'Barlow Condensed', weight: 800, size: 84, color: '#FFFFFF', accent: '#C084FC', strokeColor: '#000000', strokeW: 10,
+    upper: true, y: 0.72, x: 0.5, maxW: 0.84, maxLines: 2, boxColor: '#000000', boxOpacity: 0.72, boxRadius: 14, boxPad: 18,
+    mode: 'line', group: 3, hl: 'color', hlText: '#111111', anim: 'fade', box: 'none', shadow: 0.5, glow: 0, glowColor: '', italic: false,
+    spacing: 0, scale: 1, rot: 0, noPunct: false, pastColor: '', lineH: 1.15,
+    ...lg, ...st0,
+  };
+}
+
 export function drawSubtitles(ctx, subs, t, env) {
   if (!subs || !subs.cues?.length) return;
   const { W, H, S } = env;
-  const st = subs.style;
+  const st = capStyle(subs.style);
   const tt = t - (subs.offset || 0);
   const cue = subs.cues.find((c) => tt >= c.start && tt < c.end);
   if (!cue) return;
-  const words = wordTimings(cue).map((w) => ({ ...w, t: st.upper ? w.t.toLocaleUpperCase('tr-TR') : w.t }));
+  let words = wordTimings(cue).map((w) => {
+    let x = st.upper ? w.t.toLocaleUpperCase('tr-TR') : w.t;
+    if (st.noPunct) x = x.replace(/[.,;:!?…"“”]+$/g, '').replace(/^["“”]+/, '');
+    return { ...w, t: x };
+  }).filter((w) => w.t);
+  if (!words.length) return;
   let cur = words.findIndex((w) => tt >= w.s && tt < w.e);
-  if (cur < 0) cur = words.length - 1;
+  if (cur < 0) { cur = -1; for (let i = 0; i < words.length; i++) if (tt >= words[i].s) cur = i; if (cur < 0) cur = 0; }
   let show = words;
-  let preset = st.preset;
-  if (preset === 'pop') { const g = Math.floor(cur / 3) * 3; show = words.slice(g, g + 3); }
-  if (preset === 'single') show = [words[cur]];
-  const size = preset === 'single' ? st.size * 1.5 : st.size;
+  if (st.mode === 'group') { const g = Math.max(1, st.group | 0) ; const k = Math.floor(cur / g) * g; show = words.slice(k, k + g); }
+  if (st.mode === 'single') show = [words[cur]];
+  let size = st.size * (st.mode === 'single' ? (st.scale || 1.5) : (st.scale || 1));
   ctx.save();
-  ctx.font = `${st.weight} ${size}px "${st.font}", "Barlow", sans-serif`;
-  try { ctx.letterSpacing = '0px'; } catch (_) { /* yoksay */ }
+  const font = (sz) => `${st.italic ? 'italic ' : ''}${st.weight} ${sz}px "${st.font}", "Barlow", sans-serif`;
+  try { ctx.letterSpacing = `${st.spacing || 0}px`; } catch (_) { /* yoksay */ }
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
-  const spaceW = ctx.measureText(' ').width;
   const maxW = (st.maxW || 0.84) * W;
-  const lines = [];
-  let line = { ws: [], w: 0 };
-  show.forEach((w) => {
-    const ww = ctx.measureText(w.t).width;
-    if (line.ws.length && line.w + spaceW + ww > maxW) { lines.push(line); line = { ws: [], w: 0 }; }
-    line.w += (line.ws.length ? spaceW : 0) + ww; line.ws.push({ ...w, w: ww });
-  });
-  lines.push(line);
-  const lh = size * 1.15;
-  const cy = st.y * H;
+  let lines = [];
+  // satıra sığmazsa ve satır sayısı sınırı aşılırsa yazıyı küçült
+  for (let attempt = 0; attempt < 4; attempt++) {
+    ctx.font = font(size);
+    const spaceW = ctx.measureText(' ').width;
+    lines = [];
+    let line = { ws: [], w: 0 };
+    show.forEach((w) => {
+      const ww = ctx.measureText(w.t).width;
+      if (line.ws.length && line.w + spaceW + ww > maxW) { lines.push(line); line = { ws: [], w: 0 }; }
+      line.w += (line.ws.length ? spaceW : 0) + ww; line.ws.push({ ...w, w: ww });
+    });
+    lines.push(line);
+    lines.spaceW = spaceW;
+    const widest = Math.max(...lines.map((l) => l.w));
+    if (lines.length <= (st.maxLines || 2) && widest <= maxW * 1.02) break;
+    size *= 0.88;
+  }
+  const spaceW = lines.spaceW;
+  const lh = size * (st.lineH || 1.15);
+  const cx = (st.x ?? 0.5) * W, cy = st.y * H;
   const top = cy - (lines.length * lh) / 2;
-  // giriş animasyonu
-  const pin = clamp((tt - cue.start) / 0.15);
-  ctx.globalAlpha = pin;
+  // satır girişi
+  const age = tt - cue.start;
+  const pin = clamp(age / 0.16);
+  ctx.translate(cx, cy);
+  if (st.rot) ctx.rotate((st.rot * Math.PI) / 180);
+  if (st.anim === 'pop') { const k = 0.82 + 0.18 * easeOutBack(clamp(age / 0.2)); ctx.scale(k, k); }
+  if (st.anim === 'slide') ctx.translate(0, (1 - easeOutCubic(pin)) * size * 0.5);
+  ctx.translate(-cx, -cy);
+  ctx.globalAlpha = st.anim === 'none' ? 1 : pin;
+  const pad = (st.boxPad ?? 18);
+  if (st.box === 'block') {
+    const bw = Math.max(...lines.map((l) => l.w)) + pad * 2;
+    ctx.fillStyle = hexA(st.boxColor || '#000', st.boxOpacity ?? 0.72);
+    roundRect(ctx, cx - bw / 2, top - pad * 0.5, bw, lines.length * lh + pad, st.boxRadius ?? 14); ctx.fill();
+  }
+  const reveal = st.anim === 'typewriter' || st.anim === 'pop' || st.anim === 'words';
   lines.forEach((ln, li) => {
-    let x = W / 2 - ln.w / 2;
+    let x = cx - ln.w / 2;
     const y = top + li * lh + lh / 2;
-    if (preset === 'box') {
-      ctx.fillStyle = hexA(st.boxColor || '#000', 0.72);
-      roundRect(ctx, x - 22, y - lh / 2 - 4, ln.w + 44, lh + 8, 14); ctx.fill();
+    if (st.box === 'line') {
+      ctx.fillStyle = hexA(st.boxColor || '#000', st.boxOpacity ?? 0.72);
+      roundRect(ctx, x - pad, y - lh / 2 - 2, ln.w + pad * 2, lh + 4, st.boxRadius ?? 14); ctx.fill();
     }
     ln.ws.forEach((w) => {
-      const idx = words.indexOf(words.find((q) => q.s === w.s));
-      const active = idx === cur;
-      let s = 1;
-      if ((preset === 'pop' || preset === 'single')) { const wp = clamp((tt - w.s) / 0.12); s = 0.7 + 0.3 * easeOutBack(wp); if (tt < w.s) s = preset === 'single' ? 1 : 0.85; }
-            ctx.save();
-      ctx.translate(x + w.w / 2, y); ctx.scale(s, s); ctx.translate(-w.w / 2, 0);
-      if (preset === 'pop' && tt < w.s) ctx.globalAlpha *= 0.0;
-      if (st.strokeW > 0 && preset !== 'box') { ctx.strokeStyle = st.strokeColor; ctx.lineWidth = st.strokeW; ctx.strokeText(w.t, 0, 0); }
-      ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 10 * S;
-      ctx.fillStyle = (preset === 'karaoke' || preset === 'pop') && active ? st.accent : (preset === 'single' ? st.accent : st.color);
-      if (preset === 'classic' || preset === 'box') ctx.fillStyle = st.color;
+      const idx = words.indexOf(words.find((q) => q.s === w.s && q.t === w.t));
+      const active = idx === cur, past = idx < cur;
+      const spoken = tt >= w.s - 0.02;
+      if (reveal && !spoken && st.mode !== 'single') { x += w.w + spaceW; return; }
+      let sc = 1;
+      if (st.anim === 'pop' || st.anim === 'words') { const wp = clamp((tt - w.s) / 0.12); sc = 0.65 + 0.35 * easeOutBack(wp); }
+      if (active && st.hl === 'scale') sc *= 1.16;
+      ctx.save();
+      ctx.translate(x + w.w / 2, y); ctx.scale(sc, sc); ctx.translate(-w.w / 2, 0);
+      // etkin kelime vurgusu (kutu / alt çizgi)
+      if (active && st.hl === 'box') {
+        ctx.fillStyle = st.accent;
+        roundRect(ctx, -size * 0.14, -size * 0.58, w.w + size * 0.28, size * 1.12, size * 0.2); ctx.fill();
+      }
+      if (active && st.hl === 'underline') { ctx.fillStyle = st.accent; roundRect(ctx, 0, size * 0.46, w.w, size * 0.11, size * 0.05); ctx.fill(); }
+      let fill = st.color;
+      if (st.hl === 'karaoke' && (active || past)) fill = st.accent;
+      else if (active && (st.hl === 'color' || st.hl === 'scale' || st.hl === 'glow')) fill = st.accent;
+      else if (active && st.hl === 'box') fill = st.hlText || '#111';
+      else if (past && st.pastColor) fill = st.pastColor;
+      if (st.strokeW > 0 && !(active && st.hl === 'box')) { ctx.strokeStyle = st.strokeColor; ctx.lineWidth = st.strokeW; ctx.strokeText(w.t, 0, 0); }
+      if (st.glow > 0 || (active && st.hl === 'glow')) { ctx.shadowColor = st.glowColor || st.accent; ctx.shadowBlur = (st.glow > 0 ? st.glow : 30) * S * 1.4; }
+      else if (st.shadow > 0) { ctx.shadowColor = `rgba(0,0,0,${0.35 + st.shadow * 0.4})`; ctx.shadowBlur = 14 * st.shadow * S; ctx.shadowOffsetY = 3 * st.shadow * S; }
+      ctx.fillStyle = fill;
       ctx.fillText(w.t, 0, 0);
       ctx.restore();
       x += w.w + spaceW;

@@ -1,4 +1,7 @@
 // Alpicut — uygulama içinde sentezlenen ses efektleri (lisans gerektirmez)
+// v1.5: eski kimlikler yeni ses fabrikası kütüphanesine yönlenir (Alpi-co / otomatik kurgu uyumu)
+export const SFX_MAP = { whoosh: 'whoosh_air', riser: 'riser_noise2', pop: 'pop', boom: 'impact_boom', ding: 'ding', click: 'click', notif: 'notify', glitch: 'glitch_short', shutter: 'camera', whistle: 'whistle', crowd: 'crowd_cheer', swipe: 'swipe', vineboom: 'impact_meme', bigimpact: 'impact_cine', whooshhit: 'whoosh_hit', bassdrop: 'subdrop', cashreg: 'cash', coins: 'coin', airhorn: 'airhorn', scratch: 'glitch_scratch', boing: 'boing', sadtrombone: 'sad_trombone', dundun: 'dundun', drumroll: 'drumroll', rimshot: 'rimshot', correct: 'correct', wrong: 'wrong', suspense: 'tension_suspense', heartbeat: 'heartbeat', tick: 'tension_clock', typing: 'keyboard', laser: 'laser', magic: 'sparkle', swooshup: 'whoosh_up', swooshdown: 'whoosh_down', bubble: 'bubble', beeps: 'countdown', dingdong: 'dingdong', bell: 'subscribe_bell', slowmo: 'slowmo', stutter: 'glitch_mid', goalhorn: 'goal_horn' };
+
 export const SFX = [
   ['whoosh', 'Whoosh', 0.7],
   ['riser', 'Yükselen', 1.6],

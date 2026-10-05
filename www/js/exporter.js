@@ -5,7 +5,7 @@
 //   • Her kare tuvale çizilir ve donanım kodlayıcıya verilir (H.264/HEVC, olmazsa VP9/AV1)
 //   • Ses ayrıca, kayıpsız ve senkron karıştırılır (mixdown.js) → AAC (olmazsa Opus)
 //   • Sonuç her cihazda aynı, kare atlamasız MP4
-import * as MB from './lib/mediabunny.mjs';
+import * as MB from './lib/mediabunny.js';
 import { layoutClips, curvePts, curveSrc, flatLayers, projectDuration } from './engine.js';
 import { mixdown, fakeAnalyser } from './mixdown.js';
 

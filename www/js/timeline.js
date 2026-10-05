@@ -27,7 +27,7 @@ function itemLabel(l) {
   if (l.kind === 'social') return l.name || l.title || l.text || 'Sosyal';
   if (l.kind === 'fx') return FX_NAMES[l.effect] || 'Efekt';
   if (l.kind === 'adjust') return 'Renk ayarı';
-  if (l.kind === 'sticker') return l.glyph || (l.badge || '').toUpperCase();
+  if (l.kind === 'sticker') return l.sd?.text || l.glyph || (l.badge || '').toUpperCase();
   if (l.kind === 'shape') return { rect: 'Kutu', circle: 'Çember', line: 'Çizgi', arrow: 'Ok', frame: 'Çerçeve' }[l.shape] || 'Şekil';
   return '';
 }

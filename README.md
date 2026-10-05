@@ -2,6 +2,20 @@
 
 Dikey kısa videolar (Shorts / Reels / TikTok) için telefonda çalışan, temalı (Obsidyen, Altın, Gümüş, Gece, Beyaz, Yakut, Zümrüt + özel renk) video editörü.
 
+## v1.5 — sağlamlık ve kullanım kolaylığı
+- **Kare kare dışa aktarma:** video artık ekran kaydı gibi değil, her kare tek tek üretilerek oluşturulur (WebCodecs + [mediabunny](https://github.com/Vanilagy/mediabunny), MPL-2.0). Kare atlaması ve ses kayması yok; sonuç her telefonda aynı MP4. Ses ayrıca, kayıpsız karıştırılır; hızlandırılmış kliplerde ses perdesi korunur.
+- **Önce menü, sonra panel:** zaman çizelgesinde veya önizlemede bir öğeye dokununca küçük bir hızlı işlem menüsü açılır; hiçbir şey kendiliğinden kapanmaz/örtülmez.
+- **Açıklamalı kategori menüleri:** araç çubuğundaki her kategori, içindeki araçları açıklamalarıyla gösteren bir pencerede açılır.
+- **Keyframe şeridi videonun hemen altında:** ◀ ◆ ▶, öğenin keyframe'leri, OTO keyframe. Seçili klibi önizlemede iki parmakla yakınlaştır / tek parmakla kaydır — keyframe olarak yazılır.
+- **Yanlış dokunmaya karşı güvenli:** kaydırıcılar yalnızca tutamaçtan ya da basılı tutup kaydırınca değişir, her değişiklikte "↶ önceki değer" çıkar. Zaman çizelgesinde öğeyi taşımak için basılı tutmak gerekir; her düzenlemede "Geri al" bildirimi.
+- **Paneller videonun üstüne açılmaz;** küçültülen panel hareketle üst çubuğa uçar ve parlayan bir çip olarak kalır.
+- **Kaydırırken önizleme kararmaz.**
+- **Kurtarma kaydı:** uygulama çökse veya telefon kapansa bile son değişiklikler geri gelir. Hata olursa donmuş ekran yerine uyarı çıkar.
+- **Yeni ses kütüphanesi (Alpicut Ses Fabrikası):** 216 özgün, telifsiz efekt — whoosh, riser, gerilim, glitch, darbe/boom, braam, downlifter, pop, bildirim, komik, spor, ortam. Tamamı derlemede sentezlenir (`scripts/sfx-forge.mjs`).
+- **Altyazı şablonları:** 30 hazır görünüm (kelime vurgulu, kutulu, karaoke, neon, sinema, podcast…) ve ayrıntılı stil (vurgu tipi, animasyon, kutu, gölge, parlama). Otomatik altyazıda sessizlikte uydurulan kelimeler atılır, satırlar karakter sınırıyla bölünür.
+- **Yapay zekâ seçenekleri:** Claude, ChatGPT, DeepSeek, Gemini, Groq, Mistral, Grok, OpenRouter ve kendi OpenAI uyumlu sunucun (Ollama, LM Studio…). Groq ile ücretsiz kotalı Whisper large-v3 altyazı.
+- **Her sektöre şablon:** 153 yazı şablonu (vlog, seyahat, yemek, iş, eğitim, moda, fitness, oyun, e-ticaret, emlak, otel & mekan, düğün, motivasyon, müzik, komedi…), 27 proje şablonu, düzenlenebilir çıkartma setleri (satış, sosyal medya, bilgi, tepki, seyahat, yemek, etkinlik) ve genişletilmiş emoji.
+
 ## Özellikler
 - **Kesme / birleştirme:** klip ekle, kırp, böl, kopyala, sırala, hız ayarı
 - **Katmanlar:** video/foto üst katman (B-roll), kare/daire kesim, çerçeve, gölge

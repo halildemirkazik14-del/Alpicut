@@ -342,8 +342,16 @@ function renderRatioPick() {
   const box = $('ratioPick');
   box.textContent = '';
   Object.keys(RATIOS).forEach((r) => {
-    box.append(h('button', { class: app.newRatio === r ? 'on' : '', onclick: () => { app.newRatio = r; lsSet('alpicut.ratio', r); renderRatioPick(); } }, r));
+    const [w, hh] = RATIOS[r]; const k = 18 / Math.max(w, hh);
+    box.append(h('button', { class: app.newRatio === r ? 'on' : '', onclick: () => { app.newRatio = r; lsSet('alpicut.ratio', r); renderRatioPick(); } }, h('i', { class: 'rt', style: { width: `${Math.round(w * k)}px`, height: `${Math.round(hh * k)}px` } }), r));
   });
+  // hızlı şablonlar
+  const q = $('quickTpl');
+  if (q && !q.childElementCount) {
+    const pick = ['football', 'product', 'recipe', 'travel', 'hotel', 'podcast', 'fitness', 'edu', 'vlog', 'wedding', 'gaming', 'motivation'];
+    pick.map((id) => PROJECT_TEMPLATES.find((t) => t.id === id)).filter(Boolean).forEach((t) => q.append(h('button', { class: 'qt', onclick: () => newProject(t) }, h('span', { class: 'qt-ic' }, t.icon), h('b', {}, t.name))));
+    q.append(h('button', { class: 'qt more', onclick: openProjectTemplates }, h('span', { class: 'qt-ic', html: I.template }), h('b', {}, `Tümü · ${PROJECT_TEMPLATES.length}`)));
+  }
 }
 
 async function renderHome() {
@@ -472,6 +480,7 @@ async function openProject(id) {
 }
 
 function showEditor(P) {
+  WM.list().forEach((p) => WM.close(p, true)); // ana ekrandan kalan paneller (geçmişe dokunmadan)
   app.P = P;
   app.sel = null;
   app.undo = []; app.redo = [];
@@ -1407,16 +1416,28 @@ function freezeFrame() {
 }
 
 async function addSfx(id, name) {
-  const mid = `sfx-${id}`;
+  // v1.5: önce ses fabrikası kütüphanesi (sfx/*.ogg); yoksa uygulama içi sentez (eski kimlikler)
+  const { SFX_MAP } = await import('./sfx.js');
+  const lib = SFX_MAP[id] || id;
   try {
+    let mid = `sfxlib-${lib}`;
     if (!app.engine.media.has(mid)) {
       let rec = await store.getMedia(mid).catch(() => null);
       if (!rec) {
-        const r = await renderSfx(id);
-        rec = { id: mid, kind: 'audio', name: `SFX · ${name}`, blob: r.blob, duration: r.duration, w: 0, h: 0, thumb: null };
+        let blob = null;
+        try { const r = await fetch(`sfx/${lib}.ogg`); if (r.ok) blob = await r.blob(); } catch (_) { /* yok */ }
+        if (blob) {
+          const dur = await new Promise((res) => { const a = new Audio(); a.preload = 'metadata'; a.onloadedmetadata = () => res(isFinite(a.duration) ? a.duration : 1); a.onerror = () => res(1); a.src = URL.createObjectURL(blob); });
+          rec = { id: mid, kind: 'audio', name: `SFX · ${name}`, blob, duration: dur, w: 0, h: 0, thumb: null };
+        } else {
+          mid = `sfx-${id}`;
+          rec = await store.getMedia(mid).catch(() => null);
+          if (!rec) { const r = await renderSfx(id); rec = { id: mid, kind: 'audio', name: `SFX · ${name}`, blob: r.blob, duration: r.duration, w: 0, h: 0, thumb: null }; }
+        }
         try { await store.putMedia(rec); } catch (_) { /* yoksay */ }
       }
-      registerMedia(rec);
+      if (!app.engine.media.has(rec.id)) registerMedia(rec);
+      mid = rec.id;
     }
     const m = app.engine.media.get(mid);
     const a = { ...newAudio(m, app.engine.t), sfx: true };
