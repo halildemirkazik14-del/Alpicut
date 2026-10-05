@@ -22,9 +22,19 @@ export function fmt(t, dec = true) {
 }
 
 let toastTimer = null;
-export function toast(msg, ms = 2400) {
+// action: { label, fn } — örn. "Geri al" düğmesi
+export function toast(msg, ms = 2400, action = null) {
   const el = $('toast');
-  el.textContent = msg;
+  el.textContent = '';
+  el.append(document.createTextNode(msg));
+  el.classList.toggle('act', !!action);
+  if (action) {
+    const b = document.createElement('button');
+    b.className = 'toast-act';
+    b.textContent = action.label;
+    b.addEventListener('click', (e) => { e.stopPropagation(); el.classList.remove('show'); clearTimeout(toastTimer); action.fn(); });
+    el.append(b);
+  }
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), ms);

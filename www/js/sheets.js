@@ -53,7 +53,7 @@ app.__sheets = { fields: (...a) => fields(...a) };
 export function fields(obj, list, opts = {}) {
   const frag = document.createDocumentFragment();
   const change = (f, v, final) => {
-    if (f.kf) writeProp(obj, f.kf, localT(obj), v);
+    if (f.kf) (app.autoKey ? setKey : writeProp)(obj, f.kf, localT(obj), v);
     else setPath(obj, f.path, v);
     if (f.post) f.post(obj, v);
     app.change(final);
@@ -969,7 +969,8 @@ export function openExport() {
   const short = Math.min(W, H);
   const opt = { q: 1080, fps: 30, limit: 0 };
   const mime = Engine.pickMime();
-  const fmtName = mime == null ? 'Desteklenmiyor' : (mime.includes('mp4') ? 'MP4' : 'WebM');
+  const offline = typeof window.VideoEncoder === 'function' && typeof window.AudioEncoder === 'function';
+  const fmtName = offline ? 'MP4' : mime == null ? 'Desteklenmiyor' : (mime.includes('mp4') ? 'MP4' : 'WebM');
   const dur = app.engine.duration();
   let cancel = false;
 
@@ -991,11 +992,13 @@ export function openExport() {
       const low = vb < 1.2e6;
       card.append(h('p', { class: 'hint', html: `Hedef video bitrate ≈ <b>${(vb / 1e6).toFixed(1)} Mbps</b>. Sonuç ölçülür; sınır aşılırsa daha düşük kalitede otomatik yeniden oluşturulur (en fazla 2 kez).${low ? '<br><b>Uyarı:</b> Bu süre için sınır dar, görüntü kalitesi düşebilir. 720p seçmek daha temiz sonuç verir.' : ''}` }));
     }
-    card.append(h('p', { class: 'hint', html: 'Video gerçek zamanlı oluşturulur (30 sn video ≈ 30 sn). Bu sırada ekranı kapatma ve uygulamadan çıkma.' }));
+    card.append(h('p', { class: 'hint', html: offline
+      ? '<b>Kare kare dışa aktarma:</b> her kare tek tek üretilir — kare atlaması, ses kayması yok. Süre telefonun hızına bağlıdır. Bu sırada uygulamadan çıkma.'
+      : 'Video gerçek zamanlı oluşturulur (30 sn video ≈ 30 sn). Bu sırada ekranı kapatma ve uygulamadan çıkma.' }));
     if (fmtName === 'WebM') card.append(h('p', { class: 'hint', html: 'Not: Bu cihaz MP4 kaydını desteklemiyor, video <b>WebM</b> olarak çıkacak. YouTube kabul eder.' }));
     card.append(h('div', { class: 'btn-row' },
       h('button', { class: 'btn', onclick: close }, 'Vazgeç'),
-      h('button', { class: 'btn primary', html: `${I.export} Oluştur`, onclick: start, disabled: mime == null })));
+      h('button', { class: 'btn primary', html: `${I.export} Oluştur`, onclick: start, disabled: mime == null && !offline })));
     card.append(h('button', { class: 'btn block', style: { marginTop: '4px' }, html: `${I.media} Bu kareyi PNG kaydet`, onclick: saveFrame }));
   };
 
@@ -1026,12 +1029,19 @@ export function openExport() {
       card.textContent = '';
       const bar = h('i');
       const pctEl = h('div', { class: 'big-pct' }, '0%');
-      card.append(h('h3', {}, attempt > 1 ? `Yeniden oluşturuluyor (${attempt}/3)…` : 'Video oluşturuluyor…'), pctEl, h('div', { class: 'progress' }, bar),
+      const stageEl = h('p', { class: 'hint', style: { textAlign: 'center', margin: '0' } }, '');
+      card.append(h('h3', {}, attempt > 1 ? `Yeniden oluşturuluyor (${attempt}/3)…` : 'Video oluşturuluyor…'), pctEl, h('div', { class: 'progress' }, bar), stageEl,
         h('p', { class: 'hint', html: attempt > 1 ? `Önceki deneme sınırı aştı (${note}). Bitrate düşürüldü: <b>${(br / 1e6).toFixed(2)} Mbps</b>.` : 'Ekranı açık tut. Önizlemede ilerlemeyi görebilirsin.' }),
         h('button', { class: 'btn block', onclick: () => { cancel = true; } }, 'İptal'));
       out = null;
       try {
-        out = await app.engine.export({ res, fps: opt.fps, bitrate: br, abr, onProgress: (p) => { bar.style.width = `${p * 100}%`; pctEl.textContent = `${Math.round(p * 100)}%`; }, shouldCancel: () => cancel });
+        const t0 = performance.now();
+        out = await app.engine.export({ res, fps: opt.fps, bitrate: br, abr, onStage: (s) => { stageEl.textContent = s; },
+          onProgress: (p) => {
+            bar.style.width = `${p * 100}%`; pctEl.textContent = `${Math.round(p * 100)}%`;
+            const el = (performance.now() - t0) / 1000;
+            if (p > 0.15 && p < 0.99 && el > 3) { const rem = Math.max(0, (el / p) * (1 - p)); stageEl.dataset.eta = rem > 90 ? `~${Math.round(rem / 60)} dk kaldı` : `~${Math.round(rem)} sn kaldı`; stageEl.textContent = `${(stageEl.textContent || '').split(' · ')[0]} · ${stageEl.dataset.eta}`; }
+          }, shouldCancel: () => cancel });
       } catch (e) {
         console.error(e);
         toast(`Hata: ${e.message || e}`, 4000);

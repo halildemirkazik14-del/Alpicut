@@ -3,10 +3,10 @@ import { h } from './state.js';
 import { lsGet, lsSet } from './storage.js';
 
 export const THEMES = {
-  obsidian: { name: 'Obsidyen', desc: 'Koyu, mor vurgulu (varsayılan)', scheme: 'dark',
-    bg: '#0B0A10', bg2: '#100E17', surface: '#16141E', surface2: '#1F1C2A', surface3: '#2A2638', line: '#302B42', line2: '#1E1B2A',
-    primary: '#8B5CF6', primary2: '#A78BFA', primary3: '#C9BBFD', accent: '#E879F9', text: '#F4F2FA', text2: '#D8D3E8', muted: '#9A93AF', onPrimary: '#FFFFFF',
-    grad: 'linear-gradient(135deg, #A78BFA 0%, #8B5CF6 45%, #6D28D9 100%)', preview: '#06050A' },
+  obsidian: { name: 'Obsidyen', desc: 'Grafit siyah, ağırbaşlı mor (varsayılan)', scheme: 'dark',
+    bg: '#09090C', bg2: '#0E0D12', surface: '#15141B', surface2: '#1C1B24', surface3: '#272532', line: '#2D2B39', line2: '#1A1921',
+    primary: '#8467F4', primary2: '#A792FF', primary3: '#D3C9FF', accent: '#C4B5FD', text: '#F2F1F6', text2: '#CFCCDA', muted: '#8C889C', onPrimary: '#FFFFFF',
+    grad: 'linear-gradient(160deg, #9A82FF 0%, #8467F4 55%, #6A4FDB 100%)', preview: '#050507' },
   gold: { name: 'Altın', desc: 'Siyah üzerine altın — lüks', scheme: 'dark',
     bg: '#0A0907', bg2: '#0F0D0A', surface: '#16140F', surface2: '#1F1C15', surface3: '#2B271D', line: '#3A3326', line2: '#1F1B14',
     primary: '#D4AF37', primary2: '#E6C766', primary3: '#F3DFA2', accent: '#F59E0B', text: '#F8F4E9', text2: '#E6DCC4', muted: '#A99F88', onPrimary: '#1A1406',

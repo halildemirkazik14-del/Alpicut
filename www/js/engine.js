@@ -306,6 +306,8 @@ export class Engine {
   elFor(item) {
     const m = this.media.get(item.mediaId);
     if (!m) return null;
+    // kare kare dışa aktarmada: çözülmüş kaynak karesi
+    if (this.frameFor && m.kind === 'video') { const c = this.frameFor(item); if (c) return c; }
     if (m.kind === 'image') {
       let img = this.imgs.get(m.id);
       if (!img) {
@@ -326,7 +328,10 @@ export class Engine {
       el.setAttribute('playsinline', '');
       el.setAttribute('webkit-playsinline', '');
       el.src = m.url;
-      el.addEventListener('seeked', () => this.requestDraw());
+      el.addEventListener('seeked', () => {
+        if (el._want != null && !this.playing && Math.abs(el.currentTime - el._want) > 0.04) { const w = el._want; el._want = null; try { el.currentTime = w; } catch (_) { /* yoksay */ } }
+        this.requestDraw();
+      });
       el.addEventListener('loadeddata', () => this.requestDraw());
       // Android WebView: duraklatılmış videoda ilk kare, bir arama yapılana kadar çözülmez (siyah önizleme)
       el.addEventListener('loadedmetadata', () => { if (el.paused && el.readyState < 2) { try { el.currentTime = Math.max(0.001, el.currentTime || 0); } catch (_) { /* yoksay */ } } this.requestDraw(); });
@@ -351,6 +356,9 @@ export class Engine {
       if (el.paused) { const p = el.play(); if (p && p.catch) p.catch(() => {}); }
     } else {
       if (!el.paused) el.pause();
+      // v1.5: arama sürerken yeni arama yığma (kaydırırken görüntü donmasın/kararmasın); bitince en son hedefe git
+      if (el.seeking) { el._want = srcT; return; }
+      el._want = null;
       if (Math.abs(el.currentTime - srcT) > 0.04) el.currentTime = srcT;
       else if (el.readyState < 2 && !el.seeking && el.readyState >= 1 && (!el._nudge || performance.now() - el._nudge > 600)) { el._nudge = performance.now(); try { el.currentTime = srcT + 0.001; } catch (_) { /* yoksay */ } }
     }
@@ -417,7 +425,7 @@ export class Engine {
   }
 
   // ---------- çizim ----------
-  env() { return { W: this.W, H: this.H, S: this.scale, exporting: this.exporting, img: (id) => this.imgForMedia(id), seg: this.seg, elFor: (it) => this.elFor(it), analyser: this.preMeter, playing: this.playing }; }
+  env() { return { W: this.W, H: this.H, S: this.scale, exporting: this.exporting, img: (id) => this.imgForMedia(id), seg: this.seg, elFor: (it) => this.elFor(it), analyser: this.offAnalyser || this.preMeter, playing: this.playing }; }
 
   imgForMedia(id) {
     const m = this.media.get(id);
@@ -565,7 +573,16 @@ export class Engine {
 
   _loop() {
     this._raf = requestAnimationFrame(this._loop);
-    if (!this.P) return;
+    if (!this.P || this.offline) return;
+    try { this._tick(); } catch (e) {
+      // çizim hatası her karede tekrarlanmasın: bildir ve oynatmayı durdur
+      const now = performance.now();
+      if (!this._errAt || now - this._errAt > 4000) { this._errAt = now; import('./guard.js').then((g) => { g.logError('draw', e); g.showCrash(e.message || String(e)); }); }
+      this.playing = false;
+    }
+  }
+
+  _tick() {
     if (this.playing) {
       const d = this.duration();
       this.t = this._t0 + (performance.now() - this._n0) / 1000;
@@ -603,7 +620,24 @@ export class Engine {
     return list.find((m) => { try { return MediaRecorder.isTypeSupported(m); } catch (_) { return false; } }) || '';
   }
 
-  async export({ res = 1, fps = 30, bitrate = 10e6, abr = 192000, onProgress, shouldCancel } = {}) {
+  // v1.5: önce kare kare (çevrimdışı) dışa aktarma; desteklenmezse eski gerçek zamanlı kayıt
+  async export(opts = {}) {
+    const { offlineSupported, exportOffline } = await import('./exporter.js');
+    if (offlineSupported() && !opts.legacy) {
+      try {
+        const r = await exportOffline(this, opts);
+        return r;
+      } catch (e) {
+        console.warn('Kare kare dışa aktarma olmadı, eski yönteme geçiliyor', e);
+        try { (await import('./guard.js')).logError('export-offline', e); } catch (_) { /* yoksay */ }
+        if (opts.shouldCancel?.()) return null;
+        opts.onStage?.('Uyumluluk modu: gerçek zamanlı kayıt…');
+      }
+    }
+    return this.exportRealtime(opts);
+  }
+
+  async exportRealtime({ res = 1, fps = 30, bitrate = 10e6, abr = 192000, onProgress, shouldCancel } = {}) {
     if (!window.MediaRecorder || !this.canvas.captureStream) throw new Error('Bu cihaz video kaydını desteklemiyor.');
     this.playing = false;
     this.ensureAudio();

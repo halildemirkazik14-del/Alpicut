@@ -1,4 +1,5 @@
 // Alpicut — ana uygulama
+import { journal, flushJournal, journalSaved, recoveryFor, setSaveHook } from './guard.js';
 import { app, $, h, uid, clone, fmt, toast, busy, selected } from './state.js';
 import { I, LOGO } from './icons.js';
 import { Engine, layoutClips, curvePts } from './engine.js';
@@ -30,9 +31,14 @@ import {
 } from './sheets.js';
 import { store, lsGet, lsSet, isNative } from './storage.js';
 import { parseSRT } from './srt.js';
+import { openPop, closePop, isPopOpen } from './popover.js';
+import { openCaptionStyles } from './captions.js';
+import { renderKfBar, updateKfBar } from './kfbar.js';
+import { clipAt, CLIP_PROPS } from './kf.js';
 
 // ---------- başlat ----------
 function init() {
+  setSaveHook(() => { flushJournal(); if (app.P) saveNow(); });
   $('brandLogo').innerHTML = LOGO;
   $('btnTheme').innerHTML = I.palette;
   $('btnTheme').addEventListener('click', () => openThemePicker());
@@ -89,6 +95,7 @@ function init() {
 
   window.addEventListener('popstate', () => {
     if (window.__skipPop > 0) { window.__skipPop--; return; }
+    if (isPopOpen()) { closePop(); try { history.pushState(history.state || { v: 'editor' }, ''); } catch (_) { /* yoksay */ } return; }
     if (isSheetOpen()) { closeSheet(true); if (isSheetOpen()) { try { history.pushState({ v: 'sheet' }, ''); } catch (_) { /* yoksay */ } } return; }
     if (!$('exportModal').classList.contains('hidden')) { try { history.pushState({ v: 'editor' }, ''); } catch (_) { /* yoksay */ } return; }
     if (!$('editor').classList.contains('hidden')) goHome(true);
@@ -133,32 +140,98 @@ function selLabel() {
   return `${KIND_NAME[o.kind] || 'Katman'} · ${nm || ''}`;
 }
 
+// [ikon, ad, işlev, sınıf, açıklama] — kategoriye dokununca açıklamalı açılır menüde gösterilir
 const TOOL_CATS = [
   { id: 'alpico', name: 'Alpi-co', icon: 'bot', cls: 'ai', direct: () => openAlpico() },
-  { id: 'ai', name: 'Yapay zekâ', icon: 'ai', tools: () => [
-    ['wand', 'Otomatik kurgu', () => openAutoEdit(), 'ai'], ['subtitle', 'Otomatik altyazı', () => openAutoCaptions()], ['scissors', 'Jumpcut', () => runCommand('jumpcut', {})],
-    ['adjust', 'Arka plan sil', () => aiTarget('Arka plan')], ['color', 'Chroma key', () => aiTarget('Chroma')], ['mic', 'Seslendirme', () => openTTS()],
-    ['edit', 'Metinden kurgu', () => openTranscript()], ['ratio', 'Akıllı kadraj', () => aiReframe()], ['doctor', 'Proje kontrolü', () => openDoctor()], ['key', 'Hesaplar', () => openAccounts()],
+  { id: 'ai', name: 'Yapay zekâ', icon: 'ai', desc: 'Otomatik kurgu, altyazı, arka plan silme', tools: () => [
+    ['wand', 'Otomatik kurgu', () => openAutoEdit(), 'ai', 'Claude / ChatGPT / DeepSeek tüm kurguyu yapar'], ['subtitle', 'Otomatik altyazı', () => openAutoCaptions(), '', 'Konuşmayı kelime kelime yazıya döker'], ['scissors', 'Jumpcut', () => runCommand('jumpcut', {}), '', 'Konuşmadaki boşlukları keser'],
+    ['adjust', 'Arka plan sil', () => aiTarget('Arka plan'), '', 'Yeşil perde olmadan kişiyi ayır'], ['color', 'Chroma key', () => aiTarget('Chroma'), '', 'Yeşil/mavi perdeyi sil'], ['mic', 'Seslendirme', () => openTTS(), '', 'Metni doğal sesle okut'],
+    ['edit', 'Metinden kurgu', () => openTranscript(), '', 'Kelimeleri silerek videoyu kes'], ['ratio', 'Akıllı kadraj', () => aiReframe(), '', 'Yatay videoda yüzü takip et'], ['doctor', 'Proje kontrolü', () => openDoctor(), '', 'Hataları bul, tek dokunuşla düzelt'], ['key', 'Hesaplar', () => openAccounts(), '', 'Claude, ChatGPT, DeepSeek, Gemini…'],
   ] },
-  { id: 'text', name: 'Metin', icon: 'text', tools: () => [
-    ['text', 'Yazı ekle', () => addLayer(clone(TEXT_BASE))], ['template', 'Şablonlar', () => openTemplates()], ['subtitle', 'Altyazı', openSubsMenu],
-    ['cta', 'Çağrı butonu', openCTAs], ['score', 'Skor kartı', openScoreMenu],
+  { id: 'text', name: 'Metin', icon: 'text', desc: 'Yazı, şablon, altyazı', tools: () => [
+    ['text', 'Yazı ekle', () => addLayer(clone(TEXT_BASE)), '', 'Boş yazı katmanı'], ['template', 'Yazı şablonları', () => openTemplates(), '', 'Yüzlerce hazır başlık ve etiket'], ['subtitle', 'Altyazı', openSubsMenu, '', 'Otomatik, SRT veya elle'],
+    ['brand', 'Altyazı şablonları', () => openCaptionStyles(), '', 'Hazır altyazı görünümleri'], ['cta', 'Çağrı butonu', openCTAs, '', 'Abone ol, beğen, takip et'], ['score', 'Skor kartı', openScoreMenu, '', 'Maç skoru tabelası'],
   ] },
-  { id: 'audio', name: 'Ses', icon: 'audio', tools: () => [
-    ['audio', 'Müzik', openMusicLibrary], ['sfx', 'Ses efekti', openSfxLibrary], ['mic', 'Kayıt stüdyosu', openMic], ['bot', 'Seslendirme', () => openTTS()],
-    ['upload', 'Ses dosyası', () => addMedia('audio')], ['mixer', 'Mikser', openMixer], ['beat', 'Ses dalgası', addWave],
+  { id: 'audio', name: 'Ses', icon: 'audio', desc: 'Müzik, efekt, kayıt', tools: () => [
+    ['audio', 'Müzik', openMusicLibrary, '', 'Telifsiz müzik kütüphanesi'], ['sfx', 'Ses efekti', openSfxLibrary, '', 'Whoosh, riser, gerilim, glitch…'], ['mic', 'Kayıt stüdyosu', openMic, '', 'Mikrofonla seslendirme kaydet'], ['bot', 'Seslendirme', () => openTTS(), '', 'Metinden sese'],
+    ['upload', 'Ses dosyası', () => addMedia('audio'), '', 'Telefondan ses/müzik ekle'], ['mixer', 'Mikser', openMixer, '', 'Seviyeler, ducking, limiter'], ['beat', 'Ses dalgası', addWave, '', 'Müziğe tepki veren çubuklar'],
   ] },
-  { id: 'fx', name: 'Efekt', icon: 'fx', tools: () => [
-    ['fx', 'Efektler', () => openEffects()], ['filter', 'Filtreler', () => openFilterLayer()], ['trans', 'Geçişler', () => openTransitions()], ['adjust', 'Renk katmanı', addAdjustLayer], ['anim', 'Genel ayar', openFx], ['sticker', 'Çıkartma', () => openStickers()], ['shape', 'Şekil', openShapes],
+  { id: 'fx', name: 'Efekt', icon: 'fx', desc: 'Efekt, filtre, geçiş, çıkartma', tools: () => [
+    ['fx', 'Efektler', () => openEffects(), '', 'Sarsıntı, glitch, zoom, ışık sızıntısı'], ['filter', 'Filtreler', () => openFilterLayer(), '', 'Sinematik renk görünümleri'], ['trans', 'Geçişler', () => openTransitions(), '', '120+ sinematik geçiş'], ['adjust', 'Renk katmanı', addAdjustLayer, '', 'Bir aralığa renk ayarı'],
+    ['anim', 'Genel ayar', openFx, '', 'Vinyet, gren, sinema şeridi'], ['sticker', 'Çıkartma', () => openStickers(), '', 'Rozet, emoji, etiket'], ['shape', 'Şekil', openShapes, '', 'Ok, çember, çerçeve'],
   ] },
-  { id: 'social', name: 'Sosyal', icon: 'bubble', tools: () => [
-    ['bubble', 'Sosyal şablon', () => openSocial()], ['cta', 'Abone / beğeni', () => openSocial('Abone & beğen')], ['chat', 'Sohbet', () => openSocial('Sohbet')], ['brand', 'Marka kiti', openBrand],
+  { id: 'social', name: 'Sosyal', icon: 'bubble', desc: 'Sosyal medya şablonları', tools: () => [
+    ['bubble', 'Sosyal şablon', () => openSocial(), '', 'Yorum, bildirim, anket…'], ['cta', 'Abone / beğeni', () => openSocial('Abone & beğen'), '', 'Tıklama animasyonlu'], ['chat', 'Sohbet', () => openSocial('Sohbet'), '', 'Mesaj balonları'], ['brand', 'Marka kiti', openBrand, '', 'Renk, yazı tipi, logo'],
   ] },
-  { id: 'edit', name: 'Düzen', icon: 'edit', tools: () => [
-    ['layer', 'Katman ekle', () => addMedia('layer')], ['ratio', 'Oran', openRatio], ['marker', 'İşaret', toggleMarker], ['check', 'Çoklu seç', startMulti], ['cover', 'Kapak', openCover], ['palette', 'Tema', () => openThemePicker()],
+  { id: 'edit', name: 'Düzen', icon: 'edit', desc: 'Katman, oran, kapak', tools: () => [
+    ['layer', 'Katman ekle', () => addMedia('layer'), '', 'Video/foto üst katman (B-roll)'], ['ratio', 'Oran', openRatio, '', '9:16, 1:1, 16:9…'], ['marker', 'İşaret', toggleMarker, '', 'Oynatıcıya işaret koy'], ['check', 'Çoklu seç', startMulti, '', 'Katmanları grupla/sil'],
+    ['cover', 'Kapak', openCover, '', 'Thumbnail tasarla'], ['palette', 'Tema', () => openThemePicker(), '', 'Arayüz renkleri'],
   ] },
   { id: 'fav', name: 'Favoriler', icon: 'star', direct: () => openFavorites() },
 ];
+
+// v1.5: kategori menüsü — açıklamalı kartlarla açılır pencere
+function openCategory(c, btn) {
+  const r = (btn || $('toolbar')).getBoundingClientRect();
+  openPop({
+    key: `cat:${c.id}`, anchor: { x: r.left + r.width / 2, y: $('toolbar').getBoundingClientRect().top }, place: 'above', variant: 'cards', cols: 2, wide: true,
+    title: c.name, sub: c.desc, icon: c.icon,
+    items: c.tools().map(([ic, label, fn, cls, desc]) => ({ icon: ic, label, desc, cls, fn: () => { app.pause(); fn(); } })),
+  });
+}
+
+// v1.5: öğeye dokununca önce hızlı işlem menüsü (denetçi otomatik açılmaz — hiçbir şey kapanmaz)
+function itemMenu(anchor, place = 'above') {
+  const s = app.sel, o = selected();
+  if (!s || !o) return;
+  const insp = (tab) => () => openInspector(tab);
+  let items = [];
+  if (o.locked) items = [{ icon: 'unlock', label: 'Kilidi aç', fn: () => { o.locked = false; commit(); renderToolbar(); } }];
+  else if (s.type === 'clip') {
+    const isV = o.type === 'video' && !o.freeze;
+    items = [
+      { icon: 'edit', label: 'Düzenle', fn: insp('Düzen') }, { icon: 'split', label: 'Böl', fn: () => splitSel() },
+      isV && { icon: 'curve', label: 'Hız', fn: insp('Düzen') }, isV && { icon: 'sfx', label: 'Ses', fn: insp('Ses') },
+      { icon: 'diamond', label: 'Keyframe', fn: insp('Keyframe') }, { icon: 'trans', label: 'Geçiş', fn: insp('Geçiş') },
+      { icon: 'color', label: 'Renk', fn: insp('Renk') }, { icon: 'filter', label: 'Filtre', fn: () => openFilters(o) },
+      { icon: 'fx', label: 'Efekt', fn: () => openEffects() }, { icon: 'shape', label: 'Maske', fn: insp('Maske') },
+      { icon: 'adjust', label: 'Arka plan', fn: insp('Arka plan') }, isV && { icon: 'freeze', label: 'Dondur', fn: freezeFrame },
+      isV && { icon: 'reverse', label: 'Ters', fn: () => reverseClip(o) }, { icon: 'copy', label: 'Kopyala', fn: dupSel },
+      { icon: 'trash', label: 'Sil', cls: 'danger', fn: delSel },
+    ];
+  } else if (s.type === 'layer') {
+    const tabs = LAYER_TABS[o.kind] || [];
+    items = tabs.map((t) => ({ icon: TAB_ICON[t] || 'edit', label: t, fn: insp(t) }));
+    items.push({ icon: 'split', label: 'Böl', fn: () => splitSel() }, { icon: 'up', label: 'Öne', fn: () => layerOrder(1) }, { icon: 'down', label: 'Arkaya', fn: () => layerOrder(-1) },
+      { icon: o.hidden ? 'eyeOff' : 'eye', label: o.hidden ? 'Göster' : 'Gizle', fn: () => { o.hidden = !o.hidden; commit(); renderToolbar(); } },
+      { icon: 'lock', label: 'Kilitle', fn: () => { o.locked = true; commit(); renderToolbar(); } },
+      { icon: 'copy', label: 'Kopyala', fn: dupSel }, { icon: 'trash', label: 'Sil', cls: 'danger', fn: delSel });
+  } else if (s.type === 'audio') {
+    items = [
+      { icon: 'sfx', label: 'Ses', fn: insp('Ses') }, { icon: 'mixer', label: 'EQ / grup', fn: insp('Efekt') }, { icon: 'diamond', label: 'Keyframe', fn: insp('Keyframe') },
+      { icon: 'split', label: 'Böl', fn: () => splitSel() }, { icon: 'silence', label: 'Sessizlik', fn: () => openSilence(o, 'audio') }, { icon: 'beat', label: 'Ritim bul', fn: () => findBeats(o) },
+      { icon: 'adjust', label: 'Seviye eşitle', fn: () => normalizeItem(o) }, { icon: 'mic', label: 'Stüdyo ses', fn: () => studioClean(o) },
+      { icon: o.mute ? 'mute' : 'sfx', label: o.mute ? 'Sesi aç' : 'Sessiz', fn: () => { o.mute = !o.mute; commit(); renderToolbar(); } },
+      { icon: 'copy', label: 'Kopyala', fn: dupSel }, { icon: 'trash', label: 'Sil', cls: 'danger', fn: delSel },
+    ];
+  } else if (s.type === 'subs') {
+    items = [
+      { icon: 'brand', label: 'Şablonlar', fn: () => openCaptionStyles() }, { icon: 'palette', label: 'Stil', fn: insp('Stil') },
+      { icon: 'text', label: 'Satırlar', fn: insp('Satırlar') }, { icon: 'edit', label: 'Ayarlar', fn: insp('Ayarlar') },
+      { icon: 'trash', label: 'Tümünü sil', cls: 'danger', fn: delSel },
+    ];
+  }
+  openPop({ key: `item:${s.type}:${s.id}`, anchor, place, title: selLabel(), variant: 'grid', cols: 5, items: items.filter(Boolean).map((it) => ({ ...it, fn: () => { app.pause(); it.fn(); } })) });
+}
+
+const LAYER_TABS = {
+  text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'], media: ['Düzen', 'Arka plan', 'Chroma', 'Maske', 'Renk', 'Animasyon', 'Keyframe', 'Konum'],
+  group: ['Grup', 'Animasyon', 'Keyframe', 'Konum'], wave: ['Dalga', 'Animasyon', 'Keyframe', 'Konum'],
+  cta: ['Buton', 'Animasyon', 'Keyframe', 'Konum'], score: ['Skor', 'Animasyon', 'Keyframe', 'Konum'], shape: ['Şekil', 'Animasyon', 'Keyframe', 'Konum'],
+  sticker: ['Çıkartma', 'Animasyon', 'Keyframe', 'Konum'], fx: ['Efekt', 'Zaman'], adjust: ['Renk', 'Zaman'],
+  social: ['İçerik', 'Animasyon', 'Keyframe', 'Konum'],
+};
+const TAB_ICON = { Dalga: 'beat', Grup: 'layer', 'Arka plan': 'adjust', İçerik: 'edit', Metin: 'text', Stil: 'brand', Animasyon: 'anim', Keyframe: 'diamond', Konum: 'layer', Düzen: 'edit', Maske: 'shape', Renk: 'color', Chroma: 'adjust', Buton: 'cta', Skor: 'score', Şekil: 'shape', Çıkartma: 'sticker', Efekt: 'fx', Zaman: 'versions' };
 
 function addWave() { addLayer({ kind: 'wave', style: 'mirror', bars: 36, w: 0.8, h: 0.16, color: '#A855F7', color2: '#22D3EE', glow: true, x: 0.5, y: 0.6, rot: 0, sc: 1, opacity: 1, kf: {}, anim: anim('fade', 'fade') }, 5); }
 
@@ -201,7 +274,10 @@ function renderToolbar() {
       return;
     }
     tool('media', 'Medya', () => addMedia('clip'), 'primary');
-    TOOL_CATS.forEach((c) => tool(c.icon, c.name, () => { if (c.direct) { c.direct(); return; } app.tbCat = c.id; renderToolbar(); bar.scrollLeft = 0; }, `tool-cat ${c.cls || ''}`));
+    TOOL_CATS.forEach((c) => {
+      const b = h('button', { class: `tool tool-cat ${c.cls || ''}`, onclick: () => { app.pause(); if (c.direct) { c.direct(); return; } openCategory(c, b); } }, h('span', { class: 'ti', html: I[c.icon] || I.edit }), c.name);
+      bar.append(b);
+    });
     return;
   }
   bar.classList.add('ctx');
@@ -229,15 +305,8 @@ function renderToolbar() {
     tool('copy', 'Kopyala', dupSel);
     tool('trash', 'Sil', delSel, 'danger');
   } else if (s.type === 'layer') {
-    const tabs = {
-      text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'], media: ['Düzen', 'Arka plan', 'Chroma', 'Maske', 'Renk', 'Animasyon', 'Keyframe', 'Konum'],
-      group: ['Grup', 'Animasyon', 'Keyframe', 'Konum'], wave: ['Dalga', 'Animasyon', 'Keyframe', 'Konum'],
-      cta: ['Buton', 'Animasyon', 'Keyframe', 'Konum'], score: ['Skor', 'Animasyon', 'Keyframe', 'Konum'], shape: ['Şekil', 'Animasyon', 'Keyframe', 'Konum'],
-      sticker: ['Çıkartma', 'Animasyon', 'Keyframe', 'Konum'], fx: ['Efekt', 'Zaman'], adjust: ['Renk', 'Zaman'],
-      social: ['İçerik', 'Animasyon', 'Keyframe', 'Konum'],
-    }[o.kind] || [];
-    const icon = { Dalga: 'beat', Grup: 'layer', 'Arka plan': 'adjust', İçerik: 'edit', Metin: 'text', Stil: 'brand', Animasyon: 'anim', Keyframe: 'diamond', Konum: 'layer', Düzen: 'edit', Maske: 'shape', Renk: 'color', Chroma: 'adjust', Buton: 'cta', Skor: 'score', Şekil: 'shape', Çıkartma: 'sticker', Efekt: 'fx', Zaman: 'versions' };
-    tabs.forEach((t) => tool(icon[t], t, insp(t)));
+    const tabs = LAYER_TABS[o.kind] || [];
+    tabs.forEach((t) => tool(TAB_ICON[t], t, insp(t)));
     tool('split', 'Böl', splitSel);
     tool(o.hidden ? 'eyeOff' : 'eye', o.hidden ? 'Göster' : 'Gizle', () => { o.hidden = !o.hidden; commit(); renderToolbar(); });
     tool('lock', 'Kilitle', () => { o.locked = true; commit(); renderToolbar(); refreshLive(); });
@@ -374,7 +443,11 @@ async function openProject(id) {
   try {
     const rec = await store.getProject(id);
     if (!rec) throw new Error('Proje bulunamadı');
-    const P = rec.data;
+    let P = rec.data;
+    // çökme / ani kapanma sonrası: kayıttan daha yeni kurtarma görüntüsü varsa onu kullan
+    const rcv = recoveryFor(id, rec.updated);
+    if (rcv) { P = rcv; setTimeout(() => toast('Kaydedilmemiş son değişikliklerin geri getirildi', 3500), 700); }
+    if ((P.v || 1) > PROJECT_VERSION) throw new Error('Bu proje Alpicut\'un daha yeni bir sürümüyle kaydedilmiş. Uygulamayı güncelle.');
     migrate(P);
     P.subs = P.subs || clone(SUB_BASE);
     P.fx = { ...clone(FX_BASE), ...(P.fx || {}) };
@@ -413,6 +486,7 @@ function showEditor(P) {
     fitStage();
     app.engine.seek(0);
     renderTimeline();
+    renderKfBar();
     updateTime();
     updateUndo();
   });
@@ -420,6 +494,7 @@ function showEditor(P) {
 
 function goHome(fromPop = false) {
   if (!app.P) return;
+  closePop(true);
   app.pause();
   saveNow();
   $('exportModal').classList.add('hidden');
@@ -448,7 +523,9 @@ async function saveNow() {
     let versions = prev?.versions || [];
     const last = versions[versions.length - 1];
     if (prev?.data && (!last || Date.now() - last.at > 3 * 60 * 1000)) versions = [...versions, { at: Date.now(), json: JSON.stringify(prev.data) }].slice(-15);
-    await store.putProject({ id: P.id, name: P.name, updated: Date.now(), thumb, duration: app.engine.duration(), data: clone(P), versions });
+    const at = Date.now();
+    await store.putProject({ id: P.id, name: P.name, updated: at, thumb, duration: app.engine.duration(), data: clone(P), versions });
+    journalSaved(P.id, at);
   } catch (e) { console.warn('kaydedilemedi', e); }
 }
 
@@ -461,12 +538,14 @@ function commit() {
     if (app.undo.length > 80) app.undo.shift();
     app.snap = snap;
     app.redo = [];
+    journal(P);
     scheduleSave();
   }
   app.engine.applyMix();
   app.engine.sync(app.engine.t);
   app.engine.requestDraw();
   renderTimeline();
+  renderKfBar();
   updateTime();
   updateUndo();
 }
@@ -475,6 +554,7 @@ function restore(snap) {
   const P = JSON.parse(snap);
   app.P = P;
   app.snap = snap;
+  journal(P);
   app.engine.setProject(P);
   $('projName').value = P.name;
   if (app.sel && !selected()) deselect();
@@ -486,6 +566,7 @@ function restore(snap) {
   updateUndo();
   refreshLive();
   renderToolbar();
+  renderKfBar();
   scheduleSave();
 }
 
@@ -513,7 +594,9 @@ function updateTime() {
   const E = app.engine;
   if (!app.P) return;
   $('timeCode').textContent = `${fmt(E.t)} / ${fmt(E.duration())}`;
-  $('btnPlay').innerHTML = E.playing ? I.pause : I.play;
+  const pi = E.playing ? 'pause' : 'play';
+  if ($('btnPlay').dataset.i !== pi) { $('btnPlay').innerHTML = I[pi]; $('btnPlay').dataset.i = pi; }
+  updateKfBar();
   $('emptyHint').classList.toggle('hidden', !!(app.P.clips.length || app.P.layers.length));
 }
 
@@ -527,6 +610,24 @@ function applyView() {
 }
 function resetView() { app.view = { z: 1, x: 0, y: 0 }; applyView(); }
 
+// Keyframe yazma: "Oto keyframe" açıksa her zaman keyframe, değilse iz varsa keyframe, yoksa temel değer
+function writeK(o, p, lt, v) { if (app.autoKey) setKey(o, p, lt, v); else writeProp(o, p, lt, v); }
+
+// Seçili ana iz klibinin ekrandaki kaydırma ölçeği (piksel -> panX/panY)
+function clipPanScale(c) {
+  const [W, H] = RATIOS[app.P.ratio];
+  const m = app.engine.media.get(c.mediaId) || {};
+  const mw = m.w || W, mh = m.h || H;
+  const lt = app.engine.t - (layoutClips(app.P.clips).find((x) => x.clip === c)?.start || 0);
+  const z = clipAt(c, lt).zoom || 1;
+  if ((c.fit || 'cover') === 'contain') return { kx: W * 0.5, ky: H * 0.5 };
+  const sr = mw / mh, dr = W / H;
+  let dw, dh;
+  if (sr > dr) { dh = H; dw = H * sr; } else { dw = W; dh = W / sr; }
+  dw *= z; dh *= z;
+  return { kx: Math.max(1, (dw - W) / 2), ky: Math.max(1, (dh - H) / 2) };
+}
+
 function bindPreview() {
   const wrap = $('previewWrap');
   const cv = $('preview');
@@ -538,20 +639,33 @@ function bindPreview() {
   const sizeKey = (L) => (L.kind === 'media' ? 'w' : L.kind === 'text' ? 'size' : L.kind === 'sticker' ? 'size' : 'scale');
   $('viewReset').addEventListener('click', (e) => { e.stopPropagation(); resetView(); });
   $('viewReset').addEventListener('pointerdown', (e) => e.stopPropagation());
+  // seçili ve şu an ekranda olan ana iz klibi
+  const activeSelClip = () => {
+    if (app.sel?.type !== 'clip') return null;
+    const o = selected();
+    if (!o || o.locked) return null;
+    const L = layoutClips(app.P.clips).find((x) => x.clip === o);
+    if (!L || app.engine.t < L.start || app.engine.t >= L.end) return null;
+    return { c: o, start: L.start };
+  };
 
   wrap.addEventListener('pointerdown', (e) => {
     if (!app.P) return;
+    if (e.target.closest('.panel-dock, .view-reset')) return;
     try { wrap.setPointerCapture(e.pointerId); } catch (_) { /* yoksay */ }
     ptrs.set(e.pointerId, norm(e));
     raw.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (ptrs.size === 1) {
+      closePop();
       if (app.engine.playing) app.pause();
       const p = norm(e);
       if (app.pickMode) { ptrs.delete(e.pointerId); raw.delete(e.pointerId); samplePreview(p.x, p.y); return; }
       const inside = p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
       const hit = inside ? app.engine.hitTest(p.x, p.y) : null;
       const kv = hit ? layerAt(hit, app.engine.t) : null;
-      g = { L: hit && !hit.locked ? hit : null, tapL: hit, p0: p, r0: { x: e.clientX, y: e.clientY }, v0: { ...app.view }, x0: kv?.x, y0: kv?.y, moved: false, wasSel: hit && app.sel?.id === hit.id };
+      const SC = !hit ? activeSelClip() : null;
+      g = { L: hit && !hit.locked ? hit : null, tapL: hit, C: SC, p0: p, r0: { x: e.clientX, y: e.clientY }, v0: { ...app.view }, x0: kv?.x, y0: kv?.y, moved: false, wasSel: hit && app.sel?.id === hit.id };
+      if (SC) { const lt = app.engine.t - SC.start; g.ck = clipAt(SC.c, lt); g.cs = clipPanScale(SC.c); }
       if (hit && !g.wasSel) { app.sel = { type: 'layer', id: hit.id }; app.engine.selectedId = hit.id; app.engine.requestDraw(); }
     } else if (ptrs.size === 2 && g) {
       const [a, b] = [...ptrs.values()];
@@ -560,7 +674,12 @@ function bindPreview() {
       if (g.L) {
         const ar = RATIOS[app.P.ratio][1] / RATIOS[app.P.ratio][0];
         const kv = layerAt(g.L, app.engine.t);
-        g.pinch = { d: Math.hypot(a.x - b.x, (a.y - b.y) * ar), ang: Math.atan2((b.y - a.y) * ar, b.x - a.x), size: hasKeys(g.L, 's') ? kv.s : (g.L[sizeKey(g.L)] ?? 1), rot: kv.rot };
+        g.pinch = { d: Math.hypot(a.x - b.x, (a.y - b.y) * ar), ang: Math.atan2((b.y - a.y) * ar, b.x - a.x), size: hasKeys(g.L, 's') || app.autoKey ? kv.s : (g.L[sizeKey(g.L)] ?? 1), rot: kv.rot };
+      } else if (g.C) {
+        // seçili klip: iki parmak = klibi yakınlaştır/uzaklaştır (+ ortadan kaydır) — keyframe destekli
+        const lt = app.engine.t - g.C.start;
+        g.ck = clipAt(g.C.c, lt);
+        g.cpinch = { d: Math.hypot(ra.x - rb.x, ra.y - rb.y), mx: (ra.x + rb.x) / 2, my: (ra.y + rb.y) / 2 };
       } else {
         g.vpinch = { d: Math.hypot(ra.x - rb.x, ra.y - rb.y), mx: (ra.x + rb.x) / 2, my: (ra.y + rb.y) / 2, v0: { ...app.view } };
       }
@@ -579,6 +698,34 @@ function bindPreview() {
       const z = Math.max(0.5, Math.min(8, g.vpinch.v0.z * (d / Math.max(10, g.vpinch.d))));
       app.view = { z, x: g.vpinch.v0.x + (mx - g.vpinch.mx), y: g.vpinch.v0.y + (my - g.vpinch.my) };
       applyView();
+      return;
+    }
+    if (g.C && !L) {
+      const c = g.C.c, lt = app.engine.t - g.C.start;
+      const r = cv.getBoundingClientRect();
+      const [W] = RATIOS[app.P.ratio];
+      const pxK = W / Math.max(1, r.width); // ekran pikseli -> video pikseli
+      if (ptrs.size === 2 && g.cpinch) {
+        const [ra, rb] = [...raw.values()];
+        const d = Math.hypot(ra.x - rb.x, ra.y - rb.y);
+        const z = Math.max(0.5, Math.min(3, g.ck.zoom * (d / Math.max(10, g.cpinch.d))));
+        writeK(c, 'zoom', lt, +z.toFixed(3));
+        const sc = clipPanScale(c);
+        const mx = (ra.x + rb.x) / 2, my = (ra.y + rb.y) / 2;
+        writeK(c, 'panX', lt, +Math.max(-1, Math.min(1, g.ck.panX + ((mx - g.cpinch.mx) * pxK) / sc.kx)).toFixed(3));
+        writeK(c, 'panY', lt, +Math.max(-1, Math.min(1, g.ck.panY + ((my - g.cpinch.my) * pxK) / sc.ky)).toFixed(3));
+        g.cmoved = true;
+        app.engine.requestDraw(); updateKfBar();
+        return;
+      }
+      if (ptrs.size === 1 && !g.cpinch) {
+        const dx = e.clientX - g.r0.x, dy = e.clientY - g.r0.y;
+        if (!g.moved && Math.hypot(dx, dy) < 8) return;
+        g.moved = true; g.cmoved = true;
+        writeK(c, 'panX', lt, +Math.max(-1, Math.min(1, g.ck.panX + (dx * pxK) / g.cs.kx)).toFixed(3));
+        writeK(c, 'panY', lt, +Math.max(-1, Math.min(1, g.ck.panY + (dy * pxK) / g.cs.ky)).toFixed(3));
+        app.engine.requestDraw(); updateKfBar();
+      }
       return;
     }
     if (!L) {
@@ -602,9 +749,9 @@ function bindPreview() {
       if (gx) nx = 0.5;
       if (gy) ny = 0.5;
       const lt = app.engine.t - L.start;
-      writeProp(L, 'x', lt, nx); writeProp(L, 'y', lt, ny);
+      writeK(L, 'x', lt, nx); writeK(L, 'y', lt, ny);
       app.engine.guides = { x: gx, y: gy };
-      app.engine.requestDraw();
+      app.engine.requestDraw(); updateKfBar();
     } else if (ptrs.size === 2 && g.pinch) {
       const [a, b] = [...ptrs.values()];
       const ar = RATIOS[app.P.ratio][1] / RATIOS[app.P.ratio][0];
@@ -613,12 +760,12 @@ function bindPreview() {
       const k = sizeKey(L);
       const v = g.pinch.size * (d / Math.max(0.01, g.pinch.d));
       const lt = app.engine.t - L.start;
-      if (hasKeys(L, 's')) setKey(L, 's', lt, Math.max(0.05, Math.min(4, v)));
+      if (hasKeys(L, 's') || app.autoKey) setKey(L, 's', lt, Math.max(0.05, Math.min(4, v)));
       else L[k] = k === 'size' ? Math.round(Math.max(16, Math.min(k === 'size' && L.kind === 'sticker' ? 1200 : 400, v))) : Math.max(0.05, Math.min(4, v));
       let rot = g.pinch.rot + ((ang - g.pinch.ang) * 180) / Math.PI;
       if (Math.abs(rot) < 4) rot = 0;
-      writeProp(L, 'rot', lt, Math.round(rot));
-      app.engine.requestDraw();
+      writeK(L, 'rot', lt, Math.round(rot));
+      app.engine.requestDraw(); updateKfBar();
     }
   });
 
@@ -631,16 +778,24 @@ function bindPreview() {
     const G = g; g = null;
     if (!G) return;
     if (G.vpinch || G.panned) { app.engine.requestDraw(); return; }
-    if (G.moved) { commit(); refreshSheet(); return; }
-    if (G.tapL) { select({ type: 'layer', id: G.tapL.id }); return; }
+    if (G.moved || G.cmoved) { commit(); refreshSheet(); if (G.C) undoToast(app.autoKey || hasKeys(G.C.c, 'zoom') || hasKeys(G.C.c, 'panX') ? 'Keyframe yazıldı' : 'Kadraj değişti'); return; }
+    if (G.tapL) {
+      select({ type: 'layer', id: G.tapL.id }, false);
+      const r = cv.getBoundingClientRect();
+      itemMenu({ x: e.clientX, y: Math.min(r.bottom, e.clientY + 24) }, 'below');
+      return;
+    }
     const now = performance.now();
     if (now - lastTap < 320) { lastTap = 0; resetView(); return; }
     lastTap = now;
+    if (G.C) return; // seçili klipte tek dokunuş seçimi bırakmaz (yanlışlıkla kaybolmasın)
     deselect();
   };
   wrap.addEventListener('pointerup', up);
   wrap.addEventListener('pointercancel', up);
 }
+
+function undoToast(msg) { toast(msg, 3200, { label: 'Geri al', fn: undo }); }
 
 // ---------- seçim ----------
 function select(sel, tab, extra) {
@@ -649,15 +804,18 @@ function select(sel, tab, extra) {
   app.engine.requestDraw();
   renderTimeline();
   renderToolbar();
+  renderKfBar();
   if (tab !== false) openInspector(tab, extra);
 }
 
 function deselect() {
   app.sel = null;
   app.engine.selectedId = null;
+  closePop();
   app.engine.requestDraw();
   renderTimeline();
   renderToolbar();
+  renderKfBar();
   refreshLive();
 }
 
@@ -1216,7 +1374,7 @@ async function reverseClip(c) {
   } catch (e) { toast(e.message || 'Ters çevrilemedi', 4000); } finally { b.close(); }
 }
 
-const PROJECT_VERSION = 3;
+const PROJECT_VERSION = 4; // v1.5: altyazı şablonları, keyframe şeridi
 function migrate(P) {
   // eski projeleri yeni sürüme taşı
   P.v = P.v || 1;
@@ -1344,7 +1502,7 @@ Object.assign(app, {
     app.stopAt = b;
     updateTime();
   },
-  select, deselect, restoreTo, undo, redo, aiTarget, aiReframe,
+  select, deselect, restoreTo, undo, redo, aiTarget, aiReframe, itemMenu, undoToast, writeK,
   openInspector: (tab) => openInspector(tab),
   addMedia, addLayer, splitSel, dupSel, delSel, moveClip, layerOrder, importSRT, freezeFrame, addSfx,
   beginEdit, endEdit, cutSourceRanges, pickColor, relinkMedia, pickFiles, importFiles, renderToolbar,

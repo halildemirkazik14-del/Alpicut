@@ -156,7 +156,8 @@ export function drawClip(ctx, clip, el, localT, len, env) {
   const { W, H, S } = env;
   const orig = el;
   el = stableSource(el);
-  if (el !== orig) { /* son kare kullanılıyor */ } else if (!isReady(el)) return; else if (env.playing || env.exporting) rememberFrame(el);
+  // v1.5: duraklatılmışken de son hazır kare saklanır — zaman çizelgesinde kaydırırken önizleme kararmaz
+  if (el !== orig) { /* son kare kullanılıyor */ } else if (!isReady(el)) return; else rememberFrame(el);
   const raw = el;
   const gp = gradeParams(clip);
   if (gp) { const [sw, sh] = mediaSize(el); el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280); }
@@ -862,7 +863,7 @@ export function applyMask(o, m, cw, ch, k = 1) {
 function drawMediaLayer(ctx, L, t, env, el, st) {
   const { W, S } = env;
   const w = (L.w || 0.6) * W;
-  if (!isReady(el)) return { w, h: w };
+  { const o0 = el; el = stableSource(el); if (el === o0) { if (!isReady(el)) return { w, h: w }; rememberFrame(el); } }
   const [sw, sh] = mediaSize(el);
   const gp = gradeParams(L);
   if (gp) el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280);

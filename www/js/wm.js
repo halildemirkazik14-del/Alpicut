@@ -4,7 +4,7 @@ import { $, h } from './state.js';
 import { I } from './icons.js';
 import { lsGet, lsSet } from './storage.js';
 
-const MAX = 3;
+const MAX = 5;
 const panels = []; // açılış sırasına göre
 let current = null; // olay/çizim sırasında etkin panel
 let zTop = 30;
@@ -88,11 +88,38 @@ function renderDock() {
   mins.forEach((p) => {
     const x = h('button', { class: 'dock-x', html: I.close, 'aria-label': 'Kapat' });
     x.addEventListener('click', (e) => { e.stopPropagation(); close(p); });
-    const chip = h('div', { class: 'dock-chip', role: 'button' }, h('span', { class: 'dock-t' }, p.cfg.title || 'Panel'), x);
+    const chip = h('div', { class: `dock-chip${p.justMin ? ' arrive' : ''}`, role: 'button', 'data-key': p.key }, h('i', { class: 'dock-dot' }), h('span', { class: 'dock-t' }, p.cfg.title || 'Panel'), x);
+    p.justMin = false;
     chip.addEventListener('click', (e) => { e.stopPropagation(); restore(p); });
     chip.addEventListener('pointerdown', (e) => e.stopPropagation());
     dock.append(chip);
   });
+}
+
+// v1.5: küçültme / geri açma hareketi (panel, üstteki çubuktaki yerine uçar)
+function chipRect(p) {
+  const c = dock && [...dock.querySelectorAll('.dock-chip')].find((x) => x.dataset.key === p.key);
+  return c ? c.getBoundingClientRect() : null;
+}
+function flyTo(p, from, to, reverse, done) {
+  const el = p.el;
+  if (!from || !to || matchMedia('(prefers-reduced-motion: reduce)').matches) { done(); return; }
+  const sx = Math.max(0.05, to.width / from.width), sy = Math.max(0.03, to.height / from.height);
+  const tx = to.left - from.left, ty = to.top - from.top;
+  const shrunk = `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`;
+  el.classList.add('flying');
+  el.style.transformOrigin = '0 0';
+  el.style.transition = 'none';
+  el.style.transform = reverse ? shrunk : 'none';
+  el.style.opacity = reverse ? '0.2' : '1';
+  void el.offsetWidth;
+  el.style.transition = 'transform .34s cubic-bezier(.2,.8,.2,1), opacity .34s ease, border-radius .34s ease';
+  el.style.transform = reverse ? 'none' : shrunk;
+  el.style.opacity = reverse ? '1' : '0.15';
+  let fin = false;
+  const end = () => { if (fin) return; fin = true; el.classList.remove('flying'); el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; el.style.transformOrigin = ''; done(); };
+  el.addEventListener('transitionend', end, { once: true });
+  setTimeout(end, 420);
 }
 
 function renderHead(p) {
@@ -214,8 +241,10 @@ function create(cfg) {
   const used = new Set(panels.filter((q) => !q.min).map((q) => q.slot));
   if (saved && saved.slot === 'custom') { p.g = saved; p.slot = 'custom'; p.rel = { x: saved.x / vw(), y: saved.y / vh(), w: saved.w / vw(), h: saved.h / vh() }; }
   else {
-    const order = cfg.slot ? [cfg.slot, 'bottom', 'top', 'float'] : ['bottom', 'top', 'float'];
-    p.slot = order.find((s) => !used.has(s)) || 'float';
+    // v1.5: paneller önizlemenin (videonun) ÜSTÜNE açılmaz. Alt yuva doluysa eski panel üst çubuğa küçülür.
+    p.slot = cfg.slot && cfg.slot !== 'top' ? cfg.slot : 'bottom';
+    if (p.slot === 'bottom') panels.forEach((q) => { if (!q.min && q.slot === 'bottom') minimize(q); });
+    void used;
     p.g = slotGeom(p.slot);
     if (saved && saved.slot === p.slot && p.slot === 'bottom') { p.g.h = clamp(saved.h, 160, vh() - 80); p.g.y = vh() - p.g.h; }
     p.rel = { x: p.g.x / vw(), y: p.g.y / vh(), w: p.g.w / vw(), h: p.g.h / vh() };
@@ -279,24 +308,33 @@ export function refresh(p = current) {
 // canlı paneller (denetçi vb.) — geri al/yinele ve seçim değişince
 export function refreshLive() { panels.forEach((p) => { if (p.cfg.live) refresh(p); }); }
 
-export function minimize(p = current) {
-  if (!p) return;
+export function minimize(p = current, animate = true) {
+  if (!p || p.min) return;
+  const from = p.el.getBoundingClientRect();
   p.min = true;
-  p.el.classList.add('min');
+  p.justMin = true;
   if (current === p) current = top();
   renderDock();
+  const to = animate ? chipRect(p) : null;
+  if (!to) { p.el.classList.add('min'); return; }
+  p.el.classList.add('minimizing');
+  flyTo(p, from, to, false, () => { p.el.classList.remove('minimizing'); if (p.min) p.el.classList.add('min'); });
 }
 
 export function restore(p) {
+  const from = chipRect(p);
+  // aynı yuvadaki görünür paneli yer açmak için küçült
+  panels.forEach((q) => { if (q !== p && !q.min && q.slot === p.slot && p.slot === 'bottom') minimize(q); });
   p.min = false;
   p.el.classList.remove('min');
   apply(p);
   focus(p);
   renderDock();
   refresh(p);
+  if (from) flyTo(p, p.el.getBoundingClientRect(), from, true, () => {});
 }
 
-export function minimizeAll() { panels.forEach((p) => { if (!p.min) { p.min = true; p.el.classList.add('min'); } }); renderDock(); }
+export function minimizeAll() { panels.forEach((p) => { if (!p.min) minimize(p); }); renderDock(); }
 export function anyVisible() { return panels.some((p) => !p.min); }
 export function isOpen() { return panels.length > 0; }
 export function top() {

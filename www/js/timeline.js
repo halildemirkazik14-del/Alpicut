@@ -127,7 +127,9 @@ export function renderTimeline() {
 
   // boşluk kalmasın: zaman çizelgesi yüksekliği içeriğe göre (önizleme büyür)
   const tl = $('timeline');
-  const want = Math.round(Math.max(150, Math.min(window.innerHeight * 0.38, inner.scrollHeight + 14)));
+  const last = inner.lastElementChild;
+  const content = last ? last.offsetTop + last.offsetHeight : 0;
+  const want = Math.round(Math.max(150, Math.min(window.innerHeight * 0.38, content + 30)));
   if (Math.abs(tl.offsetHeight - want) > 3) { tl.style.height = `${want}px`; requestAnimationFrame(() => app.fitStage && app.fitStage()); }
   syncScroll(engine.t, true);
 }
@@ -187,6 +189,7 @@ export function bindTimeline() {
   }, { passive: true });
   let pinch = null;
   sc.addEventListener('touchmove', (e) => {
+    if (drag && drag.active) { if (e.cancelable) e.preventDefault(); return; }
     if (e.touches.length === 2 && pinch) {
       e.preventDefault();
       const [a, b] = e.touches;
@@ -207,16 +210,21 @@ export function bindTimeline() {
     const it = e.target.closest('.item');
     if (!it) { if (e.target === inner || e.target.classList.contains('row')) app.deselect(); return; }
     if (it._dragged) { it._dragged = false; return; }
+    const rect = it.getBoundingClientRect();
+    // menü, dokunulan noktanın üstünde açılsın (öğenin ortasında değil)
+    const anchor = { x: Math.max(rect.left + 8, Math.min(rect.right - 8, e.clientX || rect.left + rect.width / 2)), y: Math.max($('timeline').getBoundingClientRect().top, rect.top) };
     if (it.dataset.type === 'subs') {
       const cue = app.P.subs.cues[+it.dataset.cue];
-      app.select({ type: 'subs', id: 'subs' }, 'Satırlar', { cue: +it.dataset.cue });
+      app.select({ type: 'subs', id: 'subs' }, false);
       if (cue) { app.engine.seek(cue.start + (app.P.subs.offset || 0) + 0.01); app.updateTime(); syncScroll(app.engine.t, true); }
+      app.itemMenu(anchor);
       return;
     }
     const s = { type: it.dataset.type, id: it.dataset.id };
     if (app.multi) { if (s.type === 'layer') app.toggleMulti(s.id); else window.__toast?.('Çoklu seçim yalnızca katmanlar içindir'); return; }
-    if (app.sel?.type === s.type && app.sel?.id === s.id) app.openInspector();
-    else app.select(s);
+    // v1.5: dokununca denetçi açılmaz; önce hızlı işlem menüsü çıkar
+    if (!(app.sel?.type === s.type && app.sel?.id === s.id)) app.select(s, false);
+    app.itemMenu(anchor);
   });
 
   inner.addEventListener('pointerdown', (e) => {
@@ -229,17 +237,33 @@ export function bindTimeline() {
     const hd = e.target.closest('[data-h]');
     const mode = hd ? hd.dataset.h : 'move';
     if (type === 'clip' && mode === 'move') return;
-    e.preventDefault();
-    try { it.setPointerCapture(e.pointerId); } catch (_) { /* yoksay */ }
     if (app.engine.playing) app.pause();
-    drag = { it, type, obj, mode, x0: e.clientX, o: clone(obj), moved: false, left0: parseFloat(it.style.left), w0: parseFloat(it.style.width) };
+    // v1.5 güvenli sürükleme: kenar tutamaçları hemen çalışır; gövdeyi taşımak için ~0.3 sn basılı tut.
+    // Böylece zaman çizelgesini kaydırırken öğeler yanlışlıkla kaymaz.
+    const d = { it, type, obj, mode, x0: e.clientX, y0: e.clientY, o: clone(obj), moved: false, left0: parseFloat(it.style.left), w0: parseFloat(it.style.width), id: e.pointerId, active: mode !== 'move' };
+    if (d.active) { e.preventDefault(); try { it.setPointerCapture(e.pointerId); } catch (_) { /* yoksay */ } }
+    else {
+      d.hold = setTimeout(() => {
+        if (drag !== d) return;
+        d.active = true;
+        it.classList.add('lift');
+        try { navigator.vibrate?.(12); } catch (_) { /* yoksay */ }
+        try { it.setPointerCapture(d.id); } catch (_) { /* yoksay */ }
+      }, 300);
+    }
+    drag = d;
   });
 
   inner.addEventListener('pointermove', (e) => {
     if (!drag) return;
     const { obj, o, type, mode, it } = drag;
     const dx = e.clientX - drag.x0;
-    if (!drag.moved && Math.abs(dx) < 4) return;
+    if (!drag.active) {
+      // basılı tutma dolmadan parmak kaydıysa: bu bir kaydırma, sürükleme değil
+      if (Math.hypot(dx, e.clientY - drag.y0) > 7) { clearTimeout(drag.hold); drag = null; }
+      return;
+    }
+    if (!drag.moved && Math.abs(dx) < 6) return;
     drag.moved = true;
     const dt = dx / app.pps;
     const pps = app.pps;
@@ -283,10 +307,14 @@ export function bindTimeline() {
     if (!drag) return;
     const d = drag;
     drag = null;
+    clearTimeout(d.hold);
+    d.it.classList.remove('lift');
+    if (d.active && !d.moved && d.mode === 'move') { d.it._dragged = true; setTimeout(() => { d.it._dragged = false; }, 50); return; }
     if (d.moved) {
       d.it._dragged = true;
       setTimeout(() => { d.it._dragged = false; }, 50);
       app.commit();
+      app.undoToast?.(d.mode === 'move' ? 'Taşındı' : 'Kırpıldı');
     }
   };
   inner.addEventListener('pointerup', up);
