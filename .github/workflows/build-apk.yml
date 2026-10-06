@@ -70,13 +70,16 @@ jobs:
         timeout-minutes: 30
         run: |
           npx playwright install --with-deps chromium > /dev/null
+          set -o pipefail
           node lab/e2e.mjs | tee e2e.txt
           node lab/smoke.mjs lab/out/smoke | tee smoke.txt
           cat smoke.txt >> e2e.txt
 
       # Güvenlik: testler başarısızsa (CSP ihlali dahil) APK üretilmez
       - name: Sürüm kapısı
-        run: node lab/gate.mjs lab/out/e2e.json smoke.txt | tee gate.txt
+        run: |
+          set -o pipefail
+          node lab/gate.mjs lab/out/e2e.json smoke.txt | tee gate.txt
 
       - name: Test dosyalarını APK dışında bırak
         run: rm -rf www/labmedia

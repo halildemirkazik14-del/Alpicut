@@ -102,7 +102,7 @@ await step('segmenter', async () => pg.evaluate(async () => {
   const img = new Image(); img.crossOrigin = 'anonymous';
   const urls = ['https://storage.googleapis.com/mediapipe-assets/portrait.jpg', 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Pierre-Person.jpg/480px-Pierre-Person.jpg'];
   let ok = false;
-  for (const u of urls) { try { await new Promise((r, j) => { img.onload = r; img.onerror = j; img.src = u; }); ok = true; break; } catch (_) { /* sonraki */ } }
+  for (const u of urls) { try { await new Promise((r, j) => { img.onload = r; img.onerror = j; fetch(u).then((x) => { if (!x.ok) throw new Error(x.status); return x.blob(); }).then((b) => { img.src = URL.createObjectURL(b); }).catch(j); }); ok = true; break; } catch (_) { /* sonraki */ } }
   if (!ok) throw new Error('örnek fotoğraf yüklenemedi');
   const m = S.personMask(img, img.naturalWidth, img.naturalHeight, { threshold: 0.5, edge: 0.15 });
   const d = m.getContext('2d').getImageData(0, 0, m.width, m.height).data;
