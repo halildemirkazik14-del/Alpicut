@@ -199,7 +199,8 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
         if (f === v.f1) { await feed.close(); feeds.delete(v); }
       }
       engine.offAnalyser?.setTime(t);
-      engine.draw(t);
+      if (f === 0) engine._smK = null;
+      if (!engine.holdSkip(t)) engine.draw(t);
       await vsrc.add(t, 1 / fps);
       onProgress?.(0.12 + 0.86 * ((f + 1) / N));
     }

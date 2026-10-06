@@ -506,6 +506,19 @@ export class Engine {
     if (!this.exporting) this._drawSelection(ctx, t);
   }
 
+  // v1.6: stop-motion — kağıt efektleri aktifken kareler tutulur (varsayılan 8 kare/sn)
+  _stopFps(t) {
+    for (const l of this.P?.layers || []) if (l.kind === 'fx' && !l.hidden && (l.effect === 'paper' || l.effect === 'cutout') && t >= l.start && t < l.end) return l.fps || 8;
+    return 0;
+  }
+  holdSkip(t) {
+    const f = this._stopFps(t);
+    if (!f) { this._smK = null; return false; }
+    const k = Math.floor(t * f);
+    if (k === this._smK) return true;
+    this._smK = k; return false;
+  }
+
   // gl-transitions: iki klibi ayrı tuvallere çiz, shader ile birleştir
   _glTransition(raw, a, b, p, t, env) {
     const T = transGL();
@@ -707,7 +720,7 @@ export class Engine {
         return;
       }
       this.sync(this.t);
-      this.draw();
+      if (!this.holdSkip(this.t)) this.draw();
       this._audioTick(1 / 60);
       if (this.onTime) this.onTime(this.t);
     } else {

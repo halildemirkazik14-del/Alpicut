@@ -26,6 +26,19 @@ export function hexA(color, a) {
 }
 
 export function roundRect(ctx, x, y, w, h, r) {
+  if (Array.isArray(r)) {
+    // v1.6: köşe başına yarıçap [sol üst, sağ üst, sağ alt, sol alt]
+    const m = Math.max(0, Math.min(w / 2, h / 2));
+    const [a, b2, c, d] = [0, 1, 2, 3].map((i) => Math.max(0, Math.min(r[i] ?? r[0] ?? 0, m)));
+    ctx.beginPath();
+    ctx.moveTo(x + a, y);
+    ctx.arcTo(x + w, y, x + w, y + h, b2);
+    ctx.arcTo(x + w, y + h, x, y + h, c);
+    ctx.arcTo(x, y + h, x, y, d);
+    ctx.arcTo(x, y, x + w, y, a);
+    ctx.closePath();
+    return;
+  }
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
   ctx.moveTo(x + r, y);

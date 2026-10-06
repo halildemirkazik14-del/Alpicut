@@ -1,5 +1,9 @@
 // Alpicut — gl-transitions geçiş motoru (WebGL, iki doku)
-import { GL_TRANSITIONS } from './gltrans-data.js';
+import { GL_TRANSITIONS as GL_BASE } from './gltrans-data.js';
+import { HF_TRANSITIONS } from './gltrans-hf.js';
+import { AI_TRANSITIONS } from './gltrans-ai.js';
+// v1.6: yapay zekâ geçişleri + HyperFrames sinematik geçişleri en başta
+const GL_TRANSITIONS = [...AI_TRANSITIONS, ...HF_TRANSITIONS, ...GL_BASE];
 
 const VS = 'attribute vec2 p; varying vec2 v; void main(){ v = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }';
 
@@ -27,7 +31,7 @@ export function trName(id) {
   return id.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
 }
 
-export const GL_LIST = GL_TRANSITIONS.map((t) => ({ id: `gl:${t.id}`, raw: t.id, name: trName(t.id), author: t.author, license: t.license }));
+export const GL_LIST = GL_TRANSITIONS.map((t) => ({ id: `gl:${t.id}`, raw: t.id, name: t.name || trName(t.id), author: t.author, license: t.license }));
 
 class TransGL {
   constructor() {
@@ -64,7 +68,19 @@ class TransGL {
     const def = GL_TRANSITIONS.find((t) => t.id === raw);
     if (!def) return null;
     const gl = this.gl;
-    const fs = `precision ${this.hp ? 'highp' : 'mediump'} float;
+    // v1.6: tam fragment biçimi (HyperFrames / Alpicut yapay zekâ geçişleri)
+    const full = def.frag ? `precision ${this.hp ? 'highp' : 'mediump'} float;
+varying vec2 v;
+uniform sampler2D uFrom; uniform sampler2D uTo; uniform float progress; uniform float ratio; uniform vec2 u_resolution;
+#define v_uv v
+#define u_from uFrom
+#define u_to uTo
+#define u_progress progress
+const vec3 u_accent = vec3(0.616, 0.549, 0.949);
+const vec3 u_accent_dark = vec3(0.247, 0.180, 0.620);
+const vec3 u_accent_bright = vec3(0.886, 0.851, 1.0);
+${def.frag}` : null;
+    const fs = full || `precision ${this.hp ? 'highp' : 'mediump'} float;
 varying vec2 v;
 uniform sampler2D uFrom; uniform sampler2D uTo; uniform float progress; uniform float ratio;
 vec4 getFromColor(vec2 uv) { return texture2D(uFrom, uv); }
@@ -76,7 +92,7 @@ void main() { gl_FragColor = transition(v); }`;
       gl.attachShader(pr, this.vs); gl.attachShader(pr, this._sh(gl.FRAGMENT_SHADER, fs));
       gl.linkProgram(pr);
       if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
-      const P = { pr, loc: gl.getAttribLocation(pr, 'p'), uFrom: gl.getUniformLocation(pr, 'uFrom'), uTo: gl.getUniformLocation(pr, 'uTo'), progress: gl.getUniformLocation(pr, 'progress'), ratio: gl.getUniformLocation(pr, 'ratio') };
+      const P = { pr, loc: gl.getAttribLocation(pr, 'p'), uFrom: gl.getUniformLocation(pr, 'uFrom'), uTo: gl.getUniformLocation(pr, 'uTo'), progress: gl.getUniformLocation(pr, 'progress'), ratio: gl.getUniformLocation(pr, 'ratio'), res: gl.getUniformLocation(pr, 'u_resolution') };
       this.progs.set(raw, P);
       return P;
     } catch (e) {
@@ -98,6 +114,7 @@ void main() { gl_FragColor = transition(v); }`;
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.texB); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, b);
     gl.uniform1i(P.uFrom, 0); gl.uniform1i(P.uTo, 1);
     gl.uniform1f(P.progress, progress); gl.uniform1f(P.ratio, w / h);
+    if (P.res) gl.uniform2f(P.res, w, h);
     gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return this.canvas;

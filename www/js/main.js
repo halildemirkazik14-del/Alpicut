@@ -27,7 +27,7 @@ import {
 } from './ui3.js';
 import {
   openSheet, closeSheet, closeAllSheets, refreshSheet, refreshLive, isSheetOpen, openInspector, openTemplates, openCTAs,
-  openScoreMenu, openSubsMenu, openFx, openRatio, openExport, openShapes, openSfx, openSocial,
+  openScoreMenu, openSubsMenu, openFx, openRatio, openExport, openShapes, openSfx, openSocial, openMotion,
 } from './sheets.js';
 import { store, lsGet, lsSet, isNative } from './storage.js';
 import { parseSRT } from './srt.js';
@@ -151,6 +151,12 @@ const TOOL_CATS = [
     ['wand', 'Otomatik kurgu', () => openAutoEdit(), 'ai', 'Claude / ChatGPT / DeepSeek tüm kurguyu yapar'], ['subtitle', 'Otomatik altyazı', () => openAutoCaptions(), '', 'Konuşmayı kelime kelime yazıya döker'], ['scissors', 'Jumpcut', () => runCommand('jumpcut', {}), '', 'Konuşmadaki boşlukları keser'],
     ['adjust', 'Arka plan sil', () => aiTarget('Arka plan'), '', 'Yeşil perde olmadan kişiyi ayır'], ['color', 'Chroma key', () => aiTarget('Chroma'), '', 'Yeşil/mavi perdeyi sil'], ['mic', 'Seslendirme', () => openTTS(), '', 'Metni doğal sesle okut'],
     ['edit', 'Metinden kurgu', () => openTranscript(), '', 'Kelimeleri silerek videoyu kes'], ['ratio', 'Akıllı kadraj', () => aiReframe(), '', 'Yatay videoda yüzü takip et'], ['doctor', 'Proje kontrolü', () => openDoctor(), '', 'Hataları bul, tek dokunuşla düzelt'], ['key', 'Hesaplar', () => openAccounts(), '', 'Claude, ChatGPT, DeepSeek, Gemini…'],
+  ] },
+  { id: 'motion', name: 'Motion', icon: 'anim', desc: 'HyperFrames esinli canlı şablonlar — hepsi düzenlenebilir', tools: () => [
+    ['ai', 'Yapay zekâ', () => openMotion('Yapay zekâ'), 'ai', 'Sohbet ekranı, komut, düşünme, görsel üretimi'], ['edit', 'Kod & geliştirici', () => openMotion('Kod & geliştirici'), '', 'Kod yazımı, terminal, diff, repo kartı'],
+    ['bubble', 'Pop-up', () => openMotion('Pop-up'), '', 'Pencere, bildirim, başarı/hata'], ['anim', 'Motion 2D', () => openMotion('Motion 2D'), '', 'Kinetik yazı, grafik, sayaç, alt bant'],
+    ['layer', 'Motion 3D', () => openMotion('Motion 3D'), '', 'Karusel, küp, kart çevirme, tünel'], ['sticker', 'Kağıt & stop-motion', () => openMotion('Kağıt & stop-motion'), '', 'Kesik kağıt, yırtık bant, damga'],
+    ['fx', 'Sci-fi & HUD', () => openMotion('Sci-fi & HUD'), '', 'Hedef kilidi: yeşil başarı, kırmızı hata'], ['star', 'Favori motion', () => openMotion('★'), '', 'Yıldızladıkların'],
   ] },
   { id: 'text', name: 'Metin', icon: 'text', desc: 'Yazı, şablon, altyazı', tools: () => [
     ['text', 'Yazı ekle', () => addLayer(clone(TEXT_BASE)), '', 'Boş yazı katmanı'], ['template', 'Yazı şablonları', () => openTemplates(), '', 'Yüzlerce hazır başlık ve etiket'], ['subtitle', 'Altyazı', openSubsMenu, '', 'Otomatik, SRT veya elle'],
@@ -352,7 +358,7 @@ function renderRatioPick() {
   // hızlı şablonlar
   const q = $('quickTpl');
   if (q && !q.childElementCount) {
-    const pick = ['football', 'product', 'recipe', 'travel', 'hotel', 'podcast', 'fitness', 'edu', 'vlog', 'wedding', 'gaming', 'motivation'];
+    const pick = ['aitool', 'devlog', 'vlog', 'product', 'recipe', 'travel', 'aicompare', 'paperstory', 'podcast', 'edu', 'wedding', 'fitness', 'hotel', 'gaming', 'motivation', 'football'];
     pick.map((id) => PROJECT_TEMPLATES.find((t) => t.id === id)).filter(Boolean).forEach((t) => q.append(h('button', { class: 'qt', onclick: () => newProject(t) }, h('span', { class: 'qt-ic' }, t.icon), h('b', {}, t.name))));
     q.append(h('button', { class: 'qt more', onclick: openProjectTemplates }, h('span', { class: 'qt-ic', html: I.template }), h('b', {}, `Tümü · ${PROJECT_TEMPLATES.length}`)));
   }

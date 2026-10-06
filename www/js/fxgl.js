@@ -42,6 +42,8 @@ const BODIES = {
   27: `{vec3 a=vec3(0.);for(int i=0;i<12;i++)a+=tex(u+vec2((float(i)-6.)*.004*amt,0.));o=a/12.;}`,
   28: `{float z=1.+amt*.25*(.5+.5*sin(time*3.));o=tex(.5+c/z);}`,
   29: `{vec3 b=vec3(0.);for(int i=-3;i<=3;i++)for(int j=-3;j<=3;j++)b+=tex(u+vec2(float(i),float(j))*.006);b/=49.;o=mix(o,max(o,b)*1.1,.6*amt);}`,
+  31: `{float tq=floor(time*8.);vec2 j=(vec2(hash(vec2(tq,1.)),hash(vec2(tq,2.)))-.5)*.008*amt;vec2 uu=u+j;vec3 cc=tex(uu);vec2 e=1.5/res;float gx=lum(tex(uu+vec2(e.x,0.)))-lum(tex(uu-vec2(e.x,0.)));float gy=lum(tex(uu+vec2(0.,e.y)))-lum(tex(uu-vec2(0.,e.y)));float ed=clamp(length(vec2(gx,gy))*4.,0.,1.);cc=floor(cc*5.+.5)/5.;float fib=hash(floor(uu*res/2.))*.08+hash(floor(uu*res/9.)+tq)*.05;cc=cc*vec3(1.03,.99,.9)*(.9+fib);o=mix(o,cc*(1.-ed*.75),clamp(amt,0.,1.));o*=1.-r*r*.35;}`,
+  32: `{float tq=floor(time*8.);vec2 j=(vec2(hash(vec2(tq,3.)),hash(vec2(tq,4.)))-.5)*.006*amt;vec3 cc=tex(u+j);float l=lum(cc);vec3 a=mix(c1,c2,step(.5,l));a=mix(a,vec3(.96,.93,.86),step(.78,l));float fib=hash(floor(u*res/2.))*.07;vec2 e=1.5/res;float gx=lum(tex(u+j+vec2(e.x,0.)))-lum(tex(u+j-vec2(e.x,0.)));float gy=lum(tex(u+j+vec2(0.,e.y)))-lum(tex(u+j-vec2(0.,e.y)));float ed=step(.09,length(vec2(gx,gy)));o=mix(o,(a*(.92+fib))*(1.-ed*.8),clamp(amt,0.,1.));}`,
   30: `{float l=lum(o);o=vec3(step(.5+.15*sin(time*2.),l+(hash(u*res)-.5)*.25));o=mix(c2,c1,o.r);}`,
 };
 const fsFor = (m) => `${HEAD}${PRE}\n ${BODIES[m] || ''}\n gl_FragColor=vec4(o,1.);\n}`;
@@ -52,7 +54,7 @@ export const GL_FX = {
   halftone: [7, 'Gazete noktası'], duotone: [8, 'Duoton'], thermal: [9, 'Termal kamera'], nightvision: [10, 'Gece görüşü'], crt: [11, 'Eski TV (CRT)'], neonedge: [12, 'Neon kenar'],
   sketch: [13, 'Karakalem'], cartoon: [14, 'Çizgi film'], ripple: [15, 'Su dalgası'], heatwave: [16, 'Sıcak hava'], fisheye: [17, 'Balıkgözü'], tiltshift: [18, 'Minyatür (tilt-shift)'],
   vigpulse: [19, 'Nabız vinyet'], rainbow: [20, 'Gökkuşağı'], strobe: [21, 'Stroboskop'], blockglitch: [22, 'Blok glitch'], sliceglitch: [23, 'Şerit glitch'], oldtv: [24, 'Eski televizyon'],
-  sepia: [25, 'Sepya'], emboss: [26, 'Kabartma'], motionblur: [27, 'Hareket bulanıklığı'], dolly: [28, 'Nefes alan zoom'], dream: [29, 'Rüya parlaması'], dither: [30, 'İki renk'],
+  sepia: [25, 'Sepya'], paper: [31, 'Kağıt stop-motion'], cutout: [32, 'Kesik kağıt (2 renk)'], emboss: [26, 'Kabartma'], motionblur: [27, 'Hareket bulanıklığı'], dolly: [28, 'Nefes alan zoom'], dream: [29, 'Rüya parlaması'], dither: [30, 'İki renk'],
 };
 
 class FxGL {

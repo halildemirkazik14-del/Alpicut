@@ -80,3 +80,16 @@ Bu depoya her `push` yapıldığında GitHub Actions APK'yı otomatik derler.
 **Releases** bölümünden `Alpicut.apk` dosyasını telefondan indirip kurabilirsin.
 
 Teknik: Saf HTML/JS editör (`www/`), Capacitor 7 ile Android'e paketlenir.
+
+## v1.6 yenilikleri
+- **Cızırtısız ses:** önizleme sesi arka planda tek parça olarak hazırlanır, video ses saatini izler; yumuşak limiter
+- **Proxy:** ağır videolar için hafif önizleme kopyası (540p), dışa aktarmada orijinal kalite
+- **Motion stüdyosu (59 şablon):** yapay zekâ sohbeti (Alpi-co), komut yazımı, görsel üretimi, kod/terminal/diff, pop-up, 2D/3D motion, kağıt stop-motion, sci-fi HUD
+- **21 yeni geçiş:** yapay zekâ & dijital (nöral ağ, veri taraması, hologram, kod yağmuru…) + HyperFrames sinematik geçişleri
+- **Kağıt stop-motion efekti** (kare tutmalı) ve kesik kağıt efekti
+- **Yeni tasarım:** inceltilmiş mor tema (Ametist + Lila gün), Bricolage Grotesque + Source Serif 4, A + makas logo
+
+## Teşekkürler / lisanslar
+- [HyperFrames](https://github.com/heygen-com/hyperframes) (HeyGen) — Apache License 2.0: sinematik shader geçişleri uyarlandı, motion şablonları blok kataloğundan esinlendi. Lisans: `www/licenses/hyperframes-LICENSE-Apache-2.0.txt`
+- [gl-transitions](https://github.com/gl-transitions/gl-transitions) — MIT
+- Bricolage Grotesque, Source Serif 4 — SIL Open Font License

@@ -1,4 +1,5 @@
 // Alpicut — sosyal medya şablonları (platformdan bağımsız, marka logosu içermez; tüm alanlar düzenlenebilir)
+import { SOCIAL_TEMPLATES3, SOCIAL_FIELDS3, FIELD_META3 } from './social3.js';
 import { roundRect, clamp, iconPath, hexA } from './render.js';
 import { drawSocial2, SOCIAL_TEMPLATES2, SOCIAL_FIELDS2 } from './social2.js';
 
@@ -513,4 +514,5 @@ export function drawSocial(ctx, L, t, env) {
 
 export { wrap, avatar, icon, verified, card, F, theme };
 SOCIAL_TEMPLATES.push(...SOCIAL_TEMPLATES2);
-export const SOCIAL_FIELDS = { ...SOCIAL_FIELDS_BASE, ...SOCIAL_FIELDS2 };
+export const SOCIAL_FIELDS = { ...SOCIAL_FIELDS_BASE, ...SOCIAL_FIELDS2, ...SOCIAL_FIELDS3 };
+export { SOCIAL_TEMPLATES3, FIELD_META3 };

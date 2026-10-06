@@ -17,7 +17,7 @@ import { curvePicker, graphView } from './kfui.js';
 import { star, favIds, registerFav } from './favs.js';
 import { transBody, TR_CATS } from './transitions.js';
 import { GL_LIST, transGL } from './gltrans.js';
-import { SOCIAL_TEMPLATES, drawSocial, SOCIAL_FIELDS } from './social.js';
+import { SOCIAL_TEMPLATES, drawSocial, SOCIAL_FIELDS, SOCIAL_TEMPLATES3, FIELD_META3 } from './social.js';
 import { fontPickerBody, isBundled, fontWeights, ensureProjectFonts } from './fonts.js';
 import { colorTab, chromaTab, audioFxTab, audioToolsTab, slipControl, fxLayerInspector, openStickers } from './ui3.js';
 
@@ -423,6 +423,7 @@ function posTab(body, L) {
 
 function layerInspector(L) {
   const title = { text: 'Yazı', media: 'Katman', cta: 'Sosyal medya çağrısı', score: 'Skor kartı', shape: 'Şekil', sticker: 'Çıkartma', social: 'Sosyal medya', group: 'Grup', wave: 'Ses dalgası' }[L.kind];
+  const titleX = L.kind === 'social' && MOTION_TYPES.has(L.type) ? 'Motion' : null;
   const tabs = {
     text: ['Metin', 'Stil', 'Animasyon', 'Keyframe', 'Konum'],
     media: ['Düzen', 'Arka plan', 'Chroma', 'Maske', 'Renk', 'Animasyon', 'Keyframe', 'Filtre', 'Konum'],
@@ -437,7 +438,7 @@ function layerInspector(L) {
   const actions = [...flagActions(L, 'layer'), ...commonActions('layer')];
   if (L.kind === 'text') actions.unshift({ icon: I.save, label: 'Stili kaydet', onClick: () => app.saveStyle('text', L) });
   return {
-    title, tabs, actions,
+    title: titleX || title, tabs, actions,
     render: (body, tab) => {
       if (tab === 'Keyframe') return kfTab(body, L, LAYER_PROPS);
       if (tab === 'Renk') return colorTab(body, L);
@@ -812,6 +813,55 @@ export function openSocial(tab) {
   });
 }
 
+// ---------- v1.6 Motion stüdyosu (HyperFrames'ten esinlenen, hareketli önizlemeli) ----------
+const MOTION_TYPES = new Set(SOCIAL_TEMPLATES3.map((t) => t.p.type));
+const MOTION_CATS = () => ['★', ...new Set(SOCIAL_TEMPLATES3.map((t) => t.cat))];
+// küçük canlı önizleme: kartlar ekranda kaldıkça döngüde oynar
+function motionPreview(L, dur) {
+  const c = h('canvas', { width: 360, height: 300 });
+  const ctx = c.getContext('2d');
+  const env0 = { W: 1080, H: 1920, S: 0.3, img: (id) => app.engine.imgForMedia(id) };
+  const m = document.createElement('canvas').getContext('2d');
+  const box = drawSocial(m, L, Math.min(dur * 0.7, dur - 0.3), env0) || { w: 600, h: 200 };
+  const full = /^(tunnel|starfield)$/.test(L.type);
+  const k = full ? 300 / 1920 : Math.min(0.5, 330 / box.w, 270 / box.h);
+  let t0 = performance.now(), last = 0;
+  const frame = (now) => {
+    if (!c.isConnected && now - t0 > 500) return;
+    requestAnimationFrame(frame);
+    if (now - last < 66) return; // ~15 fps yeter
+    last = now;
+    const t = ((now - t0) / 1000) % (dur + 0.6);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, 360, 300);
+    ctx.fillStyle = '#0E0D11'; ctx.fillRect(0, 0, 360, 300);
+    ctx.translate(180, 150); ctx.scale(k, k);
+    try { drawSocial(ctx, L, Math.min(t, dur - 0.05), { ...env0, S: k }); } catch (_) { /* yoksay */ }
+  };
+  requestAnimationFrame(frame);
+  return c;
+}
+
+export function openMotion(tab) {
+  const cats = MOTION_CATS();
+  openSheet({
+    id: 'motion', title: `Motion stüdyosu · ${SOCIAL_TEMPLATES3.length}`, tabs: cats, tab: tab && cats.includes(tab) ? tab : cats[1], tall: true,
+    render: (body, tb) => {
+      body.append(h('p', { class: 'hint', html: 'Hepsi canlı önizlemeli ve <b>tamamen düzenlenebilir</b>: metin, renk, hız, süre, görsel. Dokun: ekle. ☆ ile favorile.' }));
+      const grid = h('div', { class: 'grid-tpl motion-grid' });
+      const fv = favIds('motion');
+      const list = tb === '★' ? SOCIAL_TEMPLATES3.filter((t) => fv.includes(t.id)) : SOCIAL_TEMPLATES3.filter((t) => t.cat === tb);
+      if (!list.length) body.append(h('p', { class: 'hint' }, 'Henüz favori yok. Kartlardaki ☆ ile ekle.'));
+      list.forEach((tp) => {
+        const dur = tp.dur || 4;
+        const L = { ...clone(SOCIAL_BASE), ...clone(tp.p), start: 0, end: dur };
+        const cv = motionPreview(L, dur);
+        grid.append(h('div', { class: 'tpl', role: 'button', onclick: () => { const x = clone(L); delete x.start; delete x.end; app.addLayer(x, dur); } }, cv, h('span', {}, tp.name), star('motion', tp.id, { name: tp.name })));
+      });
+      body.append(grid);
+    },
+  });
+}
+
 function socialTab(body, L) {
   const keys = SOCIAL_FIELDS[L.type] || [];
   const LBL = { name: 'İsim', handle: 'Kullanıcı adı', time: 'Saat', text: 'Metin', likes: 'Beğeni', pinned: 'Sabitlendi', dark: 'Koyu tema', avatar: 'Profil fotoğrafı', lines: 'Mesajlar (her satır “İsim: mesaj”)', side: 'Konum', color: 'Renk', textColor: 'Yazı rengi', app: 'Uygulama adı', title: 'Başlık', accent: 'Vurgu rengi', accent2: 'İkinci renk', icon: 'İkon', from: 'Başlangıç', to: 'Bitiş', label: 'Etiket', dur: 'Sayma süresi (sn)', count: 'Sayı', value: 'Puan (0–5)', options: 'Seçenekler (her satır “Seçenek|oy”)', verified: 'Onay rozeti', replies: 'Yanıt', shares: 'Paylaşım', followers: 'Takipçi', following: 'Takip edilen', posts: 'Gönderi', btn: 'Buton yazısı', doneBtn: 'Tıklandıktan sonra', subs: 'Abone sayısı', videos: 'Video sayısı', msgs: 'Mesajlar — her satır bir mesaj. “> metin” = sen (sağ), “< metin” veya “Ad: metin” = karşı taraf', every: 'Mesaj aralığı (sn)', read: '“Okundu” göster', clock: 'Saat (üst çubuk)', status: 'Alt yazı (çevrimiçi…)', tapAt: 'Butona tıklama anı (sn)', portion: 'Ekran oranı', bg: 'Arka plan', fg: 'Başlık rengi', fg2: 'Alt metin rengi', size: 'Yazı boyutu', speed: 'Kayma hızı', number: 'Forma no', pos: 'Mevki', stats: 'İstatistikler (her satır “Ad|değer”)', teamA: '1. takım', teamB: '2. takım', colorA: '1. renk', colorB: '2. renk', label1: '1. video yazısı', label2: '2. video yazısı', banner: 'Kapak görseli', v1: '1. video görseli', v2: '2. video görseli' };
@@ -820,6 +870,14 @@ function socialTab(body, L) {
   keys.forEach((k) => {
     if (IMG.includes(k)) return;
     const lab = LBL[k] || k;
+    const M3 = MOTION_TYPES.has(L.type) && k !== 'name' ? FIELD_META3[k] : null;
+    if (M3) {
+      const lb = M3.label;
+      if (M3.type === 'number') list.push({ label: lb, path: k, type: 'text', post: (o) => { const n = parseFloat(String(o[k]).replace(/\./g, '').replace(',', '.')); if (!Number.isNaN(n)) o[k] = n; } });
+      else if (M3.type === 'range') list.push({ label: lb, path: k, type: 'range', min: M3.min, max: M3.max, step: M3.step, def: L[k] ?? M3.min });
+      else list.push({ label: lb, path: k, type: M3.type, options: M3.options });
+      return;
+    }
     if (['text', 'lines', 'options', 'msgs', 'stats'].includes(k)) list.push({ label: lab, path: k, type: 'textarea' });
     else if (['dark', 'pinned', 'verified', 'read'].includes(k)) list.push({ label: lab, path: k, type: 'toggle' });
     else if (['color', 'textColor', 'accent', 'accent2', 'bg', 'fg', 'fg2', 'colorA', 'colorB'].includes(k)) list.push({ label: lab, path: k, type: 'color' });
@@ -1104,5 +1162,6 @@ function targetBitrate(mb, dur) {
 export { uid };
 
 registerFav('text', (id) => { const tp = TEXT_TEMPLATES.find((t) => t.id === id); if (tp && app.P) app.addLayer({ ...clone(TEXT_BASE), ...clone(tp.p) }); });
+registerFav('motion', (id) => { const tp = SOCIAL_TEMPLATES3.find((t) => t.id === id); if (!tp || !app.P) return; app.addLayer({ ...clone(SOCIAL_BASE), ...clone(tp.p) }, tp.dur || 4); });
 registerFav('social', (id) => { const tp = SOCIAL_TEMPLATES.find((t) => t.id === id); if (!tp || !app.P) return; app.addLayer({ ...clone(SOCIAL_BASE), ...clone(tp.p) }, tp.dur || 4); });
 registerFav('tool', (id) => { const k = String(id).replace(/^ai:/, ''); const c = [...document.querySelectorAll('.ai-card')].find((x) => x.querySelector('b')?.textContent === k); if (c) c.click(); else window.__toast?.('Bu aracı Yapay zekâ panelinden aç'); });

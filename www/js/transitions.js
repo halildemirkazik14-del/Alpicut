@@ -8,6 +8,8 @@ import { star, favIds, registerFav } from './favs.js';
 import { layoutClips } from './engine.js';
 
 const CAT_RULES = [
+  ['Yapay zekâ & dijital', /^ai_/],
+  ['Sinematik (HyperFrames)', /^hf_/],
   ['Glitch & bozulma', /glitch|static|noise|doom|pixel|burn|exposure|perlin|wind|crosshatch|fly|ripple|water|butterfly|undulat|tv|melt|colourdistance/i],
   ['Zoom', /zoom|scale|lens|crosszoom/i],
   ['Kaydırma & silme', /wipe|direction|slide|swap|topbottom|slice|blind|door|squeeze|book|curl|coord/i],
@@ -92,7 +94,7 @@ export function transBody(body, c, cat, refresh) {
 export async function openTransitions() {
   const { openSheet, refreshSheet } = await import('./sheets.js');
   openSheet({
-    id: 'transitions', title: `Geçişler · ${GL_LIST.length + TRANSITIONS.length - 1}`, tabs: ['★', ...TR_CATS], tab: 'Temel',
+    id: 'transitions', title: `Geçişler · ${GL_LIST.length + TRANSITIONS.length - 1}`, tabs: ['★', ...TR_CATS], tab: 'Yapay zekâ & dijital',
     render: (body, tab) => {
       const P = app.P;
       if (!P) return;

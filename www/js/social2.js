@@ -3,6 +3,7 @@
 // Hepsi özelleştirilebilir; marka logosu kullanılmaz (benzer görünüm, özgün çizim).
 import { roundRect, clamp } from './render.js';
 import { wrap, avatar, icon, verified, card, F, fmtCount } from './social.js';
+import { drawSocial3 } from './social3.js';
 
 const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
 const back = (x) => { x = clamp(x); const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
@@ -354,7 +355,7 @@ export function drawSocial2(ctx, L, lt, env, T) {
       ctx.restore();
       return { w, h: hh + (L.text ? 80 : 0) };
     }
-    default: return { w: 600, h: 200 };
+    default: return drawSocial3(ctx, L, lt, env) || { w: 600, h: 200 };
   }
 }
 

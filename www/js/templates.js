@@ -1,12 +1,46 @@
 // Alpicut — proje şablonları ("Şablondan başla")
 import { clone, uid } from './state.js';
+import { SOCIAL_TEMPLATES3 } from './social3.js';
 import { TEXT_BASE, TEXT_TEMPLATES, CTA_BASE, CTA_PRESETS, SCORE_BASE, SUB_BASE, FX_BASE, SHAPE_BASE, SHAPE_PRESETS, anim } from './presets.js';
 
 const T = (id, start, end, extra = {}) => ({ ...clone(TEXT_BASE), ...clone(TEXT_TEMPLATES.find((x) => x.id === id).p), ...extra, id: uid(), kind: 'text', start, end, sc: 1, kf: {} });
 const C = (id, start, end, extra = {}) => ({ ...clone(CTA_BASE), ...clone(CTA_PRESETS.find((x) => x.id === id).p), ...extra, id: uid(), kind: 'cta', start, end, sc: 1, kf: {} });
 const SH = (id, start, end, extra = {}) => ({ ...clone(SHAPE_BASE), ...clone(SHAPE_PRESETS.find((x) => x.id === id).p), ...extra, id: uid(), kind: 'shape', start, end, sc: 1, kf: {} });
 
+// v1.6: Motion stüdyosu katmanı
+const M = (id, start, end, extra = {}) => { const tp = SOCIAL_TEMPLATES3.find((x) => x.id === id); return { kind: 'social', x: 0.5, y: 0.5, rot: 0, sc: 1, opacity: 1, scale: 1, dark: false, accent: '#9D8CF2', ...clone(tp.p), ...extra, id: uid(), start, end, kf: {} }; };
+
 export const PROJECT_TEMPLATES = [
+  { id: 'aitool', name: 'Yapay zekâ aracı tanıtımı', desc: 'Komut yazılıyor, Alpi-co sohbet ekranı, görsel üretimi, abone çağrısı', ratio: '9:16', icon: '✨',
+    build: () => ({ dur: 24, layers: [
+      M('m_kinetic', 0, 3, { text: 'BU YAPAY ZEKÂ *ÇILDIRTTI*', y: 0.3 }),
+      M('m_aiprompt', 3, 8, { y: 0.45 }),
+      M('m_aiimage', 8, 14, { y: 0.45 }),
+      M('m_aichat', 14, 22, { y: 0.48 }),
+      C('subscribe', 21, 24),
+    ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), y: 0.86 } }, fx: clone(FX_BASE) }) },
+  { id: 'devlog', name: 'Kod / geliştirici videosu', desc: 'Kod yazılıyor, terminal, diff, repo kartı, commit akışı', ratio: '9:16', icon: '💻',
+    build: () => ({ dur: 26, layers: [
+      M('m_scramble', 0, 3, { text: 'BUNU KODLADIM', y: 0.3 }),
+      M('m_code', 3, 10, { y: 0.42 }),
+      M('m_term', 10, 16, { y: 0.42 }),
+      M('m_diff', 16, 20, { y: 0.42 }),
+      M('m_repo', 20, 26, { y: 0.42 }),
+    ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), y: 0.84 } }, fx: { ...clone(FX_BASE), bg: '#0E0D11' } }) },
+  { id: 'aicompare', name: 'Yapay zekâ karşılaştırma', desc: 'İki model yan yana, cevap sıralaması, sonuç kartı', ratio: '9:16', icon: '⚖️',
+    build: () => ({ dur: 20, layers: [
+      M('m_kinetic', 0, 3, { text: 'HANGİSİ *DAHA ZEKİ?*', y: 0.3 }),
+      M('m_aicompare', 3, 11, { y: 0.45 }),
+      M('m_airank', 11, 17, { y: 0.45 }),
+      M('m_success', 17, 20, { text: 'Kazanan belli!', y: 0.45 }),
+    ], subs: clone(SUB_BASE), fx: clone(FX_BASE) }) },
+  { id: 'paperstory', name: 'Kağıt stop-motion hikâye', desc: 'Kesik kağıt başlık, yapışkan not, damga, kağıt efekti', ratio: '9:16', icon: '✂️',
+    build: () => ({ dur: 16, layers: [
+      { id: uid(), kind: 'fx', effect: 'paper', start: 0, end: 16, amount: 1, speed: 1, fps: 8, x: 0.5, y: 0.5, rot: 0, sc: 1, opacity: 1, kf: {}, anim: anim('none', 'none') },
+      M('m_paper', 0.2, 4, { y: 0.3 }),
+      M('m_sticky', 5, 10, { y: 0.45 }),
+      M('m_stamp', 11, 15, { y: 0.45 }),
+    ], subs: clone(SUB_BASE), fx: clone(FX_BASE) }) },
   { id: 'football', name: 'Futbol yorum Shorts', desc: 'Hook başlık, skor kartı, neon çerçeve, kelime vurgulu altyazı, abone çağrısı', ratio: '9:16', icon: '⚽',
     build: () => ({ dur: 30, layers: [
       SH('neonFrame', 0, 30),
@@ -101,3 +135,6 @@ PROJECT_TEMPLATES.push(
   { id: 'music', name: 'Müzik / şarkı', desc: 'Şimdi çalıyor bandı, ses dalgası, kelime kelime söz', ratio: '9:16', icon: '🎵',
     build: () => ({ dur: 20, layers: [{ id: uid(), kind: 'wave', style: 'mirror', bars: 40, w: 0.84, h: 0.16, color: '#A855F7', color2: '#F472B6', glow: true, x: 0.5, y: 0.62, rot: 0, sc: 1, opacity: 1, start: 0, end: 20, kf: {}, anim: anim('fade', 'fade') }, T('mu_now', 0, 20)], subs: SUBX({ tpl: 'c_neon', font: 'Righteous', weight: 400, size: 82, color: '#F5D0FE', accent: '#FFFFFF', strokeW: 0, glow: 26, glowColor: '#D946EF', mode: 'group', group: 3, hl: 'scale', anim: 'pop' }), fx: { ...clone(FX_BASE), bg: '#0B0710' } }) },
 );
+
+// v1.6: herkese hitap — spor şablonları listenin sonuna
+['football', 'matchday'].forEach((id) => { const i = PROJECT_TEMPLATES.findIndex((t) => t.id === id); if (i >= 0) PROJECT_TEMPLATES.push(...PROJECT_TEMPLATES.splice(i, 1)); });
