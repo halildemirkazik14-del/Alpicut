@@ -11,3 +11,8 @@ www/data/music.json
 www/data/assets-report.json
 lab/out/
 www/labmedia/
+
+# Güvenlik: şifresiz imza anahtarları asla depoya girmesin (yalnızca .enc)
+*.keystore
+*.jks
+*.p12

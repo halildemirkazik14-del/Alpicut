@@ -11,17 +11,31 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Yeni release imza anahtarının parmak izi — APK başka bir anahtarla imzalanırsa derleme durur
+      ALPICUT_CERT_SHA256: 5B8FECAC7E8EB3EB7220FEC503E9FF110ACB249BBC02A75C9D58059BE3D11850
     steps:
-      - uses: actions/checkout@v4
+      # Güvenlik: üçüncü parti eylemler etiket yerine sabit sürüme (commit) bağlı
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: 21
+
+      # İmza sırrı yoksa en baştan dur (APK asla herkese açık bir anahtarla imzalanmasın)
+      - name: İmza sırrını kontrol et
+        env:
+          ALPICUT_KEY_PASS: ${{ secrets.ALPICUT_KEY_PASS }}
+        run: |
+          if [ -z "$ALPICUT_KEY_PASS" ]; then
+            echo "::error::ALPICUT_KEY_PASS sırrı eksik. GitHub → Settings → Secrets and variables → Actions → New repository secret ile ekle."
+            exit 1
+          fi
 
       # ubuntu-latest içinde Android SDK hazır geliyor
       - name: Android SDK lisansları
@@ -30,14 +44,24 @@ jobs:
       - name: Araçlar (ffmpeg, unzip)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg unzip > /dev/null
 
-      - name: Paketleri kur
-        run: npm install --no-audit --no-fund
+      # Güvenlik: package-lock.json varsa birebir aynı sürümler kurulur (npm ci).
+      # Yoksa bir kez oluşturulur ve depoya kaydedilir; sonraki derlemeler kilitli sürümleri kullanır.
+      - name: Paketleri kur (kilitli sürümler)
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+            git config user.name "alpicut-ci"
+            git config user.email "ci@alpicut.local"
+            git add package-lock.json
+            git commit -qm "package-lock.json: paket sürümlerini kilitle" && git push -q origin "HEAD:${GITHUB_REF_NAME}" || echo "::warning::lockfile kaydedilemedi"
+          fi
 
       - name: Fontlar, yapay zekâ kütüphaneleri, ses efektleri, müzik kataloğu
         run: node scripts/fetch-assets.mjs
 
       - name: Test medyası
-        continue-on-error: true
         timeout-minutes: 10
         run: bash lab/make-media.sh
 
@@ -47,7 +71,12 @@ jobs:
         run: |
           npx playwright install --with-deps chromium > /dev/null
           node lab/e2e.mjs | tee e2e.txt
-          node lab/smoke.mjs lab/out/smoke | tee -a e2e.txt
+          node lab/smoke.mjs lab/out/smoke | tee smoke.txt
+          cat smoke.txt >> e2e.txt
+
+      # Güvenlik: testler başarısızsa (CSP ihlali dahil) APK üretilmez
+      - name: Sürüm kapısı
+        run: node lab/gate.mjs lab/out/e2e.json smoke.txt | tee gate.txt
 
       - name: Test dosyalarını APK dışında bırak
         run: rm -rf www/labmedia
@@ -65,43 +94,65 @@ jobs:
       - name: Senkronize et
         run: npx cap sync android
 
-      - name: Sabit imza anahtarı (güncellemeler üstüne kurulabilsin)
+      - name: İmza anahtarını aç (şifreli dosyadan)
+        env:
+          ALPICUT_KEY_PASS: ${{ secrets.ALPICUT_KEY_PASS }}
         run: |
-          mkdir -p ~/.android
-          cp android-keystore/debug.keystore ~/.android/debug.keystore
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -in android-keystore/alpicut-release.p12.enc \
+            -out "$RUNNER_TEMP/alpicut.p12" -pass env:ALPICUT_KEY_PASS
+          echo "ALPICUT_KEYSTORE=$RUNNER_TEMP/alpicut.p12" >> "$GITHUB_ENV"
 
-      - name: APK derle
+      - name: APK derle (release)
         working-directory: android
+        env:
+          ALPICUT_KEY_PASS: ${{ secrets.ALPICUT_KEY_PASS }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: APK'yı adlandır
+      - name: İmza anahtarını sil
+        if: always()
+        run: rm -f "$RUNNER_TEMP/alpicut.p12"
+
+      # Güvenlik: APK doğru anahtarla imzalı mı ve hata ayıklama kapalı mı?
+      - name: APK güvenlik kontrolü
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk Alpicut.apk
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "$APK" | tee sign.txt
+          GOT=$(grep -m1 'certificate SHA-256 digest' sign.txt | awk '{print toupper($NF)}')
+          if [ "$GOT" != "$ALPICUT_CERT_SHA256" ]; then echo "::error::APK yanlış anahtarla imzalı ($GOT)"; exit 1; fi
+          if "$BT/aapt" dump badging "$APK" | grep -q application-debuggable; then echo "::error::APK hata ayıklama modunda"; exit 1; fi
+          echo "İMZA DOĞRU, HATA AYIKLAMA KAPALI" | tee -a sign.txt
+          cp "$APK" Alpicut.apk
+
+      - name: Sürüm notları
+        run: |
           {
             echo "Telefonundan **Alpicut.apk** dosyasına dokunup indir ve kur."
             echo; echo "Boyut: $(du -h Alpicut.apk | cut -f1)"
             echo; echo '<details><summary>Derleme raporu</summary>'; echo; echo '```'
-            cat www/data/assets-report.json 2>/dev/null; echo; cat e2e.txt 2>/dev/null | tail -40
+            cat www/data/assets-report.json 2>/dev/null; echo; cat gate.txt 2>/dev/null; cat e2e.txt 2>/dev/null | tail -40
             echo '```'; echo '</details>'
           } > release-notes.md
 
       - name: Test sonuçlarını kaydet
         if: always()
         run: |
-          mkdir -p /tmp/res && cp -r lab/out/* /tmp/res/ 2>/dev/null; cp www/data/assets-report.json e2e.txt /tmp/res/ 2>/dev/null; cd /tmp/res
+          mkdir -p /tmp/res && cp -r lab/out/* /tmp/res/ 2>/dev/null; cp www/data/assets-report.json e2e.txt smoke.txt gate.txt sign.txt /tmp/res/ 2>/dev/null; cd /tmp/res
+          echo "${{ job.status }} ${GITHUB_REF_NAME} ${GITHUB_SHA}" > status.txt
           git init -q && git checkout -q -b ci-results && git config user.name ci && git config user.email ci@alpicut.local
           git add -A && git commit -qm "ci $GITHUB_RUN_NUMBER" && git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-results || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Alpicut-APK
           path: Alpicut.apk
 
       - name: Sürüm yayınla (telefondan indirmek için)
         if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Alpicut v1.0.${{ github.run_number }}

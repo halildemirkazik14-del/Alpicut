@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import crypto from 'node:crypto';
 
 const W = 'www';
 const UA = { 'User-Agent': 'AlpicutBuild/1.0 (https://github.com/halildemirkazik14-del/Alpicut)' };
@@ -324,5 +325,24 @@ function niceName(f) {
   log('müzik', out.length);
 }
 
+// ---------- Güvenlik: yapay zekâ model dosyalarının parmak izi ----------
+// Modeller dış sunucudan indirilir. scripts/model-hashes.json içindeki SHA-256 ile eşleşmezse derleme durur
+// (dosya yolda değiştirilmiş olabilir). Listede olmayan model için parmak izi rapora yazılır, listeye eklenmeli.
+let hashFail = false;
+{
+  const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+  const known = fs.existsSync('scripts/model-hashes.json') ? JSON.parse(fs.readFileSync('scripts/model-hashes.json', 'utf8')) : {};
+  report.modelHashes = {};
+  if (fs.existsSync(`${W}/models`)) {
+    for (const f of fs.readdirSync(`${W}/models`).sort()) {
+      const h = sha(`${W}/models/${f}`);
+      report.modelHashes[f] = h;
+      if (!known[f]) { log('UYARI: parmak izi listede yok', f, h); continue; }
+      if (known[f] !== h) { hashFail = true; report.errors.push(`model parmak izi uyuşmuyor: ${f}`); log('HATA: parmak izi uyuşmuyor', f, h, 'beklenen', known[f]); }
+    }
+  }
+}
+
 fs.writeFileSync(`${W}/data/assets-report.json`, JSON.stringify(report, null, 1));
 log('RAPOR', JSON.stringify(report));
+if (hashFail) { console.error('::error::Model dosyası beklenen parmak iziyle eşleşmiyor — derleme durduruldu'); process.exit(1); }

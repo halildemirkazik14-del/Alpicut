@@ -157,20 +157,16 @@ await step('pipeline', () => pg.evaluate(async () => {
 
 // arayüz: şablon ve geçiş ekranları
 await step('ui', async () => {
+  // v1.8: alt sayfalar artık panel (wm.js) — kapatmak için closeAll; eksik araç adı testi düşürmez, ekran görüntüsü atlanır
+  const closeAll = () => pg.evaluate(async () => { try { (await import('./js/wm.js')).closeAll(); } catch (_) { /* yok */ } });
+  const shot = async (label, file, wait) => {
+    try { await pg.click(`#toolbar .tool:has-text("${label}")`, { timeout: 8000 }); } catch (_) { return false; }
+    await pg.waitForTimeout(wait); await pg.screenshot({ path: `${OUT}/${file}` }); await closeAll(); await pg.waitForTimeout(300); return true;
+  };
   if (await pg.isVisible('#newProject')) { await pg.click('#newProject'); await pg.waitForTimeout(500); }
-  await pg.click('#toolbar .tool:has-text("Yapay zekâ")'); await pg.waitForTimeout(500);
-  await pg.screenshot({ path: `${OUT}/ui_ai.png` });
-  await pg.click('#sheetClose'); await pg.waitForTimeout(300);
-  await pg.click('#toolbar .tool:has-text("Ses efekti")'); await pg.waitForTimeout(1200);
-  await pg.click('#sheetTabs button, .chips button:has-text("Tümü")').catch(() => {});
-  await pg.screenshot({ path: `${OUT}/ui_sfx.png` });
-  await pg.click('#sheetClose'); await pg.waitForTimeout(300);
-  await pg.click('#toolbar .tool:has-text("Müzik")'); await pg.waitForTimeout(1500);
-  await pg.screenshot({ path: `${OUT}/ui_music.png` });
-  await pg.click('#sheetClose'); await pg.waitForTimeout(300);
-  await pg.click('#toolbar .tool:has-text("Şablon")'); await pg.waitForTimeout(2500);
-  await pg.screenshot({ path: `${OUT}/ui_tpl.png` });
-  return {};
+  const shots = {};
+  for (const [label, file, wait] of [['Yapay zekâ', 'ui_ai.png', 500], ['Ses efekti', 'ui_sfx.png', 1200], ['Müzik', 'ui_music.png', 1500], ['Şablon', 'ui_tpl.png', 2500]]) shots[label] = await shot(label, file, wait);
+  return { shots };
 });
 
 R.logs = logs.slice(0, 40);

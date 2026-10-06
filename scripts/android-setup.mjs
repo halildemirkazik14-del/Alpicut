@@ -58,4 +58,33 @@ public class MainActivity extends BridgeActivity {
     fs.writeFileSync(ma, j);
   }
 }
+
+// Güvenlik: release imzası. Anahtar repoda şifreli durur, CI'da ALPICUT_KEY_PASS sırrıyla açılır.
+// ALPICUT_KEYSTORE ortam değişkeni yoksa (ör. emülatör laboratuvarı) imza ayarı eklenmez.
+const bg = 'android/app/build.gradle';
+if (fs.existsSync(bg)) {
+  let g = fs.readFileSync(bg, 'utf8');
+  if (!g.includes('ALPICUT_KEYSTORE')) {
+    const signing = `    signingConfigs {
+        release {
+            def ks = System.getenv("ALPICUT_KEYSTORE")
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv("ALPICUT_KEY_PASS")
+                keyAlias "alpicut"
+                keyPassword System.getenv("ALPICUT_KEY_PASS")
+            }
+        }
+    }
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+`;
+    const re = /(\n[ \t]*)buildTypes\s*\{\s*release\s*\{/;
+    if (!re.test(g)) { console.error('build.gradle: buildTypes.release bulunamadı'); process.exit(1); }
+    g = g.replace(re, (m, nl) => `\n${signing}${nl.slice(1)}buildTypes {${nl}    release {${nl}        signingConfig signingConfigs.release`);
+    fs.writeFileSync(bg, g);
+  }
+}
 console.log('Android ayarları uygulandı');

@@ -875,19 +875,33 @@ export async function exportPackage(projectId) {
   } finally { b.close(); }
 }
 
+// Güvenlik: yedek dosyası başkasından gelebilir — küçük resimler yalnızca cihazda üretilmiş data:image olabilir
+// (dış adres olursa uygulama açılınca o sunucuya istek atar), medya türü yalnızca ses/görüntü/video olabilir.
+const SAFE_IMG = /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/;
+const safeImg = (v) => (typeof v === 'string' && SAFE_IMG.test(v) ? v : null);
+const safeType = (t) => (typeof t === 'string' && /^(video|audio|image)\/[\w.+-]+$/.test(t) ? t : '');
+
 export async function importPackage(file) {
   const magic = new TextDecoder().decode(await file.slice(0, 8).arrayBuffer());
   if (magic !== 'ALPICUT1') throw new Error('Bu bir Alpicut yedek dosyası değil');
   const n = new DataView(await file.slice(8, 12).arrayBuffer()).getUint32(0);
+  if (!n || 12 + n > file.size) throw new Error('Yedek dosyası bozuk');
   const head = JSON.parse(new TextDecoder().decode(await file.slice(12, 12 + n).arrayBuffer()));
+  if (!head || !Array.isArray(head.media) || !head.project?.data) throw new Error('Yedek dosyası bozuk');
   let off = 12 + n;
   for (const m of head.media) {
+    m.size = Math.max(0, Math.floor(+m.size || 0));
+    m.type = safeType(m.type);
+    m.thumb = safeImg(m.thumb);
+    if (off + m.size > file.size) throw new Error('Yedek dosyası eksik veya bozuk');
     const blob = file.slice(off, off + m.size, m.type);
     off += m.size;
     const exists = await store.getMedia(m.id).catch(() => null);
     if (!exists) await store.putMedia({ ...m, blob: new Blob([await blob.arrayBuffer()], { type: m.type }) });
   }
   const rec = head.project;
+  if ('thumb' in rec) rec.thumb = safeImg(rec.thumb);
+  if ('coverThumb' in rec.data) rec.data.coverThumb = safeImg(rec.data.coverThumb);
   const all = await store.allProjects();
   if (all.some((p) => p.id === rec.id)) { rec.id = uid(); rec.data.id = rec.id; rec.name = `${rec.name} (yedekten)`; rec.data.name = rec.name; }
   rec.updated = Date.now();

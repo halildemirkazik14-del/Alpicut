@@ -167,7 +167,7 @@ export async function ttsEleven(text, { voiceId, model = getModel('eleven'), sta
   if (!voiceId) throw new Error('Önce bir ses seç');
   let r;
   try {
-    r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+    r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {
       method: 'POST', headers: { 'xi-api-key': key, 'content-type': 'application/json', accept: 'audio/mpeg' },
       body: JSON.stringify({ text, model_id: model, voice_settings: { stability, similarity_boost: similarity, style, use_speaker_boost: boost, speed } }),
     });
