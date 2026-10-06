@@ -2,8 +2,9 @@
 import { GL_TRANSITIONS as GL_BASE } from './gltrans-data.js';
 import { HF_TRANSITIONS } from './gltrans-hf.js';
 import { AI_TRANSITIONS } from './gltrans-ai.js';
+import { PRO_TRANSITIONS } from './gltrans-pro.js';
 // v1.6: yapay zekâ geçişleri + HyperFrames sinematik geçişleri en başta
-const GL_TRANSITIONS = [...AI_TRANSITIONS, ...HF_TRANSITIONS, ...GL_BASE];
+const GL_TRANSITIONS = [...PRO_TRANSITIONS, ...AI_TRANSITIONS, ...HF_TRANSITIONS, ...GL_BASE];
 
 const VS = 'attribute vec2 p; varying vec2 v; void main(){ v = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }';
 

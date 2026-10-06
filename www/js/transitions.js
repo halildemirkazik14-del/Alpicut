@@ -8,6 +8,7 @@ import { star, favIds, registerFav } from './favs.js';
 import { layoutClips } from './engine.js';
 
 const CAT_RULES = [
+  ['Premium', /^pr_/],
   ['Yapay zekâ & dijital', /^ai_/],
   ['Sinematik (HyperFrames)', /^hf_/],
   ['Glitch & bozulma', /glitch|static|noise|doom|pixel|burn|exposure|perlin|wind|crosshatch|fly|ripple|water|butterfly|undulat|tv|melt|colourdistance/i],
@@ -65,22 +66,28 @@ export function transBody(body, c, cat, refresh) {
     if (!items.length) body.append(h('p', { class: 'hint' }, 'Henüz favori geçiş yok. ☆ ile ekle.'));
     const A = Li > 0 ? thumbOf(lay[Li - 1]) : sample(0), B = Li >= 0 ? thumbOf(lay[Li]) : sample(1);
     const g2 = h('div', { class: 'tr-grid' });
+    // v1.8: görünen her kart kendiliğinden döngüde oynar (dokunmayı beklemez); ekrandan çıkınca durur
     const io = new IntersectionObserver((ents) => ents.forEach((en) => {
-      if (!en.isIntersecting) return;
       const cv = en.target;
+      if (!en.isIntersecting) { clearTimeout(cv._raf); cv._raf = null; return; }
       const T = transGL(); const id = cv.dataset.raw;
-      if (!T || !id) return;
-      // küçük animasyon: görünürken döngü
-      let p = 0.15;
-      const tick = () => { if (!cv.isConnected) return; p = (p + 0.025) % 1; const out = T.render(id, A, B, 0.15 + p * 0.7, 72, 128); if (out) cv.getContext('2d').drawImage(out, 0, 0); cv._raf = setTimeout(tick, 60); };
-      if (cv.dataset.anim) { if (cv._raf) return; tick(); } else { const out = T.render(id, A, B, 0.5, 72, 128); if (out) cv.getContext('2d').drawImage(out, 0, 0); }
-    }), { root: null });
+      if (!T || !id || cv._raf) return;
+      let p = Math.random();
+      const tick = () => {
+        if (!cv.isConnected) { io.unobserve(cv); return; }
+        p = (p + 0.03) % 1.25;
+        const q = Math.min(1, Math.max(0, (p - 0.1) / 0.9));
+        const out = T.render(id, A, B, q, 72, 128);
+        if (out) cv.getContext('2d').drawImage(out, 0, 0);
+        cv._raf = setTimeout(tick, 55);
+      };
+      tick();
+    }), { root: null, rootMargin: '40px' });
     items.forEach((t) => {
       const cv = h('canvas', { width: 72, height: 128 });
       if (t.raw) { cv.dataset.raw = t.raw; } else { const x = cv.getContext('2d'); x.drawImage(A, 0, 0); x.fillStyle = 'rgba(0,0,0,.4)'; x.fillRect(0, 0, 72, 128); }
       const card = h('div', { class: `tr-card${c.trans.type === t.id ? ' on' : ''}`, role: 'button' }, cv, h('span', {}, t.name), star('trans', t.id, { name: t.name }));
       card.addEventListener('click', () => pick(t.id));
-      card.addEventListener('pointerdown', () => { if (t.raw && !cv.dataset.anim) { cv.dataset.anim = '1'; io.unobserve(cv); io.observe(cv); } });
       g2.append(card);
       if (t.raw) io.observe(cv);
     });
@@ -94,7 +101,7 @@ export function transBody(body, c, cat, refresh) {
 export async function openTransitions() {
   const { openSheet, refreshSheet } = await import('./sheets.js');
   openSheet({
-    id: 'transitions', title: `Geçişler · ${GL_LIST.length + TRANSITIONS.length - 1}`, tabs: ['★', ...TR_CATS], tab: 'Yapay zekâ & dijital',
+    id: 'transitions', title: `Geçişler · ${GL_LIST.length + TRANSITIONS.length - 1}`, tabs: ['★', ...TR_CATS], tab: 'Premium',
     render: (body, tab) => {
       const P = app.P;
       if (!P) return;
