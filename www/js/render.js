@@ -519,7 +519,30 @@ const ICON_PATHS = {
   at: 'M12 2.5a9.5 9.5 0 1 0 5.2 17.4l-1.1-1.7A7.5 7.5 0 1 1 19.5 12v1.2c0 1-.7 1.8-1.6 1.8s-1.6-.8-1.6-1.8V7.6h-2v.9A4.6 4.6 0 1 0 15 15.4a3.6 3.6 0 0 0 2.9 1.6c2 0 3.6-1.7 3.6-3.8V12A9.5 9.5 0 0 0 12 2.5zm0 12.1a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2z',
   link: 'M10.6 13.4a1 1 0 0 0 1.4 1.4l4.9-4.9a3.5 3.5 0 0 0-4.9-4.9l-2.1 2.1 1.4 1.4 2.1-2.1a1.5 1.5 0 0 1 2.1 2.1zM13.4 10.6a1 1 0 0 0-1.4-1.4l-4.9 4.9a3.5 3.5 0 0 0 4.9 4.9l2.1-2.1-1.4-1.4-2.1 2.1a1.5 1.5 0 0 1-2.1-2.1z',
   check: 'M9.5 16.2 5.3 12l-1.6 1.6 5.8 5.8L21 7.9l-1.6-1.6z',
-};
+  // v1.7: yeni ikonlar
+  cart: 'M3 3h2.6l2.3 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 1.9-1.4L21.5 7H6.3M9.5 21a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm8 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
+  download: 'M11 3h2v9.2l3.3-3.3 1.4 1.4L12 16l-5.7-5.7 1.4-1.4 3.3 3.3zM4 18h16v3H4z',
+  calendar: 'M7 2h2v2h6V2h2v2h2.5A1.5 1.5 0 0 1 21 5.5v14a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-14A1.5 1.5 0 0 1 4.5 4H7zm-2 7v10h14V9z',
+  phone: 'M6.6 2.5 9.4 5.3a1.5 1.5 0 0 1 .1 2L8 9.1a12 12 0 0 0 6.9 6.9l1.8-1.5a1.5 1.5 0 0 1 2-.1l2.8 2.8a1.5 1.5 0 0 1 0 2.1l-1.5 1.5c-1.2 1.2-3 1.5-4.6.9A19.5 19.5 0 0 1 2.3 8.6c-.6-1.6-.3-3.4.9-4.6l1.5-1.5a1.5 1.5 0 0 1 1.9 0z',
+  pin: 'M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z',
+  ticket: 'M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5V9a3 3 0 0 0 0 6v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5V15a3 3 0 0 0 0-6zM14 7v2h1.5V7zm0 4v2h1.5v-2zm0 4v2h1.5v-2z',
+  gift: 'M3 8h18v4H3zM4.5 12h6.5v9H4.5zM13 12h6.5v9H13zM11 8V21h2V8zM12 8c-1.5-3-5.5-4.5-6.5-2.2C4.7 7.6 8 8 12 8zm0 0c1.5-3 5.5-4.5 6.5-2.2.8 1.8-2.5 2.2-6.5 2.2z',
+  star: 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z',
+  fire: 'M13.5 2c.6 3.3-1.4 5-2.8 6.6-1.5 1.7-2.7 3.2-2.2 5.6-1.6-.8-2.5-2.4-2.5-4.2C3.7 12 3 14 3 15.8 3 19.8 7 22 12 22s9-2.4 9-6.7C21 9.9 16.9 6.6 13.5 2zm-1 18c-2.2 0-3.6-1.3-3.6-3 0-2.4 2.7-3.6 3.2-6 1.9 1.4 4 3.6 4 6 0 1.7-1.4 3-3.6 3z',
+  bolt: 'M13.5 2 4 13.5h6.5L9.5 22 20 9.5h-6.5z',
+  mail: 'M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1.8 2 7.2 5.6L19.2 7z',
+  dm: 'M2.5 11.3 21.5 3l-6.6 18.5-3.4-7.4z',
+  globe: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.9 9h-3a15.7 15.7 0 0 0-1.4-6.1A8 8 0 0 1 18.9 11zM12 4.1c.9 1 2 3.3 2.2 6.9H9.8C10 7.4 11.1 5.1 12 4.1zM9.5 4.9A15.7 15.7 0 0 0 8.1 11h-3a8 8 0 0 1 4.4-6.1zM5.1 13h3a15.7 15.7 0 0 0 1.4 6.1A8 8 0 0 1 5.1 13zm6.9 6.9c-.9-1-2-3.3-2.2-6.9h4.4c-.2 3.6-1.3 5.9-2.2 6.9zm2.5-.8a15.7 15.7 0 0 0 1.4-6.1h3a8 8 0 0 1-4.4 6.1z',
+  tag: 'M2.5 12.6V4.5a2 2 0 0 1 2-2h8.1l9 9a2 2 0 0 1 0 2.8l-8.1 8.1a2 2 0 0 1-2.8 0zM7.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
+  music: 'M9 17.5V5.5l11-2.5v12.5M9 17.5a3 3 0 1 1-3-3 3 3 0 0 1 3 3zm11-2.5a3 3 0 1 1-3-3 3 3 0 0 1 3 3z',
+  camera: 'M8.5 4h7l1.6 2.5H20a1.5 1.5 0 0 1 1.5 1.5v10.5A1.5 1.5 0 0 1 20 20H4a1.5 1.5 0 0 1-1.5-1.5V8A1.5 1.5 0 0 1 4 6.5h2.9zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  eye: 'M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z',
+  arrow: 'M4 11h12.2l-4.6-4.6L13 5l7 7-7 7-1.4-1.4 4.6-4.6H4z',
+  live: 'M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM7.1 7.1l-1.4-1.4a9 9 0 0 0 0 12.6l1.4-1.4a7 7 0 0 1 0-9.8zm9.8 0a7 7 0 0 1 0 9.8l1.4 1.4a9 9 0 0 0 0-12.6z',
+  money: 'M2 6h20v12H2zm10 9.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM4 8v2a2 2 0 0 0 2-2zm14 0a2 2 0 0 0 2 2V8zM4 14v2h2a2 2 0 0 0-2-2zm16 0a2 2 0 0 0-2 2h2z',
+  coffee: 'M3 8h14v6a6 6 0 0 1-6 6H9a6 6 0 0 1-6-6zm14 2h1.5a2.5 2.5 0 0 1 0 5H17v-2h1.5a.5.5 0 0 0 0-1H17zM6 2.5h2v3.5H6zm4 0h2v3.5h-2z',
+  home: 'M12 3 2.5 11h2.7v9.5h5.3v-6h3v6h5.3V11h2.7z',
+}
 const pathCache = {};
 export function iconPath(name) {
   if (!pathCache[name]) pathCache[name] = new Path2D(ICON_PATHS[name] || ICON_PATHS.play);
@@ -528,6 +551,9 @@ export function iconPath(name) {
 export const ICON_NAMES = [
   ['bell', 'Zil'], ['thumb', 'Beğeni'], ['heart', 'Kalp'], ['userPlus', 'Takip'], ['bubble', 'Yorum'],
   ['share', 'Paylaş'], ['bookmark', 'Kaydet'], ['play', 'Oynat'], ['at', '@'], ['link', 'Link'], ['check', 'Onay'],
+  ['cart', 'Sepet'], ['download', 'İndir'], ['calendar', 'Takvim'], ['phone', 'Telefon'], ['pin', 'Konum'], ['ticket', 'Bilet'],
+  ['gift', 'Hediye'], ['star', 'Yıldız'], ['fire', 'Ateş'], ['bolt', 'Şimşek'], ['mail', 'E-posta'], ['dm', 'Mesaj'], ['globe', 'Web'],
+  ['tag', 'Etiket'], ['music', 'Müzik'], ['camera', 'Kamera'], ['eye', 'İzle'], ['arrow', 'Ok'], ['live', 'Canlı'], ['money', 'Para'], ['coffee', 'Kahve'], ['home', 'Ev'],
 ];
 
 function drawIcon(ctx, name, cx, cy, size, color) {
@@ -551,11 +577,12 @@ export function drawCTA(ctx, L, t, env) {
   const icon = tapped && L.doneLabel ? 'check' : L.icon;
   const bg = tapped && L.doneLabel ? '#3F3A4D' : L.color;
   const h = 112, isz = 58;
-  ctx.font = `800 54px "Barlow Condensed", "Barlow", sans-serif`;
+  ctx.font = L.font ? `800 ${L.font === 'Bricolage Grotesque' ? 46 : 54}px "${L.font}", "Barlow", sans-serif` : `800 54px "Barlow Condensed", "Barlow", sans-serif`;
   try { ctx.letterSpacing = '1px'; } catch (_) { /* yoksay */ }
   const tw = label ? ctx.measureText(label).width : 0;
   const round = L.style === 'round' || !label;
   const w = round ? h : tw + isz + 104;
+  const rr = L.style === 'square' || L.style === 'stack' || L.style === 'sticker' ? 26 : h / 2;
   // tıklama bastırma
   if (L.tap) {
     const d = local - tapAt;
@@ -573,12 +600,34 @@ export function drawCTA(ctx, L, t, env) {
     ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fill();
     ctx.shadowColor = 'transparent';
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.stroke();
+  } else if (L.style === 'neon') {
+    roundRect(ctx, -w / 2, -h / 2, w, h, rr);
+    ctx.fillStyle = 'rgba(8,6,14,.7)'; ctx.fill();
+    ctx.shadowColor = L.color; ctx.shadowBlur = 34 * S; ctx.shadowOffsetY = 0;
+    ctx.lineWidth = 6; ctx.strokeStyle = L.color; ctx.stroke(); ctx.stroke();
+  } else if (L.style === 'gradient') {
+    roundRect(ctx, -w / 2, -h / 2, w, h, rr);
+    const g = ctx.createLinearGradient(-w / 2, 0, w / 2, 0); g.addColorStop(0, bg); g.addColorStop(1, tapped && L.doneLabel ? bg : (L.color2 || '#22D3EE'));
+    ctx.fillStyle = g; ctx.fill();
+  } else if (L.style === 'sticker') {
+    ctx.rotate(-0.05);
+    roundRect(ctx, -w / 2 - 8, -h / 2 - 8, w + 16, h + 16, rr + 8); ctx.fillStyle = '#FFFFFF'; ctx.fill();
+    ctx.shadowColor = 'transparent';
+    roundRect(ctx, -w / 2, -h / 2, w, h, rr); ctx.fillStyle = bg; ctx.fill();
+  } else if (L.style === 'minimal') {
+    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 16 * S;
+    ctx.fillStyle = bg; ctx.fillRect(-w / 2 + 40, h / 2 - 14, (w - 80) * (tapped ? 1 : 0.999), 8);
+  } else if (L.style === 'stack') {
+    roundRect(ctx, -w / 2, -h / 2, w, h, rr); ctx.fillStyle = 'rgba(14,13,17,.86)'; ctx.fill();
+    ctx.shadowColor = 'transparent';
+    roundRect(ctx, -w / 2 + 10, -h / 2 + 10, isz + 40, h - 20, 18); ctx.fillStyle = bg; ctx.fill();
   } else {
-    roundRect(ctx, -w / 2, -h / 2, w, h, round ? h / 2 : h / 2);
+    roundRect(ctx, -w / 2, -h / 2, w, h, round ? h / 2 : rr);
     ctx.fillStyle = bg; ctx.fill();
   }
   ctx.restore();
-  const fg = L.style === 'outline' ? L.color : (L.style === 'glass' ? (L.color || '#fff') : L.textColor);
+  if (L.style === 'sticker') ctx.rotate(-0.05);
+  const fg = L.style === 'outline' || L.style === 'neon' ? L.color : (L.style === 'glass' ? (L.color || '#fff') : L.style === 'minimal' || L.style === 'stack' ? '#FFFFFF' : L.textColor);
   if (round) {
     drawIcon(ctx, icon, 0, 0, isz, fg);
   } else {

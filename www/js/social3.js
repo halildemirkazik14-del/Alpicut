@@ -182,6 +182,178 @@ export const SOCIAL_TEMPLATES3 = [
   { id: 'm_radar', name: 'Radar taraması', cat: 'Sci-fi & HUD', p: { type: 'radar', text: '3 HEDEF', accent: '#22C55E', y: 0.5, anim: A('fade') }, dur: 5 },
 ];
 
+// ---------- v1.7: 200+ — yeni türler ve sektörlere göre hazır varyasyonlar ----------
+{
+  const T3 = SOCIAL_TEMPLATES3;
+  const base = (id) => T3.find((t) => t.id === id);
+  // V(kaynak, yeni id, ad, kategori, değişiklikler, süre)
+  const V = (src, id, name, cat, over = {}, dur) => { const b = base(src); if (!b) return; T3.push({ id, name, cat: cat || b.cat, p: { ...JSON.parse(JSON.stringify(b.p)), ...over }, dur: dur || b.dur }); };
+  const N = (id, name, cat, p, dur = 4) => T3.push({ id, name, cat, p: { y: 0.5, anim: A('none', 'fade'), ...p }, dur });
+  // --- yeni türler ---
+  N('m_glitch', 'Glitch başlık', 'Başlık & yazı', { type: 'glitchtitle', text: 'SİSTEM ÇÖKTÜ', accent: '#22D3EE', color: '#FFFFFF' }, 3);
+  N('m_glitch2', 'Glitch başlık (mor)', 'Başlık & yazı', { type: 'glitchtitle', text: 'YENİ ÇAĞ', accent: '#9D8CF2', color: '#FFFFFF' }, 3);
+  N('m_type', 'Daktilo yazısı', 'Başlık & yazı', { type: 'typewriter', text: 'Her şey bir fikirle başladı…', speed: 16, accent: '#E9C7A1', color: '#FFFFFF' }, 4);
+  N('m_type_code', 'Daktilo (mono)', 'Başlık & yazı', { type: 'typewriter', mono: true, text: 'merhaba dünya_', speed: 12, accent: '#22C55E', color: '#A5E3B5' }, 3);
+  N('m_type_story', 'Hikâye anlatıcı', 'Başlık & yazı', { type: 'typewriter', text: 'O gün her şeyin değişeceğini bilmiyordum.', speed: 14, accent: '#C2603D', color: '#F5EFE6' }, 5);
+  N('m_wstack', 'Kelime yığını', 'Başlık & yazı', { type: 'wordstack', text: 'DAHA *HIZLI* DAHA *GÜÇLÜ*', every: 0.3, accent: '#9D8CF2', color: '#FFFFFF' }, 3.5);
+  N('m_wstack2', 'Kelime yığını (sıcak)', 'Başlık & yazı', { type: 'wordstack', text: 'BUGÜN *SADECE* SENİN', every: 0.32, accent: '#C2603D', color: '#FFFFFF' }, 3.5);
+  N('m_under', 'Altı çizili başlık', 'Başlık & yazı', { type: 'underline', text: 'Önemli Not', sub: 'bunu kaçırma', accent: '#FDE68A', color: '#FFFFFF' }, 3.5);
+  N('m_under2', 'Altı çizili (mor)', 'Başlık & yazı', { type: 'underline', text: 'Bölüm 2', sub: 'gerçek hikâye', accent: '#9D8CF2', color: '#FFFFFF' }, 3.5);
+  N('m_cd', 'Büyük geri sayım', 'Satış & ürün', { type: 'countdown2', from: 5, text: 'BAŞLA!', accent: '#9D8CF2' }, 6);
+  N('m_cd3', 'Geri sayım 3', 'Satış & ürün', { type: 'countdown2', from: 3, text: 'GO!', accent: '#EF4444' }, 4);
+  N('m_prog', 'Yükleniyor çubuğu', 'Bilgi & liste', { type: 'progress', title: 'Yükleniyor', text: 'Video hazırlanıyor…', doneText: 'Hazır ✓', dur: 3, accent: '#9D8CF2', accent2: '#E9C7A1' }, 4.5);
+  N('m_prog2', 'Hedef ilerlemesi', 'Bilgi & liste', { type: 'progress', title: '10.000 aboneye', text: 'son düzlük!', doneText: 'Başardık 🎉', dur: 3.5, accent: '#22C55E', accent2: '#84CC16' }, 5);
+  N('m_price', 'Fiyat etiketi', 'Satış & ürün', { type: 'pricetag', title: 'Bugüne özel', old: '₺1.299', price: '₺799', accent: '#E11D48' }, 4);
+  N('m_price2', 'Fiyat etiketi (mor)', 'Satış & ürün', { type: 'pricetag', title: 'Kampanya', old: '₺499', price: '₺249', accent: '#7E6AE0' }, 4);
+  N('m_check', 'Yapılacaklar listesi', 'Bilgi & liste', { type: 'checklist', title: 'Bugün', lines: 'Video çek\nKurgula\nAltyazı ekle\nYayınla', every: 0.6, strike: true, accent: '#22C55E', dark: true }, 5);
+  N('m_check2', 'Malzeme listesi', 'Bilgi & liste', { type: 'checklist', title: 'Malzemeler', lines: '2 yumurta\n1 domates\n1 biber\nTuz, karabiber', every: 0.5, accent: '#C2603D', dark: false }, 5);
+  N('m_check3', 'Valiz listesi', 'Bilgi & liste', { type: 'checklist', title: 'Valizde olmalı', lines: 'Pasaport\nŞarj aleti\nGüneş kremi\nKamera', every: 0.5, accent: '#0EA5E9', dark: true }, 5);
+  N('m_map', 'Haritada rota', 'Etkinlik & mekan', { type: 'mappin', text: 'Kapadokya', accent: '#9D8CF2', accent2: '#EF4444', dark: true }, 4.5);
+  N('m_map2', 'Konum (açık harita)', 'Etkinlik & mekan', { type: 'mappin', text: 'Kaleiçi, Antalya', accent: '#C2603D', accent2: '#E11D48', dark: false }, 4.5);
+  N('m_emoji', 'Emoji yağmuru 🔥', 'Motion 2D', { type: 'emojiburst', text: '🔥🔥💯', count: 30 }, 4);
+  N('m_emoji_love', 'Kalp yağmuru', 'Motion 2D', { type: 'emojiburst', text: '❤️💜🤍', count: 34 }, 4);
+  N('m_emoji_laugh', 'Kahkaha yağmuru', 'Motion 2D', { type: 'emojiburst', text: '😂🤣', count: 30 }, 4);
+  N('m_emoji_party', 'Parti yağmuru', 'Motion 2D', { type: 'emojiburst', text: '🎉🥳✨', count: 34 }, 4);
+  N('m_bell', 'Zil çalıyor', 'Abone & etkileşim', { type: 'bellring', text: 'BİLDİRİMLERİ AÇ', accent: '#FACC15', color: '#FFFFFF' }, 4);
+  N('m_bell2', 'Zil (mor)', 'Abone & etkileşim', { type: 'bellring', text: 'YENİ VİDEO GELDİ', accent: '#9D8CF2', color: '#FFFFFF' }, 4);
+  N('m_date', 'Tarih kartı', 'Etkinlik & mekan', { type: 'datecard', title: 'Ekim', text: '12', sub: 'Cumartesi 20:00', accent: '#E11D48' }, 4);
+  N('m_date2', 'Tarih (düğün)', 'Etkinlik & mekan', { type: 'datecard', title: 'Haziran', text: '21', sub: 'Nikâh töreni', accent: '#8B5E3C' }, 4);
+  N('m_spot', 'Spot ışığı', 'Motion 2D', { type: 'spotlight', text: 'Şuna bak!', px: 0.5, py: 0.42, accent: '#FDE68A' }, 3.5);
+  N('m_tick2', 'Haber bandı (modern)', 'Motion 2D', { type: 'ticker2', title: 'GÜNDEM', text: 'Yeni bölüm yayında • Yorumlarda buluşalım • Abone olmayı unutma', speed: 200, accent: '#E11D48', y: 0.9 }, 8);
+  N('m_tick3', 'Bilgi bandı (mor)', 'Motion 2D', { type: 'ticker2', title: 'İPUCU', text: 'Uzun bas → hızlı menü • Çift dokun → tam ekran panel • Kaydır → zaman çizelgesi', speed: 180, accent: '#7E6AE0', y: 0.9 }, 8);
+  // --- yapay zekâ varyasyonları ---
+  V('m_aichat', 'm_aichat_code', 'Alpi-co: kod yardımı', 'Yapay zekâ', { prompt: 'Bu hatayı nasıl düzeltirim?', answer: 'Değişkeni kullanmadan önce tanımlaman gerekiyor. 3. satıra const ekle ve tekrar dene. 👍' });
+  V('m_aichat', 'm_aichat_travel', 'Alpi-co: gezi planı', 'Yapay zekâ', { prompt: 'Antalya\'da 1 günde ne yapayım?', answer: 'Sabah Kaleiçi\'nde kahvaltı, öğlen Düden Şelalesi, gün batımında Konyaaltı sahili. Akşam yemeği için limanı öneririm. 🌅' });
+  V('m_aichat', 'm_aichat_fit', 'Alpi-co: antrenman', 'Yapay zekâ', { prompt: '20 dakikalık ev antrenmanı ver', answer: '5 dk ısınma, 3 tur: 15 squat, 10 şınav, 30 sn plank, 20 jumping jack. 3 dk esneme ile bitir. 💪', accent: '#22C55E' });
+  V('m_aichat', 'm_aichat_biz', 'Alpi-co: iş fikri', 'Yapay zekâ', { prompt: 'Küçük bir kafe için 3 pazarlama fikri', answer: '1) Haftalık "sanatçı köşesi" etkinliği. 2) Instagram\'da her gün kahve hikâyesi. 3) 5. kahve bizden kartı. ☕', accent: '#C2603D', dark: false });
+  V('m_aichat', 'm_aichat_study', 'Alpi-co: ders özeti', 'Yapay zekâ', { prompt: 'Fotosentezi 2 cümlede anlat', answer: 'Bitkiler güneş ışığı, su ve karbondioksiti kullanarak şeker üretir. Bu sırada havaya oksijen bırakırlar. 🌱', accent: '#0EA5E9' });
+  V('m_aiprompt', 'm_aiprompt_vid', 'Komut: video üret', 'Yapay zekâ', { text: 'Uzayda süzülen bir astronot kedi, sinematik ışık, 4K', btn: 'Video üret' });
+  V('m_aiprompt', 'm_aiprompt_music', 'Komut: müzik üret', 'Yapay zekâ', { text: 'Yağmurlu bir gece için lo-fi hip hop, 80 BPM, piyano', btn: 'Müzik üret', accent: '#E9C7A1' });
+  V('m_aiprompt', 'm_aiprompt_logo', 'Komut: logo tasarla', 'Yapay zekâ', { text: 'Minimal bir kahve dükkanı logosu, sıcak tonlar, el çizimi', btn: 'Tasarla', accent: '#C2603D', dark: false });
+  V('m_aithink', 'm_aithink_res', 'Araştırıyor', 'Yapay zekâ', { title: 'Araştırıyor', lines: '12 kaynak taranıyor\nVeriler karşılaştırılıyor\nÖzet yazılıyor' });
+  V('m_aithink', 'm_aithink_code', 'Kodluyor', 'Yapay zekâ', { title: 'Kodluyor', lines: 'Proje inceleniyor\nHata bulundu\nDüzeltme yazılıyor\nTestler geçti ✓', accent: '#22C55E' });
+  V('m_aiimage', 'm_aiimage2', 'Görsel üretiliyor (sıcak)', 'Yapay zekâ', { text: 'Kapadokya üzerinde gün doğumu, balonlar, sıcak ışık', accent: '#C2603D', accent2: '#FDE68A' });
+  V('m_airank', 'm_airank_phone', 'Telefon sıralaması', 'Yapay zekâ', { title: 'Kamerası en iyi telefon?', stats: 'Telefon A|94\nTelefon B|91\nTelefon C|85\nTelefon D|78', accent: '#0EA5E9' });
+  V('m_aicompare', 'm_aicompare2', 'Model karşılaştırma (kod)', 'Yapay zekâ', { prompt: 'Bir dizi nasıl ters çevrilir?', textA: 'arr.reverse() kullan; orijinal diziyi değiştirir.', textB: '[...arr].reverse() ile kopyasını ters çevir, orijinal bozulmaz.' });
+  V('m_aiagent', 'm_aiagent2', 'Ajan: video kurgusu', 'Yapay zekâ', { title: 'Alpi-co kurguluyor', lines: 'Sessizlikler kesildi|14 kesim\nAltyazı eklendi|86 kelime\nMüzik seçildi|lo-fi\nKapak hazır|1080p' });
+  // --- kod varyasyonları ---
+  V('m_code', 'm_code_html', 'Kod (HTML)', 'Kod & geliştirici', { title: 'index.html', code: '<section class="hero">\n  <h1>Merhaba Alpicut</h1>\n  <p>Telefondan video kurgusu</p>\n  <button>Başla</button>\n</section>' });
+  V('m_code', 'm_code_css', 'Kod (CSS)', 'Kod & geliştirici', { title: 'stil.css', code: '.hero {\n  display: grid;\n  place-items: center;\n  background: #9D8CF2;\n  border-radius: 24px;\n}', accent: '#E9C7A1' });
+  V('m_code', 'm_code_sql', 'Kod (SQL)', 'Kod & geliştirici', { title: 'sorgu.sql', code: 'SELECT ad, izlenme\nFROM videolar\nWHERE izlenme > 10000\nORDER BY izlenme DESC\nLIMIT 5;' });
+  V('m_term', 'm_term_git', 'Terminal (git)', 'Kod & geliştirici', { lines: '$ git add .\n$ git commit -m "yeni özellik"\n[main 4f2a9c1] yeni özellik\n$ git push\n✓ Yayına alındı' });
+  V('m_term', 'm_term_err', 'Terminal (hata)', 'Kod & geliştirici', { lines: '$ npm run build\n✗ Hata: modül bulunamadı\n$ npm install\n$ npm run build\n✓ Derleme başarılı', accent: '#F59E0B' });
+  V('m_term', 'm_term_ai', 'Terminal (yapay zekâ)', 'Kod & geliştirici', { lines: '$ alpico "bu videoyu kurgula"\nVideo analiz ediliyor...\n✓ 12 kesim yapıldı\n✓ Altyazı eklendi\n✓ Hazır: final.mp4', accent: '#9D8CF2' });
+  V('m_repo', 'm_repo2', 'Repo kartı (açık)', 'Kod & geliştirici', { name: 'acik/kaynak', text: 'Herkes için ücretsiz araç', stars: 3400, forks: 210, dark: false, accent: '#7E6AE0' });
+  V('m_diff', 'm_diff2', 'Diff (metin)', 'Kod & geliştirici', { title: 'baslik.txt', code: '- Sıkıcı başlık\n+ BU VİDEO HER ŞEYİ DEĞİŞTİRECEK\n  açıklama aynı kaldı' });
+  // --- pop-up varyasyonları ---
+  V('m_modal', 'm_modal_del', 'Silme onayı', 'Pop-up', { title: 'Bu video silinsin mi?', text: 'Bu işlem geri alınamaz.', btn: 'Sil', btn2: 'Vazgeç', accent: '#EF4444', dark: true });
+  V('m_modal', 'm_modal_upd', 'Güncelleme', 'Pop-up', { title: 'Yeni sürüm hazır 🎉', text: 'Alpicut 1.7 ile tam ekran ve Vibe editing geldi.', btn: 'Güncelle', btn2: 'Sonra', accent: '#9D8CF2' });
+  V('m_modal', 'm_modal_sub', 'Abonelik penceresi', 'Pop-up', { title: 'Kanala abone ol?', text: 'Her hafta yeni video, hiçbirini kaçırma.', btn: 'Abone ol', btn2: 'Belki', accent: '#E53935' });
+  V('m_toastok', 'm_toast_up', 'Yüklendi bildirimi', 'Pop-up', { title: 'Yüklendi', text: 'Videon şimdi yayında 🚀' });
+  V('m_toastok', 'm_toast_pay', 'Ödeme alındı', 'Pop-up', { title: 'Ödeme alındı', text: '₺1.250 hesabına geçti' });
+  V('m_toasterr', 'm_toast_bat', 'Düşük pil', 'Pop-up', { state: 'warn', title: 'Pil %5', text: 'Şarja takmayı unutma' });
+  V('m_stack', 'm_stack_viral', 'Viral bildirimler', 'Pop-up', { lines: 'İzlenme|1 milyon!|Videon viral oldu 🔥\nYorum|Zeynep|Bu efsane olmuş\nTakipçi|Yeni takipçi|+5.200 kişi\nPaylaşım|Mert|Videonu paylaştı' });
+  V('m_stack', 'm_stack_shop', 'Sipariş bildirimleri', 'Pop-up', { lines: 'Mağaza|Yeni sipariş|#1042 — 2 ürün\nKargo|Yola çıktı|Yarın kapında\nYorum|★★★★★|Harika ürün, teşekkürler!', accent: '#C2603D', dark: true });
+  V('m_success', 'm_success2', 'Doğru cevap', 'Pop-up', { text: 'Doğru!' });
+  V('m_error', 'm_error2', 'Bu yanlış', 'Pop-up', { text: 'Bunu yapma!' });
+  // --- motion 2D varyasyonları ---
+  V('m_kinetic', 'm_kin_food', 'Kinetik: yemek', 'Başlık & yazı', { text: '5 DAKİKADA *EFSANE* TARİF', accent: '#C2603D' });
+  V('m_kinetic', 'm_kin_fit', 'Kinetik: spor', 'Başlık & yazı', { text: '30 GÜNDE *DEĞİŞİM*', accent: '#22C55E' });
+  V('m_kinetic', 'm_kin_money', 'Kinetik: para', 'Başlık & yazı', { text: 'BU YÖNTEMLE *KAZAN*', accent: '#FACC15' });
+  V('m_kinetic', 'm_kin_travel', 'Kinetik: seyahat', 'Başlık & yazı', { text: 'BURAYI *MUTLAKA* GÖR', accent: '#0EA5E9' });
+  V('m_kinetic', 'm_kin_tech', 'Kinetik: teknoloji', 'Başlık & yazı', { text: 'YAPAY ZEKÂ *İŞİMİ* ALDI', accent: '#9D8CF2' });
+  V('m_kinetic', 'm_kin_story', 'Kinetik: hikâye', 'Başlık & yazı', { text: 'SONUNA KADAR *İZLE*', accent: '#EF4444' });
+  V('m_count', 'm_count_subs', 'Sayaç: abone', 'Motion 2D', { from: 0, to: 100000, suffix: '', label: 'abone', accent: '#E53935' });
+  V('m_count', 'm_count_money', 'Sayaç: gelir', 'Motion 2D', { from: 0, to: 25000, prefix: '₺', suffix: '', label: 'ilk ayın geliri', accent: '#22C55E' });
+  V('m_count', 'm_count_km', 'Sayaç: mesafe', 'Motion 2D', { from: 0, to: 4200, suffix: ' km', label: 'yol yaptık', accent: '#0EA5E9' });
+  V('m_count', 'm_count_kcal', 'Sayaç: kalori', 'Motion 2D', { from: 0, to: 650, suffix: ' kcal', label: 'yakıldı', accent: '#F97316' });
+  V('m_bars', 'm_bars_sales', 'Grafik: satışlar', 'Bilgi & liste', { title: 'Aylık satış (adet)', stats: 'Oca|40\nŞub|65\nMar|90\nNis|150\nMay|240', accent: '#22C55E' });
+  V('m_bars', 'm_bars_cmp', 'Grafik: karşılaştırma', 'Bilgi & liste', { title: 'Hangisi daha hızlı? (sn)', stats: 'A|12\nB|9\nC|7\nD|4', accent: '#E9C7A1' });
+  V('m_line', 'm_line_price', 'Grafik: fiyat', 'Bilgi & liste', { title: 'Fiyat değişimi', stats: '1|100\n2|120\n3|115\n4|160\n5|190\n6|240', suffix: ' ₺', accent: '#EF4444' });
+  V('m_donut', 'm_donut_battery', 'Halka: pil', 'Bilgi & liste', { value: 92, label: 'pil — tüm gün yetiyor', accent: '#22C55E' });
+  V('m_donut', 'm_donut_survey', 'Halka: anket', 'Bilgi & liste', { value: 68, label: 'kişi bu tarifi denedi', accent: '#C2603D', dark: false });
+  V('m_flap', 'm_flap_dest', 'Tabela: varış', 'Etkinlik & mekan', { text: 'ANTALYA' });
+  V('m_flap', 'm_flap_gate', 'Tabela: kapı', 'Etkinlik & mekan', { text: 'KAPI 12' });
+  V('m_scramble', 'm_scr_secret', 'Şifre: gizli', 'Başlık & yazı', { text: 'GİZLİ BİLGİ', accent: '#9D8CF2' });
+  V('m_scramble', 'm_scr_win', 'Şifre: kazandın', 'Başlık & yazı', { text: 'TEBRİKLER', accent: '#FACC15' });
+  V('m_marker', 'm_marker_tip', 'Vurgu: ipucu', 'Başlık & yazı', { text: 'İşte *kimsenin* söylemediği ipucu', accent: '#9D8CF2' });
+  V('m_marker', 'm_marker_food', 'Vurgu: tarif', 'Başlık & yazı', { text: 'Sırrı *tereyağında* saklı', accent: '#F59E0B' });
+  V('m_steps', 'm_steps_order', 'Adımlar: sipariş', 'Bilgi & liste', { lines: 'Sipariş\nHazırlık\nKargo\nTeslim', accent: '#C2603D' });
+  V('m_steps', 'm_steps_learn', 'Adımlar: öğrenme', 'Bilgi & liste', { lines: 'İzle\nDene\nUygula\nPaylaş', accent: '#0EA5E9' });
+  V('m_timeline', 'm_tl_love', 'Zaman çizelgesi: aşk', 'Etkinlik & mekan', { stats: '2019|Tanıştık\n2021|İlk tatil\n2024|Evlilik teklifi\n2026|Düğün 💍', accent: '#EC4899' });
+  V('m_timeline', 'm_tl_biz', 'Zaman çizelgesi: şirket', 'Bilgi & liste', { stats: '2020|Fikir\n2022|İlk müşteri\n2024|10 kişilik ekip\n2026|Yurt dışı', accent: '#22C55E' });
+  V('m_quote', 'm_quote2', 'Alıntı (açık)', 'Başlık & yazı', { text: 'Küçük adımlar, büyük değişimler getirir.', name: 'Günün sözü', dark: false, accent: '#C2603D' });
+  V('m_quote', 'm_quote3', 'Alıntı (spor)', 'Başlık & yazı', { text: 'Ter, başarının parfümüdür.', name: 'Antrenör', accent: '#22C55E' });
+  V('m_sting', 'm_sting2', 'İsim açılışı (sıcak)', 'Başlık & yazı', { text: 'LATTE', sub: 'saha', accent: '#C2603D' });
+  V('m_sting', 'm_sting3', 'İsim açılışı (kanal)', 'Başlık & yazı', { text: 'KANALIM', sub: 'yeni bölüm', accent: '#22D3EE' });
+  V('m_lt1', 'm_lt1b', 'Alt bant (çizgi, kırmızı)', 'Alt bant', { name: 'Mert Kaya', title: 'Şef', accent: '#E11D48' });
+  V('m_lt2', 'm_lt2b', 'Alt bant (hap, mor)', 'Alt bant', { name: 'Zeynep Ak', title: 'Yazılımcı', accent: '#9D8CF2' });
+  V('m_lt3', 'm_lt3b', 'Alt bant (neon, pembe)', 'Alt bant', { name: 'Gece Yayını', title: 'canlı', accent: '#EC4899' });
+  V('m_lt4', 'm_lt4b', 'Alt bant (cam, otel)', 'Alt bant', { name: 'Fashion TV Luxe', title: 'Antalya', accent: '#FFFFFF' });
+  V('m_lt1', 'm_lt_doc', 'Alt bant (belgesel)', 'Alt bant', { name: 'Prof. Dr. Ayşe Demir', title: 'Tarihçi', accent: '#E9C7A1' });
+  V('m_lt2', 'm_lt_guest', 'Alt bant (konuk)', 'Alt bant', { name: 'Konuk', title: 'Podcast · Bölüm 12', accent: '#F59E0B' });
+  V('m_callout', 'm_callout_y', 'El çizimi daire (sarı)', 'Motion 2D', { text: 'bak!', accent: '#FDE68A' });
+  V('m_arrow', 'm_arrow_r', 'El çizimi ok (kırmızı)', 'Motion 2D', { text: 'burası', accent: '#EF4444' });
+  V('m_callout', 'm_underline_hand', 'El çizimi alt çizgi', 'Motion 2D', { shape: 'underline', text: 'önemli', accent: '#22D3EE' });
+  V('m_confetti', 'm_confetti_gold', 'Altın konfeti', 'Motion 2D', { accent: '#FACC15', accent2: '#F59E0B' });
+  V('m_confetti', 'm_confetti_latte', 'Latte konfeti', 'Motion 2D', { accent: '#8B5E3C', accent2: '#C9A27E' });
+  // --- 3D varyasyonları ---
+  V('m_carousel', 'm_carousel_menu', '3D karusel: menü', 'Motion 3D', { lines: 'Kahvaltı\nÖğle\nAkşam\nTatlı\nİçecek', accent: '#C2603D' });
+  V('m_carousel', 'm_carousel_feat', '3D karusel: özellikler', 'Motion 3D', { lines: 'Hızlı\nGüvenli\nÜcretsiz\nAçık kaynak', accent: '#22D3EE' });
+  V('m_cube', 'm_cube2', '3D küp (sıcak)', 'Motion 3D', { lines: 'TAZE\nLEZZETLİ\nEV YAPIMI', accent: '#C2603D', accent2: '#8B5E3C' });
+  V('m_cube', 'm_cube3', '3D küp (neon)', 'Motion 3D', { lines: 'OYNA\nKAZAN\nPAYLAŞ', accent: '#22D3EE', accent2: '#0E7490' });
+  V('m_flip', 'm_flip2', '3D çevirme: mit/gerçek', 'Motion 3D', { title: 'MİT', text: 'Kahve susatır', title2: 'GERÇEK', text2: 'Günlük sıvı ihtiyacına katkı sağlar' });
+  V('m_flip', 'm_flip3', '3D çevirme: soru/cevap', 'Motion 3D', { title: 'SORU', text: 'En hızlı kara hayvanı?', title2: 'CEVAP', text2: 'Çita — 110 km/s', accent: '#9D8CF2', accent2: '#22C55E' });
+  V('m_extrude', 'm_extrude2', '3D yazı: YES', 'Motion 3D', { text: 'YES!', accent: '#22C55E' });
+  V('m_extrude', 'm_extrude3', '3D yazı: OMG', 'Motion 3D', { text: 'OMG', accent: '#EC4899' });
+  V('m_extrude', 'm_extrude4', '3D yazı: 2026', 'Motion 3D', { text: '2026', accent: '#E9C7A1' });
+  V('m_orbit', 'm_orbit2', 'Yörünge: takip et', 'Motion 3D', { text: 'TAKİP ET • YORUM YAP • PAYLAŞ • ', accent: '#9D8CF2' });
+  V('m_tunnel', 'm_tunnel2', 'Işık tüneli (sıcak)', 'Motion 3D', { accent: '#C2603D', accent2: '#FDE68A', speed: 1.4 });
+  V('m_tunnel', 'm_tunnel3', 'Işık tüneli (neon)', 'Motion 3D', { accent: '#22D3EE', accent2: '#EC4899', speed: 1.8 });
+  V('m_stars', 'm_stars2', 'Hiper hız', 'Motion 3D', { speed: 2.2, count: 400, accent: '#B9ACF7' });
+  V('m_phone', 'm_phone2', '3D telefon (sıcak)', 'Motion 3D', { title: 'Tarif uygulaması', accent: '#C2603D', accent2: '#FDE68A' });
+  // --- kağıt varyasyonları ---
+  V('m_paper', 'm_paper3', 'Kağıt başlık: masal', 'Kağıt & stop-motion', { text: 'MASAL ZAMANI', accent: '#9D8CF2', accent2: '#FDE68A' });
+  V('m_paper', 'm_paper4', 'Kağıt başlık: okul', 'Kağıt & stop-motion', { text: 'DERS 1', accent: '#0EA5E9', accent2: '#F97316' });
+  V('m_paper', 'm_paper5', 'Kağıt başlık: doğum günü', 'Kağıt & stop-motion', { text: 'İYİ Kİ DOĞDUN', accent: '#EC4899', accent2: '#FACC15', fps: 10 });
+  V('m_torn', 'm_torn2', 'Yırtık bant (koyu)', 'Kağıt & stop-motion', { text: 'GERÇEK HİKÂYE', color: '#F5EFE6', accent: '#2B1E17' });
+  V('m_torn', 'm_torn3', 'Yırtık bant (kırmızı)', 'Kağıt & stop-motion', { text: 'SON DAKİKA', color: '#FFFFFF', accent: '#C2603D' });
+  V('m_sticky', 'm_sticky2', 'Yapışkan not (pembe)', 'Kağıt & stop-motion', { text: 'Bugünün hedefi:\n3 video!', accent: '#F9A8D4' });
+  V('m_sticky', 'm_sticky3', 'Yapışkan not (mavi)', 'Kağıt & stop-motion', { text: 'Not:\nsu içmeyi unutma 💧', accent: '#93C5FD' });
+  V('m_stamp', 'm_stamp2', 'Damga: reddedildi', 'Kağıt & stop-motion', { text: 'REDDEDİLDİ', accent: '#DC2626' });
+  V('m_stamp', 'm_stamp3', 'Damga: orijinal', 'Kağıt & stop-motion', { text: 'ORİJİNAL', accent: '#8B5E3C' });
+  V('m_stamp', 'm_stamp4', 'Damga: tükendi', 'Kağıt & stop-motion', { text: 'TÜKENDİ', accent: '#7E6AE0' });
+  // --- HUD varyasyonları ---
+  V('m_lockok', 'm_lock_face', 'Yüz tanındı', 'Sci-fi & HUD', { text: 'YÜZ TANINDI' });
+  V('m_lockerr', 'm_lock_denied', 'Erişim reddedildi', 'Sci-fi & HUD', { text: 'ERİŞİM REDDEDİLDİ' });
+  V('m_lockok', 'm_lock_target', 'Hedef bulundu', 'Sci-fi & HUD', { state: 'info', text: 'HEDEF BULUNDU' });
+  V('m_alert', 'm_alert_warn', 'Dikkat paneli', 'Sci-fi & HUD', { state: 'warn', title: 'DİKKAT', text: 'Bu sahne şok edici olabilir' });
+  V('m_alertok', 'm_alert_unlock', 'Kilit açıldı', 'Sci-fi & HUD', { title: 'KİLİT AÇILDI', text: 'Yeni seviye: 2' });
+  V('m_tele', 'm_tele_game', 'Oyuncu istatistikleri', 'Sci-fi & HUD', { title: 'OYUNCU', stats: 'Can|86\nZırh|54\nHız|92\nGüç|71', accent: '#22C55E' });
+  V('m_tele', 'm_tele_car', 'Araç paneli', 'Sci-fi & HUD', { title: 'ARAÇ DURUMU', stats: 'Yakıt|64\nLastik|88\nMotor|95\nBatarya|72', accent: '#F59E0B' });
+  V('m_radar', 'm_radar2', 'Radar (mor)', 'Sci-fi & HUD', { text: 'TARANIYOR…', accent: '#9D8CF2' });
+  // --- abone & etkileşim ---
+  V('m_kinetic', 'm_kin_sub', 'Kinetik: abone ol', 'Abone & etkileşim', { text: 'ABONE OL *KAÇIRMA*', accent: '#E53935' });
+  V('m_stack', 'm_stack_cta', 'Bildirim: yeni abone', 'Abone & etkileşim', { lines: 'Abone|Yeni abone|Ayşe kanala katıldı 🎉\nAbone|Yeni abone|Mert kanala katıldı\nAbone|Yeni abone|+120 kişi bugün', accent: '#E53935' });
+  V('m_modal', 'm_modal_notif', 'Bildirim izni', 'Abone & etkileşim', { title: 'Bildirimleri aç?', text: 'Yeni videolardan ilk sen haberdar ol.', btn: 'Aç', btn2: 'Şimdi değil', accent: '#FACC15', dark: true });
+  V('m_count', 'm_count_like', 'Sayaç: beğeni', 'Abone & etkileşim', { from: 0, to: 50000, label: 'beğeni hedefi', accent: '#EC4899' });
+  V('m_donut', 'm_donut_goal', 'Halka: abone hedefi', 'Abone & etkileşim', { value: 76, label: 'hedefe ulaştık — sen de katıl', accent: '#E53935' });
+  V('m_bell', 'm_bell3', 'Zil (kırmızı)', 'Abone & etkileşim', { text: 'ZİLE BAS 🔔', accent: '#E53935' });
+  V('m_emoji', 'm_emoji_like', 'Beğeni yağmuru', 'Abone & etkileşim', { text: '👍❤️', count: 36 });
+  V('m_glitch', 'm_glitch3', 'Glitch başlık (kırmızı)', 'Başlık & yazı', { text: 'HATA 404', accent: '#EF4444' });
+  V('m_wstack', 'm_wstack3', 'Kelime yığını (yeşil)', 'Başlık & yazı', { text: 'SAĞLIKLI *YAŞA* MUTLU *OL*', accent: '#22C55E' });
+  V('m_under', 'm_under3', 'Altı çizili (tarif)', 'Başlık & yazı', { text: 'Annemin Tarifi', sub: 'yıllardır değişmedi', accent: '#C2603D' });
+  V('m_price', 'm_price3', 'Fiyat etiketi (yeşil)', 'Satış & ürün', { title: 'Sadece bu hafta', old: '₺2.499', price: '₺1.799', accent: '#16A34A' });
+  V('m_price', 'm_price4', 'Fiyat etiketi (siyah)', 'Satış & ürün', { title: 'Black Friday', old: '₺3.000', price: '₺1.500', accent: '#111111' });
+  V('m_cd', 'm_cd10', 'Geri sayım 10', 'Satış & ürün', { from: 10, text: 'YENİ YIL!', accent: '#FACC15' }, 11);
+  V('m_check', 'm_check4', 'Antrenman listesi', 'Bilgi & liste', { title: 'Bugünkü set', lines: '20 squat\n15 şınav\n1 dk plank\n30 burpee', accent: '#F97316' });
+  V('m_map', 'm_map3', 'Haritada rota (yeşil)', 'Etkinlik & mekan', { text: 'Likya Yolu', accent: '#16A34A', accent2: '#F59E0B' });
+  V('m_date', 'm_date3', 'Tarih kartı (etkinlik)', 'Etkinlik & mekan', { title: 'Kasım', text: '03', sub: 'Lansman günü', accent: '#7E6AE0' });
+  V('m_spot', 'm_spot2', 'Spot ışığı (mor)', 'Motion 2D', { text: 'Detaya dikkat', accent: '#9D8CF2' });
+  V('m_prog', 'm_prog3', 'İndiriliyor çubuğu', 'Bilgi & liste', { title: 'İndiriliyor', text: 'dosya.zip — 240 MB', doneText: 'İndirildi ✓', accent: '#0EA5E9', accent2: '#22D3EE' });
+  V('m_type', 'm_type2', 'Daktilo (soru)', 'Başlık & yazı', { text: 'Peki sen olsan ne yapardın?', accent: '#9D8CF2' });
+}
+
 // Denetçide düzenlenebilir alanlar
 export const SOCIAL_FIELDS3 = {
   aichat: ['name', 'prompt', 'answer', 'speed', 'accent', 'dark', 'avatar'],
@@ -231,6 +403,20 @@ export const SOCIAL_FIELDS3 = {
   alert: ['state', 'title', 'text'],
   telemetry: ['title', 'stats', 'accent'],
   radar: ['text', 'accent'],
+  glitchtitle: ['text', 'color', 'accent'],
+  typewriter: ['text', 'speed', 'color', 'accent'],
+  wordstack: ['text', 'every', 'color', 'accent'],
+  countdown2: ['from', 'text', 'accent'],
+  progress: ['title', 'text', 'doneText', 'dur', 'accent', 'accent2'],
+  pricetag: ['title', 'old', 'price', 'accent'],
+  checklist: ['title', 'lines', 'every', 'accent', 'dark'],
+  mappin: ['text', 'accent', 'accent2', 'dark'],
+  emojiburst: ['text', 'count'],
+  bellring: ['text', 'color', 'accent'],
+  datecard: ['title', 'text', 'sub', 'accent'],
+  spotlight: ['text', 'px', 'py', 'accent'],
+  underline: ['text', 'sub', 'color', 'accent'],
+  ticker2: ['title', 'text', 'speed', 'accent'],
 };
 
 // alan etiketleri ve türleri (sheets.js socialTab bunları kullanır)
@@ -258,6 +444,10 @@ export const FIELD_META3 = {
   value: { label: 'Değer (%)', type: 'range', min: 0, max: 100, step: 1 },
   dur: { label: 'Süre (sn)', type: 'range', min: 0.5, max: 8, step: 0.1 },
   name: { label: 'İsim', type: 'text' },
+  doneText: { label: 'Bitince yazı', type: 'text' },
+  old: { label: 'Eski fiyat', type: 'text' }, price: { label: 'Yeni fiyat', type: 'text' },
+  px: { label: 'Spot yatay konum', type: 'range', min: 0, max: 1, step: 0.01 }, py: { label: 'Spot dikey konum', type: 'range', min: 0, max: 1, step: 0.01 },
+  from: { label: 'Başlangıç', type: 'number' }, to: { label: 'Bitiş', type: 'number' },
 };
 
 // ---------- çizim ----------
@@ -1238,6 +1428,185 @@ export function drawSocial3(ctx, L, lt, env) {
       }
       ctx.fillStyle = col; ctx.font = F(700, 48, MONO); ctx.textAlign = 'center'; ctx.fillText(L.text || '', 0, R + 80); ctx.textAlign = 'left';
       return { w: R * 2, h: R * 2 + 120 };
+    }
+    // ================= v1.7 YENİ TÜRLER =================
+    case 'glitchtitle': {
+      const s2 = String(L.text || '');
+      ctx.font = F(800, 130); ctx.textAlign = 'center';
+      const p = clamp(lt / 0.5), burst = lt < 0.6 || (lt % 2.2) < 0.18;
+      const off = burst ? (hash(Math.floor(lt * 30)) - 0.5) * 30 : 0;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= p;
+      ctx.fillStyle = '#FF2D55'; ctx.fillText(s2, -6 + off, 44);
+      ctx.fillStyle = '#22D3EE'; ctx.fillText(s2, 6 - off, 44);
+      ctx.restore();
+      ctx.globalAlpha *= p; ctx.fillStyle = L.color || '#fff'; ctx.fillText(s2, 0, 44);
+      if (burst) for (let i = 0; i < 6; i++) { const y = -60 + hash(i + Math.floor(lt * 24)) * 140; ctx.fillStyle = hexA(acc, 0.7); ctx.fillRect(-500 + hash(i * 3 + Math.floor(lt * 24)) * 200, y, 300 + hash(i) * 500, 6); }
+      ctx.textAlign = 'left';
+      return { w: Math.min(1000, ctx.measureText(s2).width), h: 200 };
+    }
+    case 'typewriter': {
+      ctx.font = F(600, 72, L.mono ? MONO : SERIF);
+      const ls = wrap(ctx, typed(L.text, lt, L.speed || 16, 0.3), 900);
+      const full = wrap(ctx, L.text, 900);
+      const h2 = full.length * 92;
+      ctx.fillStyle = L.color || '#fff'; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 14 * S;
+      ls.forEach((l, i) => ctx.fillText(l, -450, -h2 / 2 + 70 + i * 92));
+      ctx.shadowBlur = 0;
+      const last = ls[ls.length - 1] || '';
+      caret(ctx, -450 + ctx.measureText(last).width, -h2 / 2 + 70 + (Math.max(1, ls.length) - 1) * 92, 72, lt, acc);
+      return { w: 920, h: h2 + 20 };
+    }
+    case 'wordstack': {
+      const ws = String(L.text || '').split(/\s+/).filter(Boolean);
+      const ev = L.every || 0.3, lh = 150;
+      const h2 = ws.length * lh;
+      ws.forEach((w2, i) => {
+        const p = back((lt - 0.1 - i * ev) / 0.4); if (p <= 0) return;
+        const hl = /\*/.test(w2), cl = w2.replace(/\*/g, '');
+        ctx.save(); ctx.translate((1 - Math.min(1, p)) * (i % 2 ? 300 : -300), -h2 / 2 + i * lh + lh * 0.75);
+        ctx.font = F(800, i % 2 ? 140 : 120); ctx.textAlign = 'center';
+        if (hl) { const tw = ctx.measureText(cl).width; ctx.fillStyle = acc; roundRect(ctx, -tw / 2 - 20, -110, tw + 40, 135, 16); ctx.fill(); }
+        ctx.fillStyle = hl ? '#fff' : (L.color || '#fff'); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 16 * S;
+        ctx.fillText(cl, 0, 0); ctx.restore();
+      });
+      ctx.textAlign = 'left';
+      return { w: 900, h: h2 };
+    }
+    case 'countdown2': {
+      const from = Math.max(1, num(L.from, 5)), k2 = Math.floor(lt), left = Math.max(0, from - k2), ph = lt - k2;
+      const R = 230;
+      ctx.lineWidth = 26; ctx.lineCap = 'round';
+      if (left > 0) {
+        ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = acc; ctx.beginPath(); ctx.arc(0, 0, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - ph)); ctx.stroke();
+      } else { const q = clamp(ph / 0.6); ctx.strokeStyle = hexA(acc, 1 - q); ctx.beginPath(); ctx.arc(0, 0, R + q * 200, 0, Math.PI * 2); ctx.stroke(); }
+      const sc = 1 + 0.4 * Math.exp(-ph * 9);
+      ctx.save(); ctx.scale(sc, sc); ctx.fillStyle = '#fff'; ctx.font = F(800, 240); ctx.textAlign = 'center'; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 20 * S;
+      ctx.fillText(left > 0 ? String(left) : (L.text || 'BAŞLA!'), 0, 84); ctx.restore();
+      ctx.textAlign = 'left';
+      return { w: R * 2 + 60, h: R * 2 + 60 };
+    }
+    case 'progress': {
+      const w2 = 900, p = easeIO(clamp((lt - 0.2) / Math.max(0.5, L.dur || 3)));
+      ctx.fillStyle = L.dark === false ? '#1B1722' : '#fff'; ctx.font = F(700, 52); ctx.fillText(L.title || '', -w2 / 2, -40);
+      ctx.textAlign = 'right'; ctx.font = F(800, 52); ctx.fillText(`%${Math.round(p * 100)}`, w2 / 2, -40); ctx.textAlign = 'left';
+      roundRect(ctx, -w2 / 2, 0, w2, 40, 20); ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fill();
+      ctx.save(); roundRect(ctx, -w2 / 2, 0, Math.max(40, w2 * p), 40, 20); ctx.clip();
+      const g = ctx.createLinearGradient(-w2 / 2, 0, w2 / 2, 0); g.addColorStop(0, acc); g.addColorStop(1, L.accent2 || '#E9C7A1'); ctx.fillStyle = g; ctx.fillRect(-w2 / 2, 0, w2, 40);
+      for (let x = -w2 / 2 - 80 + ((lt * 160) % 80); x < w2 / 2; x += 80) { ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 40, 0); ctx.lineTo(x + 20, 40); ctx.lineTo(x - 20, 40); ctx.fill(); }
+      ctx.restore();
+      if (L.text) { ctx.fillStyle = L.dark === false ? '#6E6880' : 'rgba(255,255,255,.75)'; ctx.font = F(400, 36, SERIF, true); ctx.fillText(p >= 1 ? (L.doneText || 'Tamamlandı ✓') : L.text, -w2 / 2, 100); }
+      return { w: w2, h: 260 };
+    }
+    case 'pricetag': {
+      const p = back((lt - 0.1) / 0.5);
+      ctx.save(); ctx.scale(Math.max(0, p), Math.max(0, p)); ctx.rotate(-0.06);
+      const w2 = 640, h2 = 360;
+      shadowCard(ctx, -w2 / 2, -h2 / 2, w2, h2, 40, acc, S);
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-w2 / 2 + 50, -h2 / 2 + 50, 16, 0, Math.PI * 2); ctx.fill();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = F(600, 44); ctx.fillText(L.title || '', 0, -h2 / 2 + 90);
+      ctx.font = F(700, 60); const old = String(L.old || ''); const ow = ctx.measureText(old).width; ctx.fillText(old, 0, -10);
+      const sp = clamp((lt - 0.6) / 0.3); ctx.strokeStyle = '#fff'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(-ow / 2 - 10, -28); ctx.lineTo(-ow / 2 - 10 + (ow + 20) * sp, -28); ctx.stroke();
+      const np = back((lt - 0.9) / 0.4); ctx.save(); ctx.translate(0, 110); ctx.scale(Math.max(0, np), Math.max(0, np)); ctx.fillStyle = '#fff'; ctx.font = F(800, 130); ctx.fillText(String(L.price || ''), 0, 0); ctx.restore();
+      ctx.restore(); ctx.textAlign = 'left';
+      return { w: 700, h: 420 };
+    }
+    case 'checklist': {
+      const items = lines(L.lines);
+      const w2 = 880, rowH = 104, h2 = 130 + items.length * rowH;
+      shadowCard(ctx, -w2 / 2, -h2 / 2, w2, h2, 40, T.bg, S);
+      ctx.fillStyle = T.fg; ctx.font = F(800, 46); ctx.fillText(L.title || '', -w2 / 2 + 48, -h2 / 2 + 82);
+      const ev = L.every || 0.6;
+      items.forEach((it, i) => {
+        const y = -h2 / 2 + 130 + i * rowH, t0 = 0.5 + i * ev, q = clamp((lt - t0) / 0.5);
+        ctx.strokeStyle = T.line; ctx.lineWidth = 5; roundRect(ctx, -w2 / 2 + 48, y + 14, 56, 56, 14); ctx.stroke();
+        if (q > 0) check(ctx, -w2 / 2 + 76, y + 42, 30, q, acc);
+        ctx.fillStyle = q >= 1 ? T.sub : T.fg; ctx.font = F(600, 38); ctx.fillText(it, -w2 / 2 + 130, y + 56);
+        if (q >= 1 && L.strike) { const tw = ctx.measureText(it).width; ctx.strokeStyle = T.sub; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-w2 / 2 + 130, y + 44); ctx.lineTo(-w2 / 2 + 130 + tw * clamp((lt - t0 - 0.5) / 0.3), y + 44); ctx.stroke(); }
+      });
+      return { w: w2, h: h2 };
+    }
+    case 'mappin': {
+      const w2 = 900, h2 = 900;
+      ctx.save(); roundRect(ctx, -w2 / 2, -h2 / 2, w2, h2, 48); ctx.clip();
+      ctx.fillStyle = L.dark === false ? '#EDE8E0' : '#1A1920'; ctx.fillRect(-w2 / 2, -h2 / 2, w2, h2);
+      ctx.strokeStyle = L.dark === false ? '#FFFFFF' : '#2D2B35'; ctx.lineWidth = 22;
+      for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.moveTo(-w2 / 2, -h2 / 2 + hash(i) * h2); ctx.bezierCurveTo(-100, hash(i + 2) * h2 - h2 / 2, 100, hash(i + 4) * h2 - h2 / 2, w2 / 2, -h2 / 2 + hash(i + 6) * h2); ctx.stroke(); }
+      const a2 = [-260, 220], b2 = [180, -160], rp = easeIO(clamp((lt - 0.3) / 1.4));
+      ctx.setLineDash([24, 18]); ctx.strokeStyle = acc; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(...a2); ctx.quadraticCurveTo(-200, -120, a2[0] + (b2[0] - a2[0]) * rp, a2[1] + (b2[1] - a2[1]) * rp); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(...a2, 18, 0, Math.PI * 2); ctx.fill();
+      const dp = back((lt - 1.6) / 0.5);
+      if (dp > 0) { ctx.save(); ctx.translate(b2[0], b2[1] - (1 - Math.min(1, dp)) * 200); ctx.scale(dp, dp); ctx.fillStyle = L.accent2 || '#EF4444'; ctx.beginPath(); ctx.arc(0, -70, 48, Math.PI, 0); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, -70, 18, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+      ctx.restore();
+      if (lt > 1.9) { ctx.font = F(800, 52); const tw = ctx.measureText(L.text || '').width; shadowCard(ctx, -tw / 2 - 30, h2 / 2 - 150, tw + 60, 96, 48, '#fff', S); ctx.fillStyle = '#1B1722'; ctx.textAlign = 'center'; ctx.fillText(L.text || '', 0, h2 / 2 - 86); ctx.textAlign = 'left'; }
+      return { w: w2, h: h2 };
+    }
+    case 'emojiburst': {
+      const em = [...String(L.text || '🔥')].filter((c) => c.trim()), n = Math.min(80, num(L.count, 30));
+      ctx.font = F(400, 90); ctx.textAlign = 'center';
+      for (let i = 0; i < n; i++) {
+        const t0 = hash(i) * 1.2, q = lt - t0; if (q < 0) continue;
+        const x = (hash(i + 1) - 0.5) * 900 + Math.sin(q * 3 + i) * 40, y = 700 - q * (500 + hash(i + 2) * 500);
+        ctx.save(); ctx.globalAlpha *= clamp(1.5 - q / 2); ctx.translate(x, y); ctx.rotate(Math.sin(q * 2 + i) * 0.4);
+        ctx.fillText(em[i % em.length], 0, 0); ctx.restore();
+      }
+      ctx.textAlign = 'left';
+      return { w: 1000, h: 1400 };
+    }
+    case 'bellring': {
+      const sw = Math.sin(lt * 18) * 0.5 * Math.exp(-((lt % 1.6)) * 2.5);
+      ctx.save(); ctx.translate(0, -60); ctx.rotate(sw);
+      ctx.fillStyle = acc; ctx.translate(-120, -130); ctx.scale(10, 10); ctx.fill(new Path2D('M12 2a1.6 1.6 0 0 0-1.6 1.6v.6A6.2 6.2 0 0 0 5.8 10.3V15l-2 2.2V18.4h16.4v-1.2L18.2 15v-4.7a6.2 6.2 0 0 0-4.6-6.1v-.6A1.6 1.6 0 0 0 12 2zM9.6 19.6a2.4 2.4 0 0 0 4.8 0z'));
+      ctx.restore();
+      for (let k = 0; k < 2; k++) { const q = ((lt + k * 0.8) % 1.6) / 1.6; ctx.strokeStyle = hexA(acc, 1 - q); ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(0, -60, 150 + q * 120, -2.4, -0.7); ctx.stroke(); ctx.beginPath(); ctx.arc(0, -60, 150 + q * 120, Math.PI - 0.7 + 0.3, Math.PI + 0.7); ctx.stroke(); }
+      ctx.fillStyle = L.color || '#fff'; ctx.font = F(800, 70); ctx.textAlign = 'center'; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 14 * S; ctx.fillText(L.text || '', 0, 210); ctx.textAlign = 'left';
+      return { w: 800, h: 560 };
+    }
+    case 'datecard': {
+      const p = back((lt - 0.1) / 0.5), w2 = 420, h2 = 480;
+      ctx.save(); ctx.scale(Math.max(0, p), Math.max(0, p));
+      shadowCard(ctx, -w2 / 2, -h2 / 2, w2, h2, 40, '#fff', S);
+      ctx.save(); roundRect(ctx, -w2 / 2, -h2 / 2, w2, 130, [40, 40, 0, 0]); ctx.fillStyle = acc; ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#fff'; ctx.font = F(800, 56); ctx.textAlign = 'center'; ctx.fillText((L.title || '').toLocaleUpperCase('tr-TR'), 0, -h2 / 2 + 88);
+      const fl = clamp((lt - 0.4) / 0.35), sy = Math.abs(Math.cos(fl * Math.PI));
+      ctx.save(); ctx.translate(0, 70); ctx.scale(1, fl < 0.5 ? sy : sy); ctx.fillStyle = '#1B1722'; ctx.font = F(800, 210); ctx.fillText(fl < 0.5 ? '··' : String(L.text || ''), 0, 70); ctx.restore();
+      ctx.fillStyle = '#6E6880'; ctx.font = F(400, 38, SERIF, true); ctx.fillText(L.sub || '', 0, h2 / 2 - 40);
+      ctx.restore(); ctx.textAlign = 'left';
+      return { w: w2, h: h2 };
+    }
+    case 'spotlight': {
+      const W = env.W, H = env.H, p = easeIO(clamp((lt - 0.1) / 0.9));
+      const cx = (num(L.px, 0.5) - 0.5) * W, cy = (num(L.py, 0.45) - 0.5) * H, r = 80 + p * 300;
+      ctx.save(); ctx.beginPath(); ctx.rect(-W / 2, -H / 2, W, H); ctx.arc(cx, cy, r, 0, Math.PI * 2, true); ctx.fillStyle = `rgba(0,0,0,${0.72 * p})`; ctx.fill('evenodd'); ctx.restore();
+      ctx.strokeStyle = hexA(acc, p); ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      if (L.text && p > 0.6) { ctx.globalAlpha *= clamp((p - 0.6) / 0.4); ctx.fillStyle = '#fff'; ctx.font = F(800, 72); ctx.textAlign = 'center'; ctx.fillText(L.text, cx, cy + r + 100); ctx.textAlign = 'left'; }
+      return { w: W, h: H };
+    }
+    case 'underline': {
+      ctx.font = F(800, 110); ctx.textAlign = 'center';
+      const s2 = String(L.text || ''), tw = ctx.measureText(s2).width;
+      const p = easeOut(clamp((lt - 0.1) / 0.5));
+      ctx.save(); ctx.beginPath(); ctx.rect(-tw / 2 - 20, -130, tw + 40, 170); ctx.clip();
+      ctx.fillStyle = L.color || '#fff'; ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 16 * S; ctx.fillText(s2, 0, 30 + (1 - p) * 150); ctx.restore();
+      const lp = easeIO(clamp((lt - 0.45) / 0.6));
+      ctx.strokeStyle = acc; ctx.lineWidth = 18; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-tw / 2, 80); ctx.quadraticCurveTo(0, 110, -tw / 2 + tw * lp, 74); ctx.stroke();
+      if (L.sub) { const sp = easeOut(clamp((lt - 0.9) / 0.4)); ctx.globalAlpha *= sp; ctx.fillStyle = L.color || '#fff'; ctx.font = F(400, 56, SERIF, true); ctx.fillText(L.sub, 0, 180); }
+      ctx.textAlign = 'left';
+      return { w: Math.max(600, tw), h: 360 };
+    }
+    case 'ticker2': {
+      const W = env.W, h2 = 120;
+      ctx.fillStyle = acc; ctx.fillRect(-W / 2, -h2 / 2, 300, h2);
+      ctx.fillStyle = '#fff'; ctx.font = F(800, 44); ctx.textAlign = 'center'; ctx.fillText(L.title || 'GÜNDEM', -W / 2 + 150, 15); ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(14,13,17,.88)'; ctx.fillRect(-W / 2 + 300, -h2 / 2, W - 300, h2);
+      ctx.save(); ctx.beginPath(); ctx.rect(-W / 2 + 300, -h2 / 2, W - 300, h2); ctx.clip();
+      ctx.font = F(600, 44); ctx.fillStyle = '#fff';
+      const txt = `${L.text || ''}   •   `, tw = ctx.measureText(txt).width;
+      let x = -W / 2 + 330 - ((lt * (L.speed || 200)) % tw);
+      while (x < W / 2) { ctx.fillText(txt, x, 15); x += tw; }
+      ctx.restore();
+      return { w: W, h: h2 };
     }
     default: return null;
   }

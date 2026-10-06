@@ -154,6 +154,65 @@ export const CTA_PRESETS = [
   { id: 'link', name: 'Link Açıklamada', p: { icon: 'link', label: 'LİNK AÇIKLAMADA', doneLabel: '', style: 'outline', color: '#C084FC', tap: false, anim: anim('fade', 'fade', 'pulse') } },
   { id: 'watch', name: 'Videoyu İzle', p: { icon: 'play', label: 'TAMAMINI İZLE', doneLabel: '', color: '#7C3AED', tap: true } },
 ];
+CTA_PRESETS.forEach((x) => { x.cat = x.cat || 'Klasik'; });
+
+// v1.7: 150+ çağrı — eylem × stil. Hepsi düzenlenebilir (yazı, ikon, renk, stil, tıklama).
+{
+  const ACT = [
+    // [id, kategori, ikon, yazı, tıklanınca, renk, 2. renk]
+    ['sub', 'Abone & takip', 'bell', 'ABONE OL', 'ABONE OLUNDU', '#E53935', '#FF7A59'],
+    ['subbell', 'Abone & takip', 'bell', 'BİLDİRİMLERİ AÇ', 'AÇILDI', '#7C3AED', '#C084FC'],
+    ['follow', 'Abone & takip', 'userPlus', 'TAKİP ET', 'TAKİPTESİN', '#9D8CF2', '#22D3EE'],
+    ['join', 'Abone & takip', 'star', 'KANALA KATIL', 'ÜYESİN', '#F59E0B', '#F97316'],
+    ['like', 'Etkileşim', 'thumb', 'BEĞEN', 'BEĞENİLDİ', '#2563EB', '#22D3EE'],
+    ['heart', 'Etkileşim', 'heart', 'BEĞENDİYSEN ❤', '', '#EC4899', '#F43F5E'],
+    ['comment', 'Etkileşim', 'bubble', 'YORUMA YAZ', '', '#059669', '#34D399'],
+    ['share', 'Etkileşim', 'share', 'ARKADAŞINA GÖNDER', 'GÖNDERİLDİ', '#F59E0B', '#FDE047'],
+    ['save', 'Etkileşim', 'bookmark', 'SONRA İÇİN KAYDET', 'KAYDEDİLDİ', '#0EA5E9', '#9D8CF2'],
+    ['tag', 'Etkileşim', 'at', 'BİRİNİ ETİKETLE', '', '#8B5CF6', '#EC4899'],
+    ['link', 'Bağlantı', 'link', 'LİNK PROFİLDE', '', '#C084FC', '#22D3EE'],
+    ['web', 'Bağlantı', 'globe', 'SİTEMİZİ ZİYARET ET', '', '#0EA5E9', '#22C55E'],
+    ['full', 'Bağlantı', 'play', 'TAMAMINI İZLE', '', '#7C3AED', '#EC4899'],
+    ['part2', 'Bağlantı', 'arrow', 'PART 2 →', '', '#111827', '#9D8CF2'],
+    ['download', 'Bağlantı', 'download', 'ÜCRETSİZ İNDİR', 'İNDİRİLİYOR', '#16A34A', '#22D3EE'],
+    ['buy', 'Satış', 'cart', 'HEMEN SATIN AL', 'SEPETTE', '#E11D48', '#F97316'],
+    ['coupon', 'Satış', 'tag', 'KOD: ALPI20', 'KOPYALANDI', '#F59E0B', '#EF4444'],
+    ['sale', 'Satış', 'fire', '%50 İNDİRİM', '', '#DC2626', '#F59E0B'],
+    ['gift', 'Satış', 'gift', 'HEDİYENİ AL', 'ALINDI', '#DB2777', '#9D8CF2'],
+    ['money', 'Satış', 'money', 'ŞİMDİ KAZAN', '', '#15803D', '#84CC16'],
+    ['book', 'Rezervasyon & etkinlik', 'calendar', 'REZERVASYON YAP', 'ONAYLANDI', '#8B5E3C', '#C9A27E'],
+    ['ticket', 'Rezervasyon & etkinlik', 'ticket', 'BİLET AL', 'BİLETİN HAZIR', '#7C3AED', '#F43F5E'],
+    ['route', 'Rezervasyon & etkinlik', 'pin', 'YOL TARİFİ', '', '#2563EB', '#22C55E'],
+    ['call', 'İletişim', 'phone', 'HEMEN ARA', 'ARANIYOR', '#16A34A', '#22D3EE'],
+    ['dm', 'İletişim', 'dm', 'DM AT', 'GÖNDERİLDİ', '#9D8CF2', '#EC4899'],
+    ['mail', 'İletişim', 'mail', 'BÜLTENE KATIL', 'KATILDIN', '#0EA5E9', '#9D8CF2'],
+    ['live', 'Canlı & seri', 'live', 'CANLI YAYINA GEL', '', '#EF4444', '#F97316'],
+    ['new', 'Canlı & seri', 'bolt', 'YENİ BÖLÜM', '', '#FACC15', '#F97316'],
+    ['playlist', 'Canlı & seri', 'music', 'ÇALMA LİSTESİ', '', '#1DB954', '#22D3EE'],
+    ['coffee', 'İletişim', 'coffee', 'BANA KAHVE ISMARLA', 'TEŞEKKÜRLER ☕', '#8B5E3C', '#C2603D'],
+  ];
+  const STY = [
+    ['pill', 'Klasik', {}],
+    ['gradient', 'Degrade', {}],
+    ['neon', 'Neon', {}],
+    ['sticker', 'Çıkartma', {}],
+    ['stack', 'Kutu ikon', {}],
+  ];
+  ACT.forEach(([id, cat, icon, label, done, c1, c2]) => {
+    STY.forEach(([st, stName]) => {
+      const tc = /^#(FACC15|FDE047|F59E0B|84CC16)/i.test(c1) && st !== 'neon' ? '#111111' : '#FFFFFF';
+      CTA_PRESETS.push({ id: `${id}_${st}`, cat, name: `${label.replace(/[→❤☕]/g, '').trim().slice(0, 18)} · ${stName}`, p: { icon, label, doneLabel: done, color: c1, color2: c2, textColor: tc, style: st, font: 'Bricolage Grotesque', tap: !!done } });
+    });
+  });
+  // yuvarlak (yalnızca ikon) ve minimal varyasyonlar
+  ['bell', 'heart', 'thumb', 'bookmark', 'share', 'userPlus', 'cart', 'star', 'fire', 'dm', 'live', 'gift'].forEach((ic, i) => {
+    const col = ['#E53935', '#EC4899', '#2563EB', '#0EA5E9', '#F59E0B', '#9D8CF2', '#E11D48', '#FACC15', '#F97316', '#8B5CF6', '#EF4444', '#DB2777'][i];
+    CTA_PRESETS.push({ id: `round_${ic}`, cat: 'İkon', name: `İkon · ${ic}`, p: { icon: ic, label: '', doneLabel: '', style: 'round', color: col, anim: anim('pop', 'pop', i % 2 ? 'pulse' : 'wiggle') } });
+  });
+  ['ABONE OL', 'LİNK PROFİLDE', 'DEVAMI İÇİN TAKİP ET', 'YORUMLARA YAZ', 'KAYDET, SONRA DENE'].forEach((lb, i) => {
+    CTA_PRESETS.push({ id: `min_${i}`, cat: 'Minimal', name: `Minimal · ${lb.slice(0, 16)}`, p: { icon: ['bell', 'link', 'userPlus', 'bubble', 'bookmark'][i], label: lb, doneLabel: '', style: 'minimal', color: ['#E53935', '#C084FC', '#9D8CF2', '#34D399', '#0EA5E9'][i], font: 'Bricolage Grotesque', tap: false, anim: anim('slideUp', 'fade') } });
+  });
+}
 
 export const SCORE_BASE = {
   kind: 'score', teamA: 'TAKIM A', teamB: 'TAKIM B', scoreA: '2', scoreB: '1', info: "90+2' • MAÇ SONU",

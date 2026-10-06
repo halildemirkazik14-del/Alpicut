@@ -181,7 +181,10 @@ const TOOL_CATS = [
     ['ai', 'Yapay zekâ', () => openMotion('Yapay zekâ'), 'ai', 'Sohbet ekranı, komut, düşünme, görsel üretimi'], ['edit', 'Kod & geliştirici', () => openMotion('Kod & geliştirici'), '', 'Kod yazımı, terminal, diff, repo kartı'],
     ['bubble', 'Pop-up', () => openMotion('Pop-up'), '', 'Pencere, bildirim, başarı/hata'], ['anim', 'Motion 2D', () => openMotion('Motion 2D'), '', 'Kinetik yazı, grafik, sayaç, alt bant'],
     ['layer', 'Motion 3D', () => openMotion('Motion 3D'), '', 'Karusel, küp, kart çevirme, tünel'], ['sticker', 'Kağıt & stop-motion', () => openMotion('Kağıt & stop-motion'), '', 'Kesik kağıt, yırtık bant, damga'],
-    ['fx', 'Sci-fi & HUD', () => openMotion('Sci-fi & HUD'), '', 'Hedef kilidi: yeşil başarı, kırmızı hata'], ['star', 'Favori motion', () => openMotion('★'), '', 'Yıldızladıkların'],
+    ['fx', 'Sci-fi & HUD', () => openMotion('Sci-fi & HUD'), '', 'Hedef kilidi: yeşil başarı, kırmızı hata'], ['text', 'Başlık & yazı', () => openMotion('Başlık & yazı'), '', 'Glitch, daktilo, kelime yığını'],
+    ['cta', 'Satış & ürün', () => openMotion('Satış & ürün'), '', 'Fiyat etiketi, geri sayım'], ['check', 'Bilgi & liste', () => openMotion('Bilgi & liste'), '', 'Liste, grafik, ilerleme'],
+    ['marker', 'Etkinlik & mekan', () => openMotion('Etkinlik & mekan'), '', 'Harita, tarih, tabela'], ['bubble', 'Abone & etkileşim', () => openMotion('Abone & etkileşim'), '', 'Zil, bildirim, hedef'],
+    ['layer', 'Alt bant', () => openMotion('Alt bant'), '', 'İsim / unvan bantları'], ['star', 'Favori motion', () => openMotion('★'), '', 'Yıldızladıkların'],
   ] },
   { id: 'text', name: 'Metin', icon: 'text', desc: 'Yazı, şablon, altyazı', tools: () => [
     ['text', 'Yazı ekle', () => addLayer(clone(TEXT_BASE)), '', 'Boş yazı katmanı'], ['template', 'Yazı şablonları', () => openTemplates(), '', 'Yüzlerce hazır başlık ve etiket'], ['subtitle', 'Altyazı', openSubsMenu, '', 'Otomatik, SRT veya elle'],

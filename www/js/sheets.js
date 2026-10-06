@@ -544,13 +544,16 @@ function layerInspector(L) {
         ]));
       } else if (L.kind === 'cta' && tab === 'Buton') {
         const chips = h('div', { class: 'chips', style: { marginBottom: '6px' } });
-        CTA_PRESETS.forEach((p) => chips.append(h('button', { onclick: () => { Object.assign(L, clone(p.p)); app.change(true); refreshSheet(); app.refreshTimeline(); } }, p.name)));
+        CTA_PRESETS.filter((p) => (p.cat || 'Klasik') === 'Klasik').forEach((p) => chips.append(h('button', { onclick: () => { Object.assign(L, clone(p.p)); app.change(true); refreshSheet(); app.refreshTimeline(); } }, p.name)));
+        chips.append(h('button', { class: 'on', onclick: () => openCTAs() }, `Tümü · ${CTA_PRESETS.length} ›`));
         body.append(h('p', { class: 'hint' }, 'Hazır buton seç:'), chips);
         body.append(fields(L, [
           { label: 'Yazı', path: 'label', type: 'text', post: () => app.refreshTimelineSoon() },
           { label: 'Tıklandıktan sonra', path: 'doneLabel', type: 'text' },
           { label: 'İkon', path: 'icon', type: 'chips', options: ICON_NAMES },
-          { label: 'Stil', path: 'style', type: 'chips', options: [['pill', 'Dolgu'], ['outline', 'Çerçeve'], ['glass', 'Cam'], ['round', 'Yuvarlak']] },
+          { label: 'Stil', path: 'style', type: 'chips', options: [['pill', 'Dolgu'], ['gradient', 'Degrade'], ['neon', 'Neon'], ['sticker', 'Çıkartma'], ['stack', 'Kutu ikon'], ['square', 'Köşeli'], ['minimal', 'Minimal'], ['outline', 'Çerçeve'], ['glass', 'Cam'], ['round', 'Yuvarlak']] },
+          { label: '2. renk (degrade)', path: 'color2', type: 'color', hide: L.style !== 'gradient' },
+          { label: 'Yazı tipi', path: 'font', type: 'chips', options: [['', 'Barlow'], ['Bricolage Grotesque', 'Bricolage']] },
           { label: 'Renk', path: 'color', type: 'color' },
           { label: 'Yazı rengi', path: 'textColor', type: 'color' },
           { label: 'Tıklama animasyonu', path: 'tap', type: 'toggle' },
@@ -937,13 +940,14 @@ function weightOptions(family) {
   return WEIGHTS.filter(([w]) => ws.includes(w)).length ? WEIGHTS.filter(([w]) => ws.includes(w)) : WEIGHTS;
 }
 
-export function openCTAs() {
+export function openCTAs(tab) {
+  const cats = [...new Set(CTA_PRESETS.map((p) => p.cat || 'Klasik'))];
   openSheet({
-    title: 'Sosyal medya çağrıları', tall: true,
-    render: (body) => {
+    id: 'ctas', title: `Sosyal medya çağrıları · ${CTA_PRESETS.length}`, tall: true, tabs: cats, tab: tab && cats.includes(tab) ? tab : cats[1] || cats[0],
+    render: (body, tb) => {
       body.append(h('p', { class: 'hint', html: 'Butonların hepsi düzenlenebilir: yazı, ikon, renk, stil ve tıklama animasyonu.' }));
       const grid = h('div', { class: 'grid-tpl' });
-      CTA_PRESETS.forEach((p) => {
+      CTA_PRESETS.filter((p) => (p.cat || 'Klasik') === tb).forEach((p) => {
         const L = { ...clone(CTA_BASE), ...clone(p.p), start: 0, end: 4 };
         const cv = previewCanvas((ctx, env) => drawCTA(ctx, { ...L, tap: false }, 0.5, env));
         grid.append(h('button', { class: 'tpl', onclick: () => { const x = { ...L }; delete x.start; delete x.end; app.addLayer(x, 4); } }, cv, h('span', {}, p.name)));
