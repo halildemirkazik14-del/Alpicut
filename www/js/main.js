@@ -115,6 +115,8 @@ async function loadFonts() {
     document.head.append(h('link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,800;1,900&family=Barlow+Semi+Condensed:ital,wght@0,500;0,600;0,700;1,600&display=swap' }));
   }
   const specs = [
+    '400 20px "Bricolage Grotesque"', '500 20px "Bricolage Grotesque"', '600 20px "Bricolage Grotesque"', '700 20px "Bricolage Grotesque"', '800 20px "Bricolage Grotesque"',
+    '400 20px "Source Serif 4"', 'italic 400 20px "Source Serif 4"', '600 20px "Source Serif 4"',
     '400 20px "Barlow"', '600 20px "Barlow"', '700 20px "Barlow"',
     '500 20px "Barlow Semi Condensed"', '600 20px "Barlow Semi Condensed"', '700 20px "Barlow Semi Condensed"', 'italic 600 20px "Barlow Semi Condensed"',
     '600 20px "Barlow Condensed"', '700 20px "Barlow Condensed"', '800 20px "Barlow Condensed"', '900 20px "Barlow Condensed"',

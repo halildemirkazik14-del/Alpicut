@@ -4,6 +4,7 @@ import { favIds, star as favStar, registerFav } from './favs.js';
 
 // Uygulamayla birlikte gelen (internetsiz çalışan) fontlar
 export const BUNDLED = [
+  ['Bricolage Grotesque', 'sans-serif'], ['Source Serif 4', 'serif'],
   ['Barlow Condensed', 'sans-serif'], ['Barlow Semi Condensed', 'sans-serif'], ['Barlow', 'sans-serif'],
   ['Anton', 'sans-serif'], ['Bebas Neue', 'display'], ['Montserrat', 'sans-serif'], ['Poppins', 'sans-serif'], ['Oswald', 'sans-serif'],
   ['Roboto', 'sans-serif'], ['Inter', 'sans-serif'], ['Archivo Black', 'sans-serif'], ['Russo One', 'sans-serif'], ['Teko', 'sans-serif'],

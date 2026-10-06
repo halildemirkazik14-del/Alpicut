@@ -1,17 +1,23 @@
+/* v1.6 arayüz fontları (uygulamaya gömülü, değişken ağırlık — SIL OFL) */
+@font-face { font-family: "Bricolage Grotesque"; src: url(../fonts-ui/BricolageGrotesque.ttf) format("truetype"); font-weight: 200 800; font-stretch: 75% 100%; font-display: swap; }
+@font-face { font-family: "Source Serif 4"; src: url(../fonts-ui/SourceSerif4.ttf) format("truetype"); font-weight: 200 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Source Serif 4"; src: url(../fonts-ui/SourceSerif4-Italic.ttf) format("truetype"); font-weight: 200 900; font-style: italic; font-display: swap; }
 :root {
-  --bg: #0B0A10; --bg-2: #100E17; --surface: #16141E; --surface-2: #1F1C2A; --surface-3: #2A2638;
-  --line: #302B42; --line-2: #1E1B2A;
-  --primary: #8B5CF6; --primary-2: #A78BFA; --primary-3: #C9BBFD; --accent: #E879F9;
-  --text: #F4F2FA; --text-2: #D8D3E8; --muted: #9A93AF; --on-primary: #fff;
+  --bg: #0E0D11; --bg-2: #131217; --surface: #1A1920; --surface-2: #222129; --surface-3: #2D2B35;
+  --line: #34313E; --line-2: #1E1D24;
+  --primary: #9D8CF2; --primary-2: #B9ACF7; --primary-3: #DCD5FB; --accent: #E9C7A1;
+  --text: #F3F1F5; --text-2: #D2CED9; --muted: #8F8A99; --on-primary: #16112B;
   --danger: #F43F5E; --danger-2: #FDA4AF;
-  --grad: linear-gradient(135deg, #A78BFA 0%, #8B5CF6 45%, #6D28D9 100%);
+  --grad: linear-gradient(160deg, #B3A4F8 0%, #9D8CF2 50%, #7E6AE0 100%);
   --glow: rgba(139,92,246,.35); --tint: rgba(139,92,246,.14); --scrim: rgba(22,20,30,.9); --preview-bg: #06050A;
   --r-sm: 10px; --r-md: 14px; --r-lg: 20px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
-  --font: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-c: "Barlow Condensed", "Barlow", sans-serif;
-  --font-sc: "Barlow Semi Condensed", "Barlow", sans-serif;
+  /* v1.6: Bricolage Grotesque (arayüz + başlıklar), Source Serif 4 (açıklama metinleri) */
+  --font: "Bricolage Grotesque", "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-c: "Bricolage Grotesque", "Barlow Condensed", sans-serif;
+  --font-sc: "Bricolage Grotesque", "Barlow Semi Condensed", sans-serif;
+  --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   color-scheme: dark;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -735,3 +741,29 @@ html[data-scheme=light] .new-project { color: var(--text); }
 .qt.more .qt-ic { background: var(--tint); color: var(--primary-2); }
 .qt b { font-size: 11px; font-weight: 600; color: var(--text-2); text-align: center; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .btn.tplbtn { background: transparent; border-color: var(--line); color: var(--text-2); }
+
+/* ---------- v1.6 tasarım: Bricolage başlıklar, serif açıklamalar, sakin premium yüzeyler ---------- */
+body { font-family: var(--font); font-optical-sizing: auto; letter-spacing: -0.005em; }
+.brand-name { font-family: var(--font); font-weight: 800; letter-spacing: -0.5px; font-size: 28px; }
+.brand-name b { color: var(--primary); }
+.brand-name small { font-family: var(--font-serif); font-style: italic; font-weight: 400; letter-spacing: 0.2px; font-size: 12px; text-transform: none; }
+.section-title, .np-text b, .p-title, .pop-title, .sheet-title, h1, h2, h3 { font-family: var(--font); letter-spacing: -0.3px; }
+.section-title { font-weight: 700; font-size: 19px; color: var(--text); }
+.np-text b { font-weight: 800; font-size: 23px; letter-spacing: -0.4px; }
+.sub-title { font-family: var(--font); letter-spacing: 1px; }
+/* açıklamalar serif: Claude'daki gibi okunaklı, sıcak */
+.hint, .np-text small, .pcard .meta small, .empty-projects, .theme-card small, .ai-t small, .cb-t small, .ae-style small,
+.pop-ht small, .pop-cards .pop-tx small, .acc-nm small, .v-t small, .mus-t small, .typing small {
+  font-family: var(--font-serif); font-size: 13.5px; letter-spacing: 0; line-height: 1.45;
+}
+.pcard .meta small, .theme-card small, .v-t small, .mus-t small, .pop-ht small, .acc-nm small { font-size: 12px; }
+.new-project { background: var(--grad); color: var(--on-primary); box-shadow: 0 10px 30px var(--glow); border: 1px solid rgba(255,255,255,.14); }
+.new-project .np-text small { color: var(--on-primary); opacity: .78; }
+.pcard, .theme-card, .home-acts .icon-btn { border-color: var(--line); background: var(--surface); }
+.pcard { border-radius: 18px; }
+.export-btn { box-shadow: 0 4px 14px var(--glow); }
+.play-btn { background: var(--primary); color: var(--on-primary); box-shadow: 0 4px 16px var(--glow); }
+html[data-scheme=light] .play-btn { background: var(--primary); color: var(--on-primary); }
+.tool { font-family: var(--font); font-weight: 500; letter-spacing: -0.1px; }
+.item.sel { border-color: var(--primary-3); }
+::selection { background: var(--tint); }

@@ -81,12 +81,12 @@ export const I = {
   chat: s('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'),
 };
 
+// v1.6 logo: A + makas — iki bıçak tepede buluşur, vida A'nın ortası, yatay çizgi bir "kesik", halkalar tutamak
 export const LOGO = `<svg viewBox="0 0 48 48" aria-hidden="true">
 <rect x="1.5" y="1.5" width="45" height="45" rx="13" style="fill:var(--surface);stroke:var(--line)" stroke-width="1.2"/>
-<rect x="1.5" y="1.5" width="45" height="45" rx="13" style="fill:var(--tint)"/>
-<path d="M13 36 22.2 11.5h3.6L35 36" fill="none" style="stroke:var(--text)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M17.2 28.5h13.6" fill="none" style="stroke:var(--text)" stroke-width="3.2" stroke-linecap="round"/>
-<path d="M9 31 39 17" style="stroke:var(--surface)" stroke-width="5" stroke-linecap="round"/>
-<path d="M9.5 30.8 38.5 17.2" style="stroke:var(--primary)" stroke-width="2.4" stroke-linecap="round"/>
-<circle cx="38.5" cy="17.2" r="2.6" style="fill:var(--primary)"/>
+<polygon points="17.57,31.17 24.17,7.40 23.03,7.00 13.23,29.63" style="fill:var(--text);stroke:var(--text)" stroke-width=".6" stroke-linejoin="round"/>
+<polygon points="34.77,29.63 24.97,7.00 23.83,7.40 30.43,31.17" style="fill:var(--primary);stroke:var(--primary)" stroke-width=".6" stroke-linejoin="round"/>
+<path d="M16.6 22.4H31.4" style="stroke:var(--surface)" stroke-width="1.5"/>
+<g fill="none" stroke-width="2.7"><circle cx="13.7" cy="35.6" r="4.3" style="stroke:var(--text)"/><circle cx="34.3" cy="35.6" r="4.3" style="stroke:var(--primary)"/></g>
+<circle cx="24" cy="22.4" r="2.7" style="fill:var(--surface);stroke:var(--primary)" stroke-width="1.7"/>
 </svg>`;

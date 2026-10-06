@@ -3,7 +3,15 @@ import { h } from './state.js';
 import { lsGet, lsSet } from './storage.js';
 
 export const THEMES = {
-  obsidian: { name: 'Obsidyen', desc: 'Grafit siyah, ağırbaşlı mor (varsayılan)', scheme: 'dark',
+  amethyst: { name: 'Ametist', desc: 'Sıcak grafit, yumuşak mor (varsayılan)', scheme: 'dark',
+    bg: '#0E0D11', bg2: '#131217', surface: '#1A1920', surface2: '#222129', surface3: '#2D2B35', line: '#34313E', line2: '#1E1D24',
+    primary: '#9D8CF2', primary2: '#B9ACF7', primary3: '#DCD5FB', accent: '#E9C7A1', text: '#F3F1F5', text2: '#D2CED9', muted: '#8F8A99', onPrimary: '#16112B',
+    grad: 'linear-gradient(160deg, #B3A4F8 0%, #9D8CF2 50%, #7E6AE0 100%)', preview: '#08070A' },
+  lilac: { name: 'Lila gün', desc: 'Kağıt beyazı zemin, mor vurgu — aydınlık', scheme: 'light',
+    bg: '#F6F4F1', bg2: '#EFECE7', surface: '#FFFFFF', surface2: '#F3F0F6', surface3: '#E7E2EE', line: '#E0DAE6', line2: '#ECE8EF',
+    primary: '#6D5BD8', primary2: '#5A48C4', primary3: '#4535A8', accent: '#C2603D', text: '#1B1722', text2: '#3A3443', muted: '#756E80', onPrimary: '#FFFFFF',
+    grad: 'linear-gradient(160deg, #8C7CEB 0%, #6D5BD8 55%, #5444BD 100%)', preview: '#1A1820' },
+  obsidian: { name: 'Obsidyen', desc: 'Grafit siyah, canlı mor', scheme: 'dark',
     bg: '#09090C', bg2: '#0E0D12', surface: '#15141B', surface2: '#1C1B24', surface3: '#272532', line: '#2D2B39', line2: '#1A1921',
     primary: '#8467F4', primary2: '#A792FF', primary3: '#D3C9FF', accent: '#C4B5FD', text: '#F2F1F6', text2: '#CFCCDA', muted: '#8C889C', onPrimary: '#FFFFFF',
     grad: 'linear-gradient(160deg, #9A82FF 0%, #8467F4 55%, #6A4FDB 100%)', preview: '#050507' },
@@ -39,11 +47,13 @@ function mix(a, b, t) { const A = hexToRgb(a), B = hexToRgb(b); return rgbToHex(
 function lum(hx) { const [r, g, b] = hexToRgb(hx).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
 
 export function currentTheme() {
-  return { id: lsGet('alpicut.theme', 'obsidian'), accent: lsGet('alpicut.accent', '') };
+  // v1.6: eski varsayılan (Obsidyen) bir kez yeni varsayılana (Ametist) taşınır
+  if (!lsGet('alpicut.v16theme', '')) { lsSet('alpicut.v16theme', '1'); if (lsGet('alpicut.theme', 'obsidian') === 'obsidian') lsSet('alpicut.theme', 'amethyst'); }
+  return { id: lsGet('alpicut.theme', 'amethyst'), accent: lsGet('alpicut.accent', '') };
 }
 
 export function applyTheme(id = currentTheme().id, accent = currentTheme().accent) {
-  const T = { ...(THEMES[id] || THEMES.obsidian) };
+  const T = { ...(THEMES[id] || THEMES.amethyst) };
   if (accent && /^#[0-9a-f]{6}$/i.test(accent)) {
     const light = T.scheme === 'light';
     T.primary = accent;
@@ -76,7 +86,7 @@ export function setTheme(id, accent) {
   applyTheme(id, accent || '');
 }
 
-const ACCENTS = ['', '#8B5CF6', '#D4AF37', '#C3C9D2', '#3B82F6', '#22D3EE', '#10B981', '#84CC16', '#FACC15', '#F97316', '#E11D48', '#EC4899', '#A855F7', '#FFFFFF'];
+const ACCENTS = ['', '#9D8CF2', '#8B5CF6', '#D4AF37', '#C3C9D2', '#3B82F6', '#22D3EE', '#10B981', '#84CC16', '#FACC15', '#F97316', '#E11D48', '#EC4899', '#A855F7', '#FFFFFF'];
 
 // Tema seçici paneli içeriği
 export function themePickerBody(body, refresh) {

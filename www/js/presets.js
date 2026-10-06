@@ -78,7 +78,7 @@ export function filterString(f, blurScale = 1) {
 export const anim = (inn = 'fade', out = 'fade', loop = 'none', inDur = 0.45, outDur = 0.35) => ({ in: inn, out, loop, inDur, outDur });
 
 export const TEXT_BASE = {
-  kind: 'text', text: 'Yazınızı girin', font: 'Barlow Condensed', weight: 800, size: 96, italic: false,
+  kind: 'text', text: 'Yazınızı girin', font: 'Bricolage Grotesque', weight: 800, size: 96, italic: false,
   color: '#FFFFFF', accent: '#C084FC', upper: true, align: 'center', maxW: 0.86, spacing: 0, lineH: 1.08,
   strokeColor: '#000000', strokeW: 0, shadowOn: true, shadowColor: 'rgba(0,0,0,0.6)', shadowBlur: 18,
   bgOn: false, bgMode: 'block', bgColor: '#7C3AED', bgOpacity: 1, bgPad: 24, bgRadius: 18,
@@ -172,8 +172,8 @@ export const SUB_PRESETS = [
 export const SUB_BASE = {
   cues: [], offset: 0, burn: true,
   style: {
-    tpl: 'c_barlow', mode: 'line', group: 3, hl: 'color', anim: 'fade', box: 'none',
-    font: 'Barlow Condensed', weight: 800, size: 88, color: '#FFFFFF', accent: '#FACC15',
+    tpl: 'c_bricolage', mode: 'line', group: 3, hl: 'color', anim: 'fade', box: 'none',
+    font: 'Bricolage Grotesque', weight: 800, size: 88, color: '#FFFFFF', accent: '#FACC15',
     strokeColor: '#000000', strokeW: 10, upper: true, y: 0.72, maxW: 0.84, maxLines: 2, boxColor: '#000000', boxOpacity: 0.72, shadow: 0.5,
   },
 };

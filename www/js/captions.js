@@ -11,7 +11,11 @@ import { ensureProjectFonts } from './fonts.js';
 
 // s: stil (render.js capStyle alanları)
 export const CAPTION_TEMPLATES = [
-  // --- Popüler (Barlow ailesi önde) ---
+  // --- Popüler (v1.6: Bricolage önde, Barlow ailesi hemen ardından) ---
+  { id: 'c_bricolage', name: 'Bricolage vurgulu', cat: 'Popüler', s: { font: 'Bricolage Grotesque', weight: 800, size: 84, color: '#FFFFFF', accent: '#B9ACF7', strokeW: 9, mode: 'line', hl: 'color', anim: 'fade', upper: false } },
+  { id: 'c_bricolage_pop', name: 'Bricolage pop', cat: 'Popüler', s: { font: 'Bricolage Grotesque', weight: 800, size: 92, color: '#FFFFFF', accent: '#FDE68A', strokeW: 11, mode: 'group', group: 3, hl: 'color', anim: 'pop', upper: true } },
+  { id: 'c_bricolage_box', name: 'Bricolage kutu', cat: 'Popüler', s: { font: 'Bricolage Grotesque', weight: 700, size: 78, color: '#FFFFFF', accent: '#7E6AE0', hlText: '#FFFFFF', strokeW: 0, shadow: 0.7, mode: 'group', group: 3, hl: 'box', anim: 'pop', upper: false } },
+  { id: 'c_serif_doc', name: 'Belgesel serif', cat: 'Popüler', s: { font: 'Source Serif 4', weight: 600, size: 66, italic: true, color: '#F5F1EA', accent: '#FFFFFF', strokeW: 0, shadow: 0.85, mode: 'line', hl: 'none', anim: 'fade', upper: false } },
   { id: 'c_barlow', name: 'Barlow vurgulu', cat: 'Popüler', s: { font: 'Barlow Condensed', weight: 800, size: 88, color: '#FFFFFF', accent: '#FACC15', strokeW: 10, mode: 'line', hl: 'color', anim: 'fade', upper: true } },
   { id: 'c_barlow_pop', name: 'Barlow pop', cat: 'Popüler', s: { font: 'Barlow Condensed', weight: 900, size: 96, color: '#FFFFFF', accent: '#A78BFA', strokeW: 12, mode: 'group', group: 3, hl: 'color', anim: 'pop', upper: true } },
   { id: 'c_barlow_box', name: 'Barlow kutu vurgu', cat: 'Popüler', s: { font: 'Barlow Condensed', weight: 800, size: 86, color: '#FFFFFF', accent: '#8467F4', hlText: '#FFFFFF', strokeW: 8, mode: 'group', group: 3, hl: 'box', anim: 'pop', upper: true } },

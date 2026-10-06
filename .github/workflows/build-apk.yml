@@ -60,7 +60,7 @@ jobs:
 
       - name: Uygulama simgesi ve açılış ekranı
         continue-on-error: true
-        run: npx @capacitor/assets generate --android --iconBackgroundColor '#7C3AED' --iconBackgroundColorDark '#7C3AED' --splashBackgroundColor '#0E0A17' --splashBackgroundColorDark '#0E0A17'
+        run: npx @capacitor/assets generate --android --iconBackgroundColor '#5B47C9' --iconBackgroundColorDark '#5B47C9' --splashBackgroundColor '#F6F4F1' --splashBackgroundColorDark '#0E0D11'
 
       - name: Senkronize et
         run: npx cap sync android

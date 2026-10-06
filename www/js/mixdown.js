@@ -2,7 +2,7 @@
 // Önizlemedeki ses grafiğinin aynısını (seviye, geçiş çapraz geçişi, keyframe, fade, EQ, kompresör,
 // ses efektleri, konuşma/müzik/SFX grupları, ducking, master limiter) OfflineAudioContext'te,
 // gerçek zamandan bağımsız ve kayıpsız olarak üretir. Hızlandırılmış kliplerde ses perdesi korunur (WSOLA).
-import { layoutClips, curvePts, curveSpeed, flatLayers } from './engine.js';
+import { layoutClips, curvePts, curveSpeed, flatLayers, setLimiter } from './engine.js';
 import { hasKeys, propAt } from './kf.js';
 import * as MB from './lib/mediabunny.js';
 
@@ -249,8 +249,7 @@ export async function mixdown(engine, P, dur, { sampleRate = 48000, onProgress, 
   const build = (ctx, roles, duckCurve) => {
     const master = ctx.createGain(); master.gain.value = M.master;
     const limiter = ctx.createDynamicsCompressor();
-    if (M.limiter) { limiter.threshold.value = -1.5; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.12; }
-    else { limiter.threshold.value = 0; limiter.knee.value = 0; limiter.ratio.value = 1; }
+    setLimiter(limiter, M.limiter);
     master.connect(limiter); limiter.connect(ctx.destination);
     const buses = {};
     ['voice', 'music', 'sfx'].forEach((r) => { const g = ctx.createGain(); g.gain.value = M[r]; buses[r] = g; });

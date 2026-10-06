@@ -62,6 +62,12 @@ export function layoutClips(clips) {
   return out;
 }
 
+// v1.6: yumuşak limiter — eski ayar (2 ms atak, sert diz, 20:1) yüksek seslerde bozulma/cızırtı üretiyordu
+export function setLimiter(L, on) {
+  if (on) { L.threshold.value = -2; L.knee.value = 2; L.ratio.value = 12; L.attack.value = 0.006; L.release.value = 0.25; }
+  else { L.threshold.value = 0; L.knee.value = 0; L.ratio.value = 1; }
+}
+
 export function projectDuration(P) {
   const lay = layoutClips(P.clips);
   let d = lay.length ? lay[lay.length - 1].end : 0;
@@ -98,6 +104,10 @@ export class Engine {
     this.onEnd = null;
     this._raf = null;
     this._needDraw = true;
+    // v1.6: önceden hazırlanan önizleme sesi (tek tampon, ses saatine bağlı oynatma)
+    this._pmix = { sig: null, buf: null, busy: false, pend: null, at: 0, chk: 0 };
+    this._bsrc = null;
+    this.bufMode = false;
     this.hidden = document.createElement('div');
     this.hidden.style.cssText = 'position:fixed;left:-10px;top:-10px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
     document.body.appendChild(this.hidden);
@@ -135,7 +145,10 @@ export class Engine {
     if (this.ac) { if (this.ac.state === 'suspended') this.ac.resume(); return; }
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
-      const ac = this.ac = new AC();
+      let ac;
+      // v1.6: 'playback' gecikmesi — Android'de küçük tampon ses kesilmesi/cızırtı yapıyordu
+      try { ac = new AC({ latencyHint: 'playback' }); } catch (_) { ac = new AC(); }
+      this.ac = ac;
       this.master = ac.createGain();
       this.preMeter = ac.createAnalyser(); this.preMeter.fftSize = 1024;
       this.limiter = ac.createDynamicsCompressor();
@@ -179,9 +192,7 @@ export class Engine {
     const m = this.mix();
     this.buses.voice.gain.value = m.voice; this.buses.music.gain.value = m.music; this.buses.sfx.gain.value = m.sfx;
     this.master.gain.value = m.master;
-    const L = this.limiter;
-    if (m.limiter) { L.threshold.value = -1.5; L.knee.value = 0; L.ratio.value = 20; L.attack.value = 0.002; L.release.value = 0.12; }
-    else { L.threshold.value = 0; L.knee.value = 0; L.ratio.value = 1; }
+    setLimiter(this.limiter, m.limiter);
     if (!m.duck.on) { this.duckLevel = 1; this.duck.gain.value = 1; }
   }
 
@@ -201,7 +212,7 @@ export class Engine {
       const target = v > m.duck.threshold ? Math.pow(10, -m.duck.amount / 20) : 1;
       const tau = target < this.duckLevel ? m.duck.attack : m.duck.release;
       this.duckLevel += (target - this.duckLevel) * (1 - Math.exp(-dt / Math.max(0.01, tau)));
-      this.duck.gain.value = this.duckLevel;
+      this.duck.gain.setTargetAtTime(this.duckLevel, this.ac.currentTime, 0.02);
       this.meter.duckDb = 20 * Math.log10(this.duckLevel);
     }
     const pre = this._rms(this.preMeter), post = this._rms(this.postMeter);
@@ -220,10 +231,12 @@ export class Engine {
       const mid = ac.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 2500; mid.Q.value = 0.9;
       const hi = ac.createBiquadFilter(); hi.type = 'highshelf'; hi.frequency.value = 8000;
       const comp = ac.createDynamicsCompressor(); comp.ratio.value = 1; comp.threshold.value = 0;
-      src.connect(gain); gain.connect(hp); hp.connect(lo); lo.connect(mid); mid.connect(hi); hi.connect(comp);
+      const post = ac.createGain();
+      // v1.6: kompresör yalnızca açıkken zincirde (her klipte boşta çalışan kompresör işlemciyi yoruyordu)
+      src.connect(gain); gain.connect(hp); hp.connect(lo); lo.connect(mid); mid.connect(hi); hi.connect(post);
       const dry = ac.createGain(), out = ac.createGain();
-      comp.connect(dry); dry.connect(out);
-      const node = { gain, hp, lo, mid, hi, comp, dry, out, wet: [], role: null, sig: '', vfx: 'none' };
+      post.connect(dry); dry.connect(out);
+      const node = { gain, hp, lo, mid, hi, comp, post, dry, out, wet: [], role: null, sig: '', vfx: 'none', compOn: false, v: 1 };
       this.nodes.set(el, node);
       this._route(node, 'voice');
     } catch (e) { console.warn('ses bağlanamadı', e); }
@@ -243,7 +256,8 @@ export class Engine {
     vol = Math.max(0, vol);
     if (!n) { el.volume = clamp(vol); return; }
     el.volume = 1;
-    n.gain.gain.value = vol;
+    // v1.6: seviye değişimi yumuşak (her karede ani atlama "fermuar" cızırtısı yapıyordu)
+    if (Math.abs(n.v - vol) > 1e-4) { n.v = vol; n.gain.gain.setTargetAtTime(vol, this.ac.currentTime, 0.012); }
     this._route(n, o.role || defRole);
     const a = o.afx || {};
     if ((a.vfx || 'none') !== n.vfx) this._voiceFx(n, a.vfx || 'none');
@@ -253,7 +267,11 @@ export class Engine {
     n.hp.frequency.value = a.hp ? 90 : 10;
     n.lo.gain.value = a.low || 0; n.mid.gain.value = a.mid || 0; n.hi.gain.value = a.high || 0;
     if (a.comp) { n.comp.threshold.value = -24; n.comp.ratio.value = 4; n.comp.knee.value = 6; n.comp.attack.value = 0.005; n.comp.release.value = 0.15; }
-    else { n.comp.threshold.value = 0; n.comp.ratio.value = 1; }
+    if (!!a.comp !== n.compOn) {
+      n.compOn = !!a.comp;
+      try { n.hi.disconnect(); n.comp.disconnect(); } catch (_) { /* yoksay */ }
+      if (n.compOn) { n.hi.connect(n.comp); n.comp.connect(n.post); } else n.hi.connect(n.post);
+    }
   }
 
   setVol(el, v) { this.setChain(el, v, {}, 'voice'); }
@@ -263,8 +281,8 @@ export class Engine {
     const ac = this.ac;
     n.wet.forEach((x) => { try { x.disconnect(); } catch (_) { /* yoksay */ } if (x.stop) try { x.stop(); } catch (_) { /* yoksay */ } });
     n.wet = [];
-    try { n.comp.disconnect(); } catch (_) { /* yoksay */ }
-    n.comp.connect(n.dry);
+    try { n.post.disconnect(); } catch (_) { /* yoksay */ }
+    n.post.connect(n.dry);
     n.dry.gain.value = 1;
     n.vfx = type;
     if (type === 'none') return;
@@ -278,26 +296,26 @@ export class Engine {
       case 'echo': {
         const d = W(ac.createDelay(1)); d.delayTime.value = 0.28;
         const fb = W(ac.createGain()); fb.gain.value = 0.42;
-        n.comp.connect(d); d.connect(fb); fb.connect(d); d.connect(wetOut); wetOut.gain.value = 0.6; break;
+        n.post.connect(d); d.connect(fb); fb.connect(d); d.connect(wetOut); wetOut.gain.value = 0.6; break;
       }
       case 'hall': case 'room': {
         const cv = W(ac.createConvolver()); cv.buffer = impulse(type === 'hall' ? 2.8 : 0.9, type === 'hall' ? 2.2 : 3);
-        n.comp.connect(cv); cv.connect(wetOut); wetOut.gain.value = type === 'hall' ? 0.55 : 0.4; break;
+        n.post.connect(cv); cv.connect(wetOut); wetOut.gain.value = type === 'hall' ? 0.55 : 0.4; break;
       }
-      case 'phone': { const f = bp(1700, 1.1); const s2 = shaper(6); n.comp.connect(f); f.connect(s2); s2.connect(wetOut); n.dry.gain.value = 0; wetOut.gain.value = 1.6; break; }
-      case 'megaphone': { const f = bp(1300, 0.8); const s2 = shaper(30); n.comp.connect(f); f.connect(s2); s2.connect(wetOut); n.dry.gain.value = 0; wetOut.gain.value = 0.9; break; }
-      case 'radio': { const f = bp(1500, 0.7); const s2 = shaper(12); n.comp.connect(f); f.connect(s2); s2.connect(wetOut); n.dry.gain.value = 0.15; wetOut.gain.value = 1.2; break; }
+      case 'phone': { const f = bp(1700, 1.1); const s2 = shaper(6); n.post.connect(f); f.connect(s2); s2.connect(wetOut); n.dry.gain.value = 0; wetOut.gain.value = 1.6; break; }
+      case 'megaphone': { const f = bp(1300, 0.8); const s2 = shaper(30); n.post.connect(f); f.connect(s2); s2.connect(wetOut); n.dry.gain.value = 0; wetOut.gain.value = 0.9; break; }
+      case 'radio': { const f = bp(1500, 0.7); const s2 = shaper(12); n.post.connect(f); f.connect(s2); s2.connect(wetOut); n.dry.gain.value = 0.15; wetOut.gain.value = 1.2; break; }
       case 'robot': {
         const osc = W(ac.createOscillator()); osc.frequency.value = 55; osc.type = 'square';
         const ring = W(ac.createGain()); ring.gain.value = 0;
         osc.connect(ring.gain); osc.start();
-        n.comp.connect(ring); ring.connect(wetOut); n.dry.gain.value = 0.2; wetOut.gain.value = 1.4; break;
+        n.post.connect(ring); ring.connect(wetOut); n.dry.gain.value = 0.2; wetOut.gain.value = 1.4; break;
       }
-      case 'underwater': { const lp = W(ac.createBiquadFilter()); lp.type = 'lowpass'; lp.frequency.value = 500; lp.Q.value = 6; n.comp.connect(lp); lp.connect(wetOut); n.dry.gain.value = 0; wetOut.gain.value = 1.3; break; }
+      case 'underwater': { const lp = W(ac.createBiquadFilter()); lp.type = 'lowpass'; lp.frequency.value = 500; lp.Q.value = 6; n.post.connect(lp); lp.connect(wetOut); n.dry.gain.value = 0; wetOut.gain.value = 1.3; break; }
       case 'stadium': {
         const cv = W(ac.createConvolver()); cv.buffer = impulse(3.6, 1.6);
         const d = W(ac.createDelay(1)); d.delayTime.value = 0.12;
-        n.comp.connect(d); d.connect(cv); cv.connect(wetOut); wetOut.gain.value = 0.7; break;
+        n.post.connect(d); d.connect(cv); cv.connect(wetOut); wetOut.gain.value = 0.7; break;
       }
     }
   }
@@ -349,7 +367,8 @@ export class Engine {
       if (!el.paused) el.pause();
       return;
     }
-    this.setChain(el, vol, o, defRole);
+    if (this.bufMode && this.playing) { if (!el.muted) el.muted = true; }
+    else { if (el.muted) el.muted = false; this.setChain(el, vol, o, defRole); }
     if (Math.abs(el.playbackRate - rate) > 0.01) el.playbackRate = rate;
     if (this.playing) {
       if (Math.abs(el.currentTime - srcT) > 0.3) el.currentTime = srcT;
@@ -419,6 +438,7 @@ export class Engine {
       if (a.fadeOut > 0) vol *= clamp((len - local) / a.fadeOut);
       if (hasKeys(a, 'vol')) vol *= propAt(a, 'vol', local);
       if (a.mute) vol = 0;
+      if (this.bufMode && this.playing) { if (el && !el.paused) el.pause(); return; }
       this._syncEl(el, active, a.in + local, 1, vol, a, a.sfx ? 'sfx' : 'music');
       if (!active && t < a.start && a.start - t < 1.5) this._prepare(el, a.in);
     });
@@ -556,19 +576,97 @@ export class Engine {
     this.playing = true;
     this._t0 = this.t;
     this._n0 = performance.now();
+    this._startBuf();
   }
 
   pause() {
     this.playing = false;
+    this._stopBuf();
     this.sync(this.t);
     this.requestDraw();
   }
 
   seek(t) {
     this.t = clamp(t, 0, this.duration());
-    if (this.playing) { this._t0 = this.t; this._n0 = performance.now(); }
+    if (this.playing) { this._t0 = this.t; this._n0 = performance.now(); this._startBuf(); }
     this.sync(this.t);
     this.requestDraw();
+  }
+
+  // ---------- v1.6: önceden karışmış önizleme sesi ----------
+  // Tüm ses (klipler, müzik, SFX, efektler, ducking, limiter) arka planda tek tampona karılır.
+  // Oynatırken yalnızca bu tampon çalar; videolar sessiz kalıp ses saatini izler.
+  // Böylece video takılsa ya da konum düzeltilse bile ses kesilmez, tıklamaz, cızırdamaz.
+  _audioSig() {
+    const P = this.P; if (!P) return '';
+    const pick = (o) => [o.id, o.mediaId, o.type, o.in, o.out, o.speed, o.curve, o.volume, o.mute, o.freeze, o.dur,
+      o.trans && o.trans.type !== 'none' ? [o.trans.type, o.trans.dur] : 0, o.role, o.afx, o.kf?.vol, o.start, o.end, o.loop, o.hidden, o.fadeIn, o.fadeOut, o.sfx];
+    return JSON.stringify([P.clips.map(pick), flatLayers(P).filter((l) => l.kind === 'media').map(pick), P.audio.map(pick), P.mix || null]);
+  }
+
+  _preMixTick(now) {
+    const pm = this._pmix;
+    if (pm.busy || now - pm.chk < 400) return;
+    pm.chk = now;
+    const d = this.duration();
+    if (d > 300) return; // çok uzun projede bellek için canlı yol
+    const sig = this._audioSig();
+    if (sig === pm.sig) { pm.pend = null; return; }
+    if (pm.pend !== sig) { pm.pend = sig; pm.at = now; return; }
+    if (now - pm.at < 700) return; // düzenleme bitsin
+    this._renderPreMix(sig, d);
+  }
+
+  async _renderPreMix(sig, d) {
+    const pm = this._pmix;
+    pm.busy = true;
+    try {
+      if (!this.ac) this.ensureAudio();
+      const sr = this.ac?.sampleRate || 48000;
+      const { mixdown } = await import('./mixdown.js');
+      const buf = await mixdown(this, this.P, d, { sampleRate: sr, shouldCancel: () => this.exporting });
+      if (buf && this._audioSig() === sig) { pm.buf = buf; pm.sig = sig; }
+    } catch (e) { console.warn('önizleme sesi hazırlanamadı', e); pm.sig = sig; pm.buf = null; }
+    pm.busy = false; pm.pend = null;
+  }
+
+  _acNow() {
+    const ac = this.ac;
+    try {
+      const o = ac.getOutputTimestamp && ac.getOutputTimestamp();
+      if (o && o.contextTime > 0 && o.performanceTime > 0) return o.contextTime + (performance.now() - o.performanceTime) / 1000;
+    } catch (_) { /* yoksay */ }
+    return ac.currentTime;
+  }
+
+  _startBuf() {
+    this._stopBuf();
+    const pm = this._pmix, ac = this.ac;
+    this.bufMode = false;
+    if (!ac || !pm.buf || pm.sig !== this._audioSig() || this.exporting || this.offline) return;
+    try {
+      const s = ac.createBufferSource(); s.buffer = pm.buf;
+      const g = ac.createGain(); g.gain.value = 0;
+      s.connect(g); g.connect(this.out); g.connect(this.preMeter);
+      const when = ac.currentTime + 0.04;
+      s.start(when, Math.min(this.t, pm.buf.duration));
+      g.gain.setTargetAtTime(1, when, 0.004);
+      this._bsrc = { s, g }; this._acT0 = when; this._bt0 = this.t;
+      this.bufMode = true;
+      // canlı yoldaki elemanları sustur
+      for (const n of this.nodes.values()) n.out.gain.setTargetAtTime(0, ac.currentTime, 0.005);
+    } catch (e) { console.warn(e); this.bufMode = false; }
+  }
+
+  _stopBuf() {
+    const b = this._bsrc; this._bsrc = null;
+    const ac = this.ac;
+    if (b && ac) {
+      try { const n = ac.currentTime; b.g.gain.setTargetAtTime(0, n, 0.006); b.s.stop(n + 0.05); } catch (_) { /* yoksay */ }
+      setTimeout(() => { try { b.g.disconnect(); } catch (_) { /* yoksay */ } }, 200);
+    }
+    if (this.bufMode && ac) for (const n of this.nodes.values()) n.out.gain.setTargetAtTime(1, ac.currentTime + 0.06, 0.005);
+    this.bufMode = false;
   }
 
   _loop() {
@@ -585,10 +683,12 @@ export class Engine {
   _tick() {
     if (this.playing) {
       const d = this.duration();
-      this.t = this._t0 + (performance.now() - this._n0) / 1000;
+      if (this.bufMode && this.ac) this.t = this._bt0 + Math.max(0, this._acNow() - this._acT0); // ses saati
+      else this.t = this._t0 + (performance.now() - this._n0) / 1000;
       if (this.t >= d) {
         this.t = d;
         this.playing = false;
+        this._stopBuf();
         this.sync(this.t);
         this.draw(Math.max(0, d - 0.001)); // son kare siyah kalmasın
         if (this.onTime) this.onTime(this.t);
@@ -599,7 +699,9 @@ export class Engine {
       this.draw();
       this._audioTick(1 / 60);
       if (this.onTime) this.onTime(this.t);
-    } else if (this._needDraw) {
+    } else {
+      if (!this.exporting) this._preMixTick(performance.now());
+      if (!this._needDraw) return;
       this._needDraw = false;
       const d = this.duration();
       this.draw(this.t >= d ? Math.max(0, d - 0.001) : this.t);
