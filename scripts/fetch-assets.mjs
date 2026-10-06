@@ -8,11 +8,23 @@ const W = 'www';
 const UA = { 'User-Agent': 'AlpicutBuild/1.0 (https://github.com/halildemirkazik14-del/Alpicut)' };
 const log = (...a) => console.log('[assets]', ...a);
 const mk = (p) => fs.mkdirSync(p, { recursive: true });
-const get = async (u, tries = 3, extra = {}) => {
+// v1.7: Wikimedia hız sınırına (429) uyum — istekler arasında bekleme, Retry-After'a göre tekrar
+let lastWiki = 0;
+const get = async (u, tries = 5, extra = {}) => {
+  const wiki = /wikimedia\.org/.test(u);
   for (let i = 0; i < tries; i++) {
-    try { const r = await fetch(u, { headers: { ...UA, ...extra }, redirect: 'follow' }); if (r.ok) return r; log('HTTP', r.status, u); report.errors.push(`HTTP ${r.status} ${u.slice(0, 120)}`); } catch (e) { log('fetch hata', u, e.message); }
+    if (wiki) { const wait = Math.max(0, lastWiki + 350 - Date.now()); if (wait) await new Promise((r) => setTimeout(r, wait)); lastWiki = Date.now(); }
+    try {
+      const r = await fetch(u, { headers: { ...UA, ...extra }, redirect: 'follow' });
+      if (r.ok) return r;
+      log('HTTP', r.status, u);
+      if (r.status === 429 || r.status >= 500) { const ra = +(r.headers.get('retry-after') || 0); await new Promise((res) => setTimeout(res, Math.max(ra * 1000, 4000 * (i + 1)))); continue; }
+      report.errors.push(`HTTP ${r.status} ${u.slice(0, 120)}`);
+      return null;
+    } catch (e) { log('fetch hata', u, e.message); }
     await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
   }
+  report.errors.push(`vazgeçildi ${u.slice(0, 120)}`);
   return null;
 };
 const download = async (u, to, ref) => { const r = await get(u, 3, ref ? { Referer: ref } : {}); if (!r) return false; fs.writeFileSync(to, Buffer.from(await r.arrayBuffer())); return true; };
@@ -210,7 +222,7 @@ function niceName(f) {
             lic.push(`Wikimedia Commons — ${pg.title} — ${lic2} — https://commons.wikimedia.org/wiki/${encodeURIComponent(pg.title)}`);
             added++; k++;
           } catch (_) { /* yoksay */ }
-          if (k >= 5) break;
+          if (k >= 7) break;
         }
       }
       log('sfx commons', cat, added);
