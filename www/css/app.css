@@ -892,3 +892,18 @@ html[data-scheme=light] .play-btn { background: var(--primary); color: var(--on-
 .asset small { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 6px 5px; font-size: 10.5px; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.75)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
 .asset-folders button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; }
 .vibe-btn::before { filter: blur(16px); }
+
+/* v1.7: Ses stüdyosu */
+.as-head { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 16px; background: var(--surface-2); margin-bottom: 12px; }
+.as-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--grad); color: var(--on-primary); }
+.as-ic svg { width: 22px; height: 22px; }
+.as-head b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 62vw; }
+.as-head small { font-family: var(--font-serif); color: var(--muted); font-size: 12.5px; }
+.as-presets, .as-sep { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 8px; }
+.as-pre, .as-opt { padding: 12px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); text-align: left; animation: itemIn .35s cubic-bezier(.2,.9,.3,1.2) both; animation-delay: calc(var(--i, 0) * 30ms); transition: transform .14s ease; }
+.as-pre:active, .as-opt:active { transform: scale(.95); }
+.as-pre.on, .as-opt.on { border-color: var(--primary); background: var(--tint); }
+.as-pre b, .as-opt b { font-size: 13.5px; font-weight: 700; display: block; }
+.as-opt small { font-family: var(--font-serif); font-size: 12px; color: var(--muted); }
+.pick-card { width: min(380px, 92vw); }
+.pick-cv { width: 100%; max-height: 62vh; object-fit: contain; border-radius: 14px; margin-top: 10px; cursor: crosshair; }

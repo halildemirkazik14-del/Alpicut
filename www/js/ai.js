@@ -367,22 +367,55 @@ export function openTranscript() {
 
 // ================= Arka plan silme =================
 export function bgRemoveTab(body, o) {
-  if (!o.bgr) o.bgr = { on: false, threshold: 0.5, edge: 0.15, feather: 2, mode: 'transparent', color: '#00B140', blur: 30 };
+  if (!o.bgr) o.bgr = { on: false, target: 'person', quality: 'hq', point: null, threshold: 0.5, edge: 0.12, feather: 1.5, choke: true, smooth: 0.35, mode: 'transparent', color: '#00B140', blur: 30 };
+  const B = o.bgr;
+  B.target = B.target || 'person'; B.quality = B.quality || 'fast';
   const isClip = !!o.type;
-  body.append(h('p', { class: 'hint', html: 'Yapay zekâ kişiyi algılar ve arka planı siler (cihaz üzerinde, internetsiz). Yeşil perde gerekmez. En iyi sonuç: kişi net ve yakın planda.' }));
+  const kind = () => (B.target === 'object' ? 'object' : B.quality === 'hq' ? 'hq' : 'person');
+  const load = async () => { const b = busy('Yapay zekâ modeli yükleniyor…'); try { const S = await import('./seg.js'); await S.initSegmenter(kind()); app.engine.seg = S; app.engine.requestDraw(); return true; } catch (e) { B.on = false; toast(e.message || 'Model yüklenemedi', 4000); return false; } finally { b.close(); refreshSheet(); } };
+  body.append(h('p', { class: 'hint', html: 'Yapay zekâ <b>kişiyi</b> ya da dokunarak seçtiğin <b>nesneyi</b> ayırır, arka planı siler (cihaz üzerinde, internetsiz). Yeşil perde gerekmez.' }));
   body.append(fields(o, [
-    { label: 'Arka planı sil', path: 'bgr.on', type: 'toggle', rerender: true, post: async (ob) => { if (ob.bgr.on) { const b = busy('Yapay zekâ modeli yükleniyor…'); try { const S = await import('./seg.js'); await S.initSegmenter(); app.engine.seg = S; app.engine.requestDraw(); } catch (e) { ob.bgr.on = false; toast(e.message || 'Model yüklenemedi', 4000); } finally { b.close(); refreshSheet(); } } } },
+    { label: 'Ne kalsın?', path: 'bgr.target', type: 'chips', options: [['person', '🧍 İnsan'], ['object', '🎯 Nesne (dokun seç)']], rerender: true, post: () => { if (B.on) load(); } },
+    { label: 'Kalite', path: 'bgr.quality', type: 'chips', options: [['hq', 'Detaylı (saç, kıyafet)'], ['fast', 'Hızlı']], hide: B.target === 'object', rerender: true, post: () => { if (B.on) load(); } },
+    { label: 'Arka planı sil', path: 'bgr.on', type: 'toggle', rerender: true, post: async (ob) => { if (ob.bgr.on) { await load(); if (B.target === 'object' && !B.point) pickObject(o); } } },
   ]));
-  if (!o.bgr.on) return;
+  if (B.target === 'object') body.append(h('button', { class: 'btn block', html: `🎯 ${B.point ? 'Nesneyi yeniden seç' : 'Nesneyi seç'}`, onclick: () => pickObject(o) }));
+  if (!B.on) return;
   body.append(fields(o, [
     { label: 'Yerine', path: 'bgr.mode', type: 'chips', options: isClip ? [['blur', 'Bulanık arka plan'], ['color', 'Renk'], ['transparent', 'Siyah']] : [['transparent', 'Saydam'], ['color', 'Renk'], ['blur', 'Bulanık']], rerender: true },
-    { label: 'Renk', path: 'bgr.color', type: 'color', hide: o.bgr.mode !== 'color' },
-    { label: 'Bulanıklık', path: 'bgr.blur', type: 'range', min: 5, max: 80, step: 1, def: 30, hide: o.bgr.mode !== 'blur' },
+    { label: 'Renk', path: 'bgr.color', type: 'color', hide: B.mode !== 'color' },
+    { label: 'Bulanıklık', path: 'bgr.blur', type: 'range', min: 5, max: 80, step: 1, def: 30, hide: B.mode !== 'blur' },
     { label: 'Hassasiyet', path: 'bgr.threshold', type: 'range', min: 0.15, max: 0.85, step: 0.01, def: 0.5, fmt: (x) => `${Math.round(x * 100)}%` },
-    { label: 'Kenar yumuşaklığı', path: 'bgr.edge', type: 'range', min: 0.02, max: 0.4, step: 0.01, def: 0.15, fmt: (x) => `${Math.round(x * 100)}%` },
-    { label: 'Kenar bulanıklığı', path: 'bgr.feather', type: 'range', min: 0, max: 12, step: 0.5, def: 2 },
+    { label: 'Kenar yumuşaklığı', path: 'bgr.edge', type: 'range', min: 0.02, max: 0.4, step: 0.01, def: 0.12, fmt: (x) => `${Math.round(x * 100)}%` },
+    { label: 'Kenar bulanıklığı', path: 'bgr.feather', type: 'range', min: 0, max: 12, step: 0.5, def: 1.5 },
+    { label: 'Kenar temizliği (hale giderici)', path: 'bgr.choke', type: 'toggle' },
+    { label: 'Titreme önleme', path: 'bgr.smooth', type: 'range', min: 0, max: 0.8, step: 0.05, def: 0.35, fmt: (x) => `${Math.round(x * 100)}%` },
   ]));
-  body.append(h('p', { class: 'hint', html: 'İpucu: Kişiyi başka bir videonun üstüne koymak için bu videoyu <b>Katman</b> olarak ekle ve arka planı <b>Saydam</b> yap. Önizleme hızı için oynatırken model düşük çözünürlükte çalışır; dışa aktarmada tam kalite kullanılır.' }));
+  body.append(h('p', { class: 'hint', html: 'İpucu: Kişiyi başka bir videonun üstüne koymak için bu videoyu <b>Katman</b> olarak ekle ve arka planı <b>Saydam</b> yap. Nesne modunda seçtiğin nesne kare kare takip edilir.' }));
+}
+
+// nesne seçimi: mevcut kareyi göster, dokunulan nokta nesne olarak seçilir
+function pickObject(o) {
+  const E = app.engine;
+  const el = E.elFor(o);
+  if (!el) { toast('Önce oynatıcıyı bu öğenin üstüne getir'); return; }
+  const sw = el.videoWidth || el.naturalWidth || el.width, sh = el.videoHeight || el.naturalHeight || el.height;
+  if (!sw) { toast('Kare henüz hazır değil, bir an sonra tekrar dene'); return; }
+  const cv = h('canvas', { class: 'pick-cv' });
+  const k = Math.min(1, 900 / Math.max(sw, sh));
+  cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+  const x = cv.getContext('2d'); x.drawImage(el, 0, 0, cv.width, cv.height);
+  const ov = h('div', { class: 'exit-confirm pick-ov' }, h('div', { class: 'ec-card pick-card' }, h('b', {}, 'Ayırmak istediğin nesneye dokun'), cv, h('div', { class: 'ec-row' }, h('button', { class: 'btn', onclick: () => ov.remove() }, 'Vazgeç'))));
+  cv.addEventListener('click', async (e) => {
+    const r = cv.getBoundingClientRect();
+    o.bgr.point = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+    o.bgr.target = 'object'; o.bgr.on = true;
+    ov.remove();
+    try { const S = await import('./seg.js'); await S.initSegmenter('object'); E.seg = S; } catch (err) { toast(err.message || 'Model yüklenemedi'); }
+    app.change(true); refreshSheet(); E.requestDraw();
+    toast('Nesne seçildi — kare kare takip edilecek');
+  });
+  document.body.append(ov);
 }
 
 // ================= Akıllı dikey kadraj (yüz takibi) =================
@@ -674,7 +707,12 @@ export function openAIHub() {
 
 // Proje açılırken arka plan silme kullanılıyorsa modeli hazırla
 export async function prepareProjectAI(P) {
-  const need = [...P.clips, ...P.layers].some((o) => o.bgr?.on);
-  if (!need) return;
-  try { const S = await import('./seg.js'); await S.initSegmenter(); app.engine.seg = S; app.engine.requestDraw(); } catch (e) { toast('Arka plan silme modeli yüklenemedi', 3500); }
+  const objs = [...P.clips, ...P.layers].filter((o) => o.bgr?.on);
+  if (!objs.length) return;
+  try {
+    const S = await import('./seg.js');
+    const kinds = new Set(objs.map((o) => (o.bgr.target === 'object' ? 'object' : o.bgr.quality === 'hq' ? 'hq' : 'person')));
+    for (const k of kinds) await S.initSegmenter(k);
+    app.engine.seg = S; app.engine.requestDraw();
+  } catch (e) { toast('Arka plan silme modeli yüklenemedi', 3500); }
 }

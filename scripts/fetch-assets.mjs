@@ -74,6 +74,8 @@ const FONT_PKGS = ['barlow', 'barlow-condensed', 'barlow-semi-condensed', 'anton
   for (const f of ['vision_wasm_internal.js', 'vision_wasm_internal.wasm', 'vision_wasm_nosimd_internal.js', 'vision_wasm_nosimd_internal.wasm']) cp(nm(`@mediapipe/tasks-vision/wasm/${f}`), `${W}/vendor/mediapipe/wasm/${f}`);
   mk(`${W}/models`);
   await download('https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite', `${W}/models/selfie_segmenter.tflite`) || report.errors.push('segmenter modeli');
+  await download('https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite', `${W}/models/selfie_multiclass_256x256.tflite`) || report.errors.push('çok sınıflı segmenter');
+  await download('https://storage.googleapis.com/mediapipe-models/interactive_segmenter/magic_touch/float32/latest/magic_touch.tflite', `${W}/models/magic_touch.tflite`) || report.errors.push('nesne segmenter (magic touch)');
   await download('https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite', `${W}/models/blaze_face_short_range.tflite`) || report.errors.push('yüz modeli');
   // transformers.js (Whisper) — tek dosyaya paketlenir; ONNX wasm dosyaları ilk kullanımda CDN'den gelir
   const esb = (entry, out) => { try { mk(path.dirname(out)); execSync(`npx esbuild "${entry}" --bundle --format=esm --platform=browser --minify --log-level=warning --outfile="${out}" --external:fs --external:path --external:url --external:sharp --external:onnxruntime-node`, { stdio: 'inherit' }); return true; } catch (e) { report.errors.push(`esbuild: ${entry}: ${e.message}`); return false; } };

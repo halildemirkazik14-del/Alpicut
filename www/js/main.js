@@ -188,7 +188,7 @@ const TOOL_CATS = [
     ['brand', 'Altyazı şablonları', () => openCaptionStyles(), '', 'Hazır altyazı görünümleri'], ['cta', 'Çağrı butonu', openCTAs, '', 'Abone ol, beğen, takip et'], ['score', 'Skor kartı', openScoreMenu, '', 'Maç skoru tabelası'],
   ] },
   { id: 'audio', name: 'Ses', icon: 'audio', desc: 'Müzik, efekt, kayıt', tools: () => [
-    ['audio', 'Müzik', openMusicLibrary, '', 'Telifsiz müzik kütüphanesi'], ['sfx', 'Ses efekti', openSfxLibrary, '', 'Whoosh, riser, gerilim, glitch…'], ['mic', 'Kayıt stüdyosu', openMic, '', 'Mikrofonla seslendirme kaydet'], ['bot', 'Seslendirme', () => openTTS(), '', 'Metinden sese'],
+    ['mic', 'Ses stüdyosu', () => { const o = selected(); if (o && o.mediaId) studioClean(o); else { const c = app.P.clips.find((x) => x.type === 'video') || app.P.audio[0]; if (c) studioClean(c); else toast('Önce video ya da ses ekle'); } }, 'ai', 'Gürültü giderme, konuşma/müzik ayırma'], ['audio', 'Müzik', openMusicLibrary, '', 'Telifsiz müzik kütüphanesi'], ['sfx', 'Ses efekti', openSfxLibrary, '', 'Whoosh, riser, gerilim, glitch…'], ['mic', 'Kayıt stüdyosu', openMic, '', 'Mikrofonla seslendirme kaydet'], ['bot', 'Seslendirme', () => openTTS(), '', 'Metinden sese'],
     ['upload', 'Ses dosyası', () => addMedia('audio'), '', 'Telefondan ses/müzik ekle'], ['mixer', 'Mikser', openMixer, '', 'Seviyeler, ducking, limiter'], ['beat', 'Ses dalgası', addWave, '', 'Müziğe tepki veren çubuklar'],
   ] },
   { id: 'fx', name: 'Efekt', icon: 'fx', desc: 'Efekt, filtre, geçiş, çıkartma', tools: () => [
@@ -1356,6 +1356,10 @@ function cutTimelineRanges(ranges) {
 
 // stüdyo ses temizliği
 function studioClean(o) {
+  // v1.7: tam ekran Ses stüdyosu (temizle + ayır)
+  import('./audiostudio.js').then((m) => m.openAudioStudio(o));
+}
+function studioCleanOld(o) {
   const st = { preset: 'podcast' };
   openSheet({
     title: 'Stüdyo ses', 

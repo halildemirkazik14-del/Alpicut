@@ -8,7 +8,7 @@ async function rnnoise() {
   return rnP;
 }
 
-async function decode(blob) {
+export async function decode(blob) {
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   const ctx = new OAC(1, SR, SR);
   const ab = await ctx.decodeAudioData(await blob.arrayBuffer());
@@ -179,6 +179,8 @@ async function renderChain(x, o) {
   let node = src;
   const chain = (n) => { node.connect(n); node = n; };
   if (o.hp) { const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = o.hpFreq || 80; f.Q.value = 0.7; chain(f); }
+  // v1.7: elektrik uğultusu (50/60 Hz ve harmonikleri)
+  if (o.hum) [1, 2, 3, 4].forEach((k) => { const f = ctx.createBiquadFilter(); f.type = 'notch'; f.frequency.value = o.hum * k; f.Q.value = 14; chain(f); });
   const eq = [['lowshelf', 120, o.low || 0], ['peaking', 300, o.mud || 0, 1], ['peaking', 3000, o.presence || 0, 0.9], ['highshelf', 10000, o.air || 0]];
   eq.forEach(([type, f, gdb, q]) => { if (!gdb) return; const n = ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; n.gain.value = gdb; if (q) n.Q.value = q; chain(n); });
   if (o.comp) { const c = ctx.createDynamicsCompressor(); c.threshold.value = o.compThr ?? -22; c.ratio.value = o.compRatio ?? 3.5; c.knee.value = 8; c.attack.value = 0.006; c.release.value = 0.16; chain(c); }
