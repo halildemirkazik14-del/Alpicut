@@ -129,15 +129,20 @@ export const COMMANDS = {
     },
   },
   add_music: {
-    desc: 'Kamu malı klasik müzik ekler (Vivaldi, Mozart, Bach, Beethoven…). query: besteci veya eser adı ya da ruh hali (epik, sakin, neşeli, dramatik).',
+    desc: 'Telifsiz müzik ekler (modern türler + kamu malı klasik). query: ruh hali/tür (epik, sakin, neşeli, dramatik, hızlı, lofi, caz, piyano, gerilim, elektronik) ya da besteci/eser adı.',
     params: { type: 'object', properties: { query: { type: 'string' }, volume: { type: 'number', description: '0-1, varsayılan 0.3' } } },
     run: async (a = {}) => {
       const list = await loadJSON('data/music.json');
       if (!list.length) return { ok: false, error: 'Müzik kataloğu yok' };
       const moods = { epik: ['wagner', 'holst', 'orff', 'beethoven symphony', 'verdi'], sakin: ['satie', 'debussy', 'chopin nocturne', 'gymnop', 'clair'], neseli: ['mozart', 'vivaldi spring', 'strauss', 'haydn', 'rossini'], dramatik: ['beethoven', 'tchaikovsky', 'bach toccata', 'grieg', 'mussorgsky'], hizli: ['rimsky', 'flight', 'rossini', 'paganini', 'hungarian'] };
       const q = norm(a.query || 'vivaldi');
+      // v1.7: önce modern türler (atıf gerektirmeyenler öncelikli), sonra klasik besteciler
+      const GEN = { epik: ['Sinematik'], sakin: ['Ortam & meditasyon', 'Piyano', 'Lo-fi & chill'], neseli: ['Neşeli & reklam', 'Akustik & folk'], dramatik: ['Sinematik', 'Gerilim & karanlık'], hizli: ['Elektronik', 'Rock', 'Hip-hop & beat'], lofi: ['Lo-fi & chill'], caz: ['Caz & blues'], piyano: ['Piyano'], gerilim: ['Gerilim & karanlık'], elektronik: ['Elektronik'] };
+      const gk = Object.entries(GEN).find(([k]) => q.includes(k))?.[1];
+      let ghits = gk ? list.filter((m) => gk.includes(m.g)) : list.filter((m) => m.g && norm(m.g).includes(q));
+      if (ghits.some((m) => !m.by)) ghits = ghits.filter((m) => !m.by);
       const keys = Object.entries(moods).find(([k]) => q.includes(k))?.[1] || [q];
-      const hit = list.filter((m) => keys.some((k) => k.split(' ').every((w) => norm(`${m.c} ${m.t}`).includes(w))));
+      const hit = ghits.length ? ghits : list.filter((m) => keys.some((k) => k.split(' ').every((w) => norm(`${m.c} ${m.t}`).includes(w))));
       const pick = (hit.length ? hit : list)[Math.floor(Math.random() * Math.min(5, (hit.length ? hit : list).length))];
       status(`Müzik indiriliyor: ${pick.c} – ${pick.t}`);
       const blob = await (await fetch(pick.u)).blob();
@@ -160,7 +165,10 @@ export const COMMANDS = {
       if (a.at != null) app.engine.t = a.at;
       try {
         // önce yeni kütüphane (ad, kategori, etiket), sonra eski sentez listesi
-        const hit = idx.find((x) => norm(`${x.id} ${x.n} ${x.c} ${x.t || ''}`).includes(q)) || idx.find((x) => q.split(/\s+/).some((w) => w.length > 2 && norm(`${x.id} ${x.n} ${x.t || ''}`).includes(w)));
+        // v1.7: gerçek kayıt kütüphanesi — eşleşenlerden rastgele biri (her seferinde aynı ses olmasın)
+        let hits = idx.filter((x) => norm(`${x.id} ${x.n} ${x.c} ${x.t || ''} ${x.q || ''}`).includes(q));
+        if (!hits.length) hits = idx.filter((x) => q.split(/\s+/).some((w) => w.length > 2 && norm(`${x.id} ${x.n} ${x.c} ${x.t || ''} ${x.q || ''}`).includes(w)));
+        const hit = hits.length ? hits[Math.floor(Math.random() * Math.min(hits.length, 6))] : null;
         if (hit) { await app.addSfx(hit.id, hit.n); return { ok: true, summary: `${hit.n} eklendi (${sec(a.at ?? t0)})` }; }
         const syn = SFX.find(([id, n]) => norm(`${id} ${n}`).includes(q));
         if (syn) { await app.addSfx(syn[0], syn[1]); return { ok: true, summary: `${syn[1]} eklendi (${sec(a.at ?? t0)})` }; }

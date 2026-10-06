@@ -89,6 +89,17 @@ Teknik: Saf HTML/JS editör (`www/`), Capacitor 7 ile Android'e paketlenir.
 - **Kağıt stop-motion efekti** (kare tutmalı) ve kesik kağıt efekti
 - **Yeni tasarım:** inceltilmiş mor tema (Ametist + Lila gün), Bricolage Grotesque + Source Serif 4, A + makas logo
 
+## v1.7 yenilikleri
+- **Vibe editing:** videoyu anlat, havasını seç → yapay zekâ (veya internetsiz tarif) kurgular, motion şablonlarını kendisi yerleştirir
+- **Assets:** tüm projelerde ortak medya kütüphanesi, klasörler, küçültülebilir pencere
+- **Tam ekran oynatma**, taşınabilir paneller, timeline başında **kapak** + 16 kapak şablonu (istersen videonun ilk karesine)
+- **Ses stüdyosu:** gürültü giderme (önce/sonra), 50/60 Hz uğultu, rüzgâr; konuşma / arka plan ayırma, karaoke
+- **Arka plan silme:** donan maske hatası düzeltildi; insan (saç detaylı) veya dokunarak seçilen **nesne** + takip, titreme önleme
+- **İçerik:** 164 filtre · 213 motion şablonu · 178 sosyal medya çağrısı
+- **Ses efektleri artık gerçek kayıt** (Kenney, OpenGameArt, Wikimedia Commons — CC0/kamu malı), Türkçe arama
+- **Müzik kütüphanesi:** 13 tür (sinematik, lo-fi, elektronik, piyano, caz…) + klasik; süre filtresi, son kullanılanlar, atıf yönetimi
+- Düzeltmeler: ana sayfa şablon kartlarının ezilmesi, kapak pikselleşmesi, geri hareketiyle yanlışlıkla çıkış, kaydırırken anlık önizleme, dışa aktarmada ilk siyah kare
+
 ## Teşekkürler / lisanslar
 - [HyperFrames](https://github.com/heygen-com/hyperframes) (HeyGen) — Apache License 2.0: sinematik shader geçişleri uyarlandı, motion şablonları blok kataloğundan esinlendi. Lisans: `www/licenses/hyperframes-LICENSE-Apache-2.0.txt`
 - [gl-transitions](https://github.com/gl-transitions/gl-transitions) — MIT

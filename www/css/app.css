@@ -907,3 +907,16 @@ html[data-scheme=light] .play-btn { background: var(--primary); color: var(--on-
 .as-opt small { font-family: var(--font-serif); font-size: 12px; color: var(--muted); }
 .pick-card { width: min(380px, 92vw); }
 .pick-cv { width: 100%; max-height: 62vh; object-fit: contain; border-radius: 14px; margin-top: 10px; cursor: crosshair; }
+
+/* v1.7: müzik kütüphanesi */
+.mus-genres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.mus-g { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); text-align: left; animation: itemIn .32s cubic-bezier(.2,.9,.3,1.2) both; animation-delay: calc(var(--i, 0) * 18ms); transition: transform .14s ease; }
+.mus-g:active { transform: scale(.95); }
+.mus-g.on { border-color: var(--primary); background: var(--tint); }
+.mus-g span { font-size: 18px; }
+.mus-g b { font-size: 12.5px; font-weight: 700; line-height: 1.15; }
+.mus-g small { font-size: 10.5px; color: var(--muted); }
+.mus-list .mus-row { animation: itemIn .3s ease both; animation-delay: calc(var(--i, 0) * 15ms); }
+.mus-by, .mus-free { font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 6px; margin-left: 6px; }
+.mus-by { background: color-mix(in srgb, #F59E0B 22%, transparent); color: #F59E0B; }
+.mus-free { background: color-mix(in srgb, #22C55E 20%, transparent); color: #22C55E; }

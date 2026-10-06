@@ -40,7 +40,10 @@ async function addAudioBlob(id, name, blobOrUrl, opts = {}) {
   return a;
 }
 
-const SFX_ORDER = ['Whoosh', 'Riser', 'Darbe & boom', 'Sinematik', 'Gerilim', 'Glitch', 'Düşüş & drop', 'Pop & tık', 'Bildirim & zil', 'Komik & meme', 'Spor', 'Ortam'];
+const SFX_ORDER = ['Whoosh', 'Darbe & boom', 'Arayüz & tık', 'Bildirim & zil', 'Komik & meme', 'Kalabalık & alkış', 'Müzik vuruşları', 'İnsan sesleri', 'Doğa', 'Hayvanlar', 'Ev & günlük', 'Ulaşım', 'Teknoloji', 'Para & kasa', 'Spor', 'Bilim kurgu', 'Oyun & retro', 'Ortam', 'Seslendirme'];
+// v1.7: Türkçe arama → kayıtların İngilizce adları
+const SYN = { alkış: 'applause clap', kapı: 'door', yağmur: 'rain', köpek: 'dog bark', kedi: 'cat meow', zil: 'bell ring chime', patlama: 'explosion bang boom', araba: 'car engine horn', ayak: 'footstep', klavye: 'keyboard typing', para: 'coin cash', kahkaha: 'laugh', gülme: 'laugh', kalp: 'heart', düdük: 'whistle', korna: 'horn', kuş: 'bird', deniz: 'ocean wave', dalga: 'wave', ateş: 'fire', gök: 'thunder', şimşek: 'thunder', rüzgar: 'wind', rüzgâr: 'wind', su: 'water splash', telefon: 'phone', kamera: 'camera shutter', saat: 'clock tick', davul: 'drum', tren: 'train', uçak: 'airplane', siren: 'siren', bebek: 'baby', çocuk: 'child', kalabalık: 'crowd', tribün: 'stadium crowd', at: 'horse', inek: 'cow', horoz: 'rooster', daktilo: 'typewriter', kağıt: 'paper', cam: 'glass', yumruk: 'punch', vuruş: 'hit impact', tık: 'click', bildirim: 'notification ding', geçiş: 'whoosh swish', hışırtı: 'rustle' };
+const expandQ = (k) => [k, ...Object.entries(SYN).filter(([tr]) => k.includes(tr)).map(([, en]) => en)].join(' ').split(/\s+/).filter(Boolean);
 export function openSfxLibrary() {
   const st = openSfxLibrary.st || (openSfxLibrary.st = { q: '', cat: 'Whoosh', limit: 80 });
   openSheet({
@@ -53,7 +56,7 @@ export function openSfxLibrary() {
       const counts = {};
       all.forEach((x) => { counts[x.c] = (counts[x.c] || 0) + 1; });
       const cats = ['★', 'Tümü', ...SFX_ORDER.filter((c) => counts[c]), ...Object.keys(counts).filter((c) => !SFX_ORDER.includes(c))];
-      if (!cats.includes(st.cat)) st.cat = 'Whoosh';
+      if (!cats.includes(st.cat)) st.cat = cats[2] || 'Tümü';
       const q = h('input', { type: 'text', class: 'search', placeholder: `${all.length} ses efektinde ara (whoosh, riser, boom…)`, value: st.q });
       const chips = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
       cats.forEach((c) => chips.append(h('button', { class: st.cat === c ? 'on' : '', onclick: () => { st.cat = c; st.limit = 80; refreshSheet(); } }, c === '★' ? '★ Favoriler' : counts[c] ? `${c} · ${counts[c]}` : c)));
@@ -61,7 +64,7 @@ export function openSfxLibrary() {
       const fv = favs();
       const k = st.q.trim().toLocaleLowerCase('tr-TR');
       let list = k ? all : st.cat === '★' ? all.filter((x) => fv.includes(x.id)) : st.cat === 'Tümü' ? all : all.filter((x) => x.c === st.cat);
-      if (k) list = list.filter((x) => `${x.n} ${x.c} ${x.t || ''} ${x.id}`.toLocaleLowerCase('tr-TR').includes(k));
+      if (k) { const ws = expandQ(k); list = list.filter((x) => { const hay = `${x.n} ${x.c} ${x.t || ''} ${x.q || ''} ${x.id}`.toLocaleLowerCase('tr-TR'); return hay.includes(k) || ws.some((w) => w.length > 2 && hay.includes(w)); }); }
       if (st.cat === '★' && !list.length && !k) body.append(h('p', { class: 'hint' }, 'Henüz favori yok. Sesin yanındaki ☆ ile ekleyebilirsin.'));
       const box = h('div');
       list.slice(0, st.limit).forEach((x) => {
@@ -72,7 +75,7 @@ export function openSfxLibrary() {
         });
         const star = favStar('sfx', x.id, { name: x.n });
         box.append(h('div', { class: 'sfx-row sfx4' }, pb,
-          h('span', { class: 'sfx-name' }, x.n, h('small', {}, ` ${(+x.d).toFixed(1)} sn${st.cat === 'Tümü' || k ? ` · ${x.c}` : ''}`)), star,
+          h('span', { class: 'sfx-name' }, x.n, h('small', {}, ` ${(+x.d).toFixed(1)} sn${st.cat === 'Tümü' || k ? ` · ${x.c}` : ''}${x.s ? ` · ${x.s.split(' · ')[0]}` : ''}`)), star,
           h('button', { class: 'btn', onclick: async () => {
             stopPreview();
             try { await app.addSfx(x.id.startsWith('syn:') ? x.id.slice(4) : x.id, x.n); } catch (e) { toast('Eklenemedi'); }
@@ -80,7 +83,7 @@ export function openSfxLibrary() {
       });
       if (list.length > st.limit) box.append(h('button', { class: 'btn block', onclick: () => { st.limit += 100; refreshSheet(); } }, `Daha fazla (${list.length - st.limit})`));
       body.append(box);
-      body.append(h('p', { class: 'hint', html: 'Tüm efektler <b>Alpicut Ses Fabrikası</b>nda sıfırdan üretilmiştir: telif yok, atıf gerekmez, ticari kullanım serbest. ▶ dinle · <b>Ekle</b> oynatıcının olduğu yere koyar.' }));
+      body.append(h('p', { class: 'hint', html: 'Gerçek kayıtlar: <b>Kenney, OpenGameArt ve Wikimedia Commons</b> — tamamı CC0 / kamu malı: telif yok, atıf gerekmez, ticari kullanım serbest. Türkçe arayabilirsin (alkış, kapı, yağmur…). ▶ dinle · <b>Ekle</b> oynatıcının olduğu yere koyar.' }));
       let tm = null;
       q.addEventListener('input', () => { st.q = q.value; clearTimeout(tm); tm = setTimeout(() => { st.limit = 80; refreshSheet(); setTimeout(() => { const el = document.querySelector('.panel.focused .search'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }, 250); });
     },
@@ -95,40 +98,80 @@ function cleanTitle(m) {
   return t.charAt(0).toLocaleUpperCase('tr-TR') + t.slice(1);
 }
 
+// v1.7: gelişmiş müzik kütüphanesi — türler, besteciler, süre filtresi, arama, favoriler, son kullanılanlar, atıf yönetimi
+const GENRE_ORDER = ['Sinematik', 'Lo-fi & chill', 'Elektronik', 'Neşeli & reklam', 'Akustik & folk', 'Piyano', 'Caz & blues', 'Rock', 'Hip-hop & beat', 'Ortam & meditasyon', 'Gerilim & karanlık', 'Dünya müziği', 'Kevin MacLeod', 'Klasik'];
+const GENRE_IC = { Sinematik: '🎬', 'Lo-fi & chill': '🌙', Elektronik: '🎛️', 'Neşeli & reklam': '☀️', 'Akustik & folk': '🎸', Piyano: '🎹', 'Caz & blues': '🎷', Rock: '🤘', 'Hip-hop & beat': '🎧', 'Ortam & meditasyon': '🧘', 'Gerilim & karanlık': '🕯️', 'Dünya müziği': '🌍', 'Kevin MacLeod': '🎼', Klasik: '🎻' };
+const MSYN = { epik: 'epic cinematic orchestral trailer', sakin: 'calm ambient piano relax meditation', neşeli: 'happy upbeat fun', hüzünlü: 'sad melancholy piano', gerilim: 'suspense dark tension', romantik: 'love romantic piano', enerjik: 'energetic rock electronic upbeat', spor: 'energetic rock epic', düğün: 'wedding piano romantic', yemek: 'happy acoustic jazz', seyahat: 'acoustic folk happy', teknoloji: 'electronic synth corporate', vlog: 'lofi chill acoustic happy' };
+const recentKey = 'alpicut.musRecent';
+const recent = () => { try { return JSON.parse(lsGet(recentKey, '[]')); } catch (_) { return []; } };
+
 export function openMusicLibrary() {
-  const st = openMusicLibrary.st || (openMusicLibrary.st = { q: '', comp: 'Tümü' });
+  const st = openMusicLibrary.st || (openMusicLibrary.st = { q: '', g: '', comp: 'Tümü', len: 'all', limit: 60 });
   openSheet({
-    id: 'music', title: 'Müzik kütüphanesi',
+    id: 'music', title: 'Müzik kütüphanesi', tall: true,
     onClose: stopPreview,
     render: async (body) => {
       if (!musicIndex) { body.append(h('div', { class: 'spinner' })); musicIndex = await loadJSON('data/music.json', []); refreshSheet(); return; }
-      body.append(h('p', { class: 'hint', html: 'Telif süresi dolmuş klasik eserlerin <b>kamu malı</b> kayıtları (Wikimedia Commons, çoğu Musopen). Ticari kullanım serbesttir. Parça ilk eklendiğinde indirilir (internet gerekir), sonra cihazda kalır. Kendi müziğin için <b>Ses</b> aracını kullan.' }));
       if (!musicIndex.length) { body.append(h('p', { class: 'hint' }, 'Katalog bulunamadı.')); return; }
-      const comps = ['★ Favoriler', 'Tümü', ...new Set(musicIndex.map((m) => m.c))];
-      const q = h('input', { type: 'text', class: 'search', placeholder: `${musicIndex.length} eserde ara…`, value: st.q });
-      const chips = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
-      comps.forEach((c) => chips.append(h('button', { class: st.comp === c ? 'on' : '', onclick: () => { st.comp = c; refreshSheet(); } }, c)));
-      body.append(q, chips);
+      musicIndex.forEach((m) => { if (!m.g) m.g = 'Klasik'; });
+      const counts = {}; musicIndex.forEach((m) => { counts[m.g] = (counts[m.g] || 0) + 1; });
+      const genres = [...GENRE_ORDER.filter((g) => counts[g]), ...Object.keys(counts).filter((g) => !GENRE_ORDER.includes(g))];
+      const q = h('input', { type: 'text', class: 'search', placeholder: `${musicIndex.length} parçada ara (epik, sakin, lo-fi, piyano…)`, value: st.q });
+      body.append(q);
+      const gg = h('div', { class: 'mus-genres' });
+      [['', '✨', 'Tümü', musicIndex.length], ['★', '★', 'Favoriler', favIds('music').length], ['↺', '↺', 'Son kullanılan', recent().length], ...genres.map((g) => [g, GENRE_IC[g] || '🎵', g, counts[g]])].forEach(([id, ic, n, c], i) => {
+        gg.append(h('button', { class: `mus-g${st.g === id ? ' on' : ''}`, style: { '--i': String(i) }, onclick: () => { st.g = id; st.comp = 'Tümü'; st.limit = 60; refreshSheet(); } }, h('span', {}, ic), h('b', {}, n), h('small', {}, String(c))));
+      });
+      body.append(gg);
+      const lc = h('div', { class: 'chips scroll', style: { margin: '8px 0' } });
+      [['all', 'Her süre'], ['short', '< 1 dk'], ['mid', '1–3 dk'], ['long', '3 dk +']].forEach(([id, n]) => lc.append(h('button', { class: st.len === id ? 'on' : '', onclick: () => { st.len = id; refreshSheet(); } }, n)));
+      body.append(lc);
+      if (st.g === 'Klasik') {
+        const cc = h('div', { class: 'chips scroll', style: { marginBottom: '8px' } });
+        ['Tümü', ...new Set(musicIndex.filter((m) => m.g === 'Klasik').map((m) => m.c))].forEach((c) => cc.append(h('button', { class: st.comp === c ? 'on' : '', onclick: () => { st.comp = c; refreshSheet(); } }, c)));
+        body.append(cc);
+      }
       const k = st.q.trim().toLocaleLowerCase('tr-TR');
-      const fvm = favIds('music');
-      const list = musicIndex.filter((m) => (st.comp === 'Tümü' || m.c === st.comp || (st.comp === '★ Favoriler' && fvm.includes(m.u))) && (!k || `${m.t} ${m.c}`.toLocaleLowerCase('tr-TR').includes(k)));
-      list.slice(0, 120).forEach((m) => {
-        const pb = h('button', { class: 'icon-btn', html: I.play, 'aria-label': 'Dinle' });
+      const ws = k ? [k, ...Object.entries(MSYN).filter(([tr]) => k.includes(tr)).map(([, en]) => en)].join(' ').split(/\s+/).filter((w) => w.length > 2) : [];
+      const fvm = favIds('music'), rc = recent();
+      const list = musicIndex.filter((m) => {
+        if (st.g === '★' && !fvm.includes(m.u)) return false;
+        if (st.g === '↺' && !rc.includes(m.u)) return false;
+        if (st.g && !['★', '↺'].includes(st.g) && m.g !== st.g) return false;
+        if (st.g === 'Klasik' && st.comp !== 'Tümü' && m.c !== st.comp) return false;
+        if (st.len === 'short' && m.d >= 60) return false;
+        if (st.len === 'mid' && (m.d < 60 || m.d > 180)) return false;
+        if (st.len === 'long' && m.d <= 180) return false;
+        if (k) { const hay = `${m.t} ${m.c} ${m.g} ${m.a || ''}`.toLocaleLowerCase('tr-TR'); if (!hay.includes(k) && !ws.some((w) => hay.includes(w))) return false; }
+        return true;
+      });
+      if (st.g === '↺') list.sort((a, b) => rc.indexOf(a.u) - rc.indexOf(b.u));
+      body.append(h('p', { class: 'hint' }, `${list.length} parça · ▶ dinle, Ekle: oynatıcının olduğu yerden başlar (seviye %35, yumuşak giriş/çıkış)`));
+      const box = h('div', { class: 'mus-list' });
+      list.slice(0, st.limit).forEach((m, i) => {
+        const pb = h('button', { class: 'icon-btn mus-play', html: I.play, 'aria-label': 'Dinle' });
         pb.addEventListener('click', () => preview(m.u, pb));
-        body.append(h('div', { class: 'mus-row mus4' }, pb,
-          h('div', { class: 'mus-t' }, h('b', {}, cleanTitle(m)), h('small', {}, `${m.c} · ${fmt(m.d, false)} · ${m.l}${m.a ? ` · ${m.a}` : ''}`)), favStar('music', m.u, { name: `${m.c} – ${cleanTitle(m)}` }),
+        box.append(h('div', { class: 'mus-row mus4', style: { '--i': String(Math.min(i, 14)) } }, pb,
+          h('div', { class: 'mus-t' }, h('b', {}, m.g === 'Klasik' ? cleanTitle(m) : m.t), h('small', {}, `${GENRE_IC[m.g] || ''} ${m.g === 'Klasik' ? m.c : (m.a || m.c)} · ${fmt(m.d, false)}`, m.by ? h('em', { class: 'mus-by' }, 'atıf') : h('em', { class: 'mus-free' }, 'serbest'))),
+          favStar('music', m.u, { name: `${m.c} – ${m.t}` }),
           h('button', { class: 'btn', onclick: async () => {
             stopPreview();
             const b = busy(`İndiriliyor… (${(m.z / 1048576).toFixed(1)} MB)`);
             try {
               const id = `mus-${m.u.split('/').pop().replace(/[^\w.-]/g, '').slice(-60)}`;
-              await addAudioBlob(id, `${m.c} – ${m.t}`.slice(0, 80), m.u, { role: 'music', volume: 0.35, fadeIn: 1, fadeOut: 2, credit: `${m.t} — ${m.c}; ${m.a || 'Wikimedia Commons'}; ${m.l}; ${m.p}` });
-              toast('Müzik eklendi (seviye %35, yumuşak giriş/çıkış)', 3000);
+              const credit = `${m.t} — ${m.a || m.c} — ${m.l} — ${m.p}`;
+              await addAudioBlob(id, `${m.c} – ${m.t}`.slice(0, 80), m.u, { role: 'music', volume: 0.35, fadeIn: 1, fadeOut: 2, credit });
+              lsSet(recentKey, JSON.stringify([m.u, ...recent().filter((x) => x !== m.u)].slice(0, 30)));
+              if (m.by) { try { await navigator.clipboard.writeText(`Müzik: ${credit}`); } catch (_) { /* yoksay */ } toast('Müzik eklendi. Bu parça atıf istiyor — atıf metni panoya kopyalandı, video açıklamasına yapıştır.', 5000); }
+              else toast('Müzik eklendi (kamu malı / CC0 — atıf gerekmez)', 3000);
             } catch (e) { toast('İndirilemedi — internet bağlantısını kontrol et', 4000); } finally { b.close(); }
           } }, 'Ekle')));
       });
+      if (list.length > st.limit) box.append(h('button', { class: 'btn block', onclick: () => { st.limit += 60; refreshSheet(); } }, `Daha fazla (${list.length - st.limit})`));
+      body.append(box);
+      body.append(h('p', { class: 'hint', html: 'Kaynak: Wikimedia Commons. <b>Serbest</b> = kamu malı / CC0, ticari kullanım dahil atıfsız. <b>Atıf</b> = CC BY: kullanırsan video açıklamasına sanatçı adını yaz (Ekle deyince metin panoya kopyalanır).' }));
       let tm = null;
-      q.addEventListener('input', () => { st.q = q.value; clearTimeout(tm); tm = setTimeout(() => { refreshSheet(); setTimeout(() => { const el = document.querySelector('.panel.focused .search'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }, 300); });
+      q.addEventListener('input', () => { st.q = q.value; clearTimeout(tm); tm = setTimeout(() => { st.limit = 60; refreshSheet(); setTimeout(() => { const el = document.querySelector('.panel.focused .search'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 30); }, 350); });
     },
   });
 }

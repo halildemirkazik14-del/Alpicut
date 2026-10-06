@@ -87,16 +87,154 @@ const FONT_PKGS = ['barlow', 'barlow-condensed', 'barlow-semi-condensed', 'anton
   log('kütüphaneler hazır');
 }
 
-// ---------- 4) Ses efektleri — Alpicut Ses Fabrikası (v1.5) ----------
-// Eski Kenney/OpenGameArt/Wikimedia paketleri kaldırıldı. Tüm efektler scripts/sfx-forge.mjs ile sıfırdan sentezlenir.
+// ---------- 4) Ses efektleri — v1.7: GERÇEK KAYITLAR (CC0 / kamu malı), kodla üretilmez ----------
+// Kaynaklar: Kenney.nl ve OpenGameArt CC0 paketleri + Wikimedia Commons'ta CC0/kamu malı lisanslı kayıtlar (120+ arama).
+// Her kaynağın lisansı derleme sırasında doğrulanır; doğrulanamayan atlanır. Liste www/licenses/sfx.txt dosyasına yazılır.
+const TR = { impact: 'Darbe & boom', interface: 'Arayüz & tık', digital: 'Teknoloji', scifi: 'Bilim kurgu', rpg: 'Oyun & retro', casino: 'Para & kasa', ui: 'Arayüz & tık', jingle: 'Müzik vuruşları', voice: 'Seslendirme', retro: 'Oyun & retro', swish: 'Whoosh', creature: 'Yaratık', bang: 'Darbe & boom', water: 'Doğa', misc: 'Çeşitli', crowd: 'Kalabalık & alkış', ambience: 'Ortam' };
+const SOURCES = [
+  { k: 'kenney', slug: 'impact-sounds', cat: 'impact' }, { k: 'kenney', slug: 'interface-sounds', cat: 'interface' },
+  { k: 'kenney', slug: 'digital-audio', cat: 'digital' }, { k: 'kenney', slug: 'sci-fi-sounds', cat: 'scifi' },
+  { k: 'kenney', slug: 'rpg-audio', cat: 'rpg' }, { k: 'kenney', slug: 'casino-audio', cat: 'casino' },
+  { k: 'kenney', slug: 'ui-audio', cat: 'ui' }, { k: 'kenney', slug: 'music-jingles', cat: 'jingle' },
+  { k: 'kenney', slug: 'voiceover-pack', cat: 'voice' }, { k: 'kenney', slug: 'voiceover-pack-fighter', cat: 'voice' },
+  { k: 'oga', slug: '512-sound-effects-8-bit-style', cat: 'retro' }, { k: 'oga', slug: '100-cc0-sfx', cat: 'misc' },
+  { k: 'oga', slug: '100-cc0-sfx-2', cat: 'misc' }, { k: 'oga', slug: '80-cc0-creature-sfx', cat: 'creature' },
+  { k: 'oga', slug: '50-cc0-retro-synth-sfx', cat: 'retro' }, { k: 'oga', slug: 'swishes-sound-pack', cat: 'swish' },
+  { k: 'oga', slug: 'rpg-sound-pack', cat: 'rpg' }, { k: 'oga', slug: '25-cc0-bang-firework-sfx', cat: 'bang' },
+  { k: 'oga', slug: '40-cc0-water-splash-slime-sfx', cat: 'water' }, { k: 'oga', slug: '50-cc0-sci-fi-sfx', cat: 'scifi' },
+];
+const KEYCAT = [[/whoosh|swish|swoosh|woosh/i, 'swish'], [/explos|bang|boom|blast|firework/i, 'bang'], [/crowd|cheer|applause|clap/i, 'crowd'], [/water|splash|drip|bubble/i, 'water'], [/click|tap|switch|toggle/i, 'ui'], [/coin|chip|card|dice/i, 'casino'], [/laser|zap|phaser|sci/i, 'scifi'], [/punch|hit|impact|thud|knock/i, 'impact'], [/jingle|win|lose|level|fanfare/i, 'jingle']];
+function niceName(f) {
+  return path.basename(f).replace(/\.(ogg|wav|mp3|flac)$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, (c) => c.toUpperCase()).slice(0, 48);
+}
 {
-  try {
-    execSync(`node scripts/sfx-forge.mjs ${W}/sfx`, { stdio: 'inherit' });
-    const idx = JSON.parse(fs.readFileSync(`${W}/sfx/index.json`, 'utf8'));
-    report.sfx = idx.length;
-    mk(`${W}/licenses`);
-    fs.writeFileSync(`${W}/licenses/sfx.txt`, `Alpicut ses efektleri (${idx.length} adet) — Alpicut Ses Fabrikası tarafından sıfırdan sentezlenmiştir.\nHiçbir üçüncü taraf kayıt içermez. Ticari kullanım dahil serbesttir, atıf gerekmez.\n`);
-  } catch (e) { report.errors.push(`sfx-forge: ${e.message}`); }
+  const TMP = '/tmp/sfx'; mk(TMP); mk(`${W}/sfx`);
+  const manifest = [];
+  const lic = [];
+  let n = 0;
+  for (const src of SOURCES) {
+    try {
+      const page = await get(src.k === 'kenney' ? `https://kenney.nl/assets/${src.slug}` : `https://opengameart.org/content/${src.slug}`);
+      if (!page) { report.errors.push(`sfx sayfa: ${src.slug}`); continue; }
+      const html = await page.text();
+      let zips = [];
+      if (src.k === 'kenney') {
+        if (!/CC0/i.test(html)) { report.errors.push(`kenney lisans doğrulanamadı: ${src.slug}`); continue; }
+        zips = [...html.matchAll(/href=['"]([^'"]+\.zip)['"]/g)].map((m) => m[1]).filter((u) => u.includes(src.slug));
+      } else {
+        const licBlock = (html.match(/field-name-field-art-licenses[\s\S]{0,1500}?<\/div>\s*<\/div>\s*<\/div>/) || [''])[0];
+        if (!/publicdomain\/zero|CC0/i.test(licBlock)) { report.errors.push(`oga lisans CC0 değil/doğrulanamadı: ${src.slug}`); continue; }
+        zips = [...new Set([...html.matchAll(/href="(https:\/\/opengameart\.org\/sites\/default\/files\/[^"]+\.(?:zip|ogg|wav))"/gi)].map((m) => m[1]))];
+      }
+      if (!zips.length) { report.errors.push(`zip yok: ${src.slug}`); continue; }
+      const dir = path.join(TMP, src.slug); mk(dir);
+      for (const z of zips.slice(0, 3)) {
+        const fn = path.join(dir, decodeURIComponent(z.split('/').pop()).replace(/[^\w.-]+/g, '_'));
+        if (!(await download(z, fn, src.k === 'kenney' ? `https://kenney.nl/assets/${src.slug}` : `https://opengameart.org/content/${src.slug}`))) { report.errors.push(`indirilemedi: ${z.slice(0, 120)}`); continue; }
+        report.sfxSources[src.slug] = `${(fs.statSync(fn).size / 1048576).toFixed(1)} MB`;
+        if (fn.endsWith('.zip')) { try { execSync(`unzip -qo "${fn}" -d "${dir}/x"`); } catch (_) { report.errors.push(`unzip: ${fn}`); } }
+        else { mk(`${dir}/x`); fs.renameSync(fn, `${dir}/x/${path.basename(fn)}`); }
+      }
+      const files = execSync(`find "${dir}/x" -type f \\( -iname '*.ogg' -o -iname '*.wav' -o -iname '*.mp3' -o -iname '*.flac' \\) 2>/dev/null || true`).toString().split('\n').filter((f) => f && !f.includes('__MACOSX') && !path.basename(f).startsWith('._'));
+      report.sfxSources[src.slug] = `${report.sfxSources[src.slug] || '?'} · ${files.length} dosya`;
+      // aynı adın farklı biçimlerinden yalnız birini al
+      const seen = new Set();
+      for (const f of files.sort()) {
+        const base = path.basename(f).replace(/\.\w+$/, '').toLowerCase();
+        if (seen.has(base)) continue; seen.add(base);
+        const id = `${src.slug.replace(/[^a-z0-9]/g, '')}_${(++n).toString(36)}`;
+        const out = `${W}/sfx/${id}.ogg`;
+        try {
+          execSync(`ffmpeg -loglevel error -y -i "${f}" -t 20 -ac 1 -ar 48000 -c:a libopus -b:a 56k "${out}"`);
+          const dur = parseFloat(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 "${out}"`).toString()) || 0;
+          if (dur < 0.03) { fs.unlinkSync(out); continue; }
+          let cat = src.cat;
+          if (src.cat === 'misc' || src.cat === 'rpg') for (const [re, c] of KEYCAT) if (re.test(f)) { cat = c; break; }
+          manifest.push({ id, n: niceName(f), c: TR[cat] || cat, d: +dur.toFixed(2), s: src.k === 'kenney' ? `Kenney · ${src.slug}` : `OpenGameArt · ${src.slug}` });
+        } catch (e) { if (!report.ffmpegErr) report.ffmpegErr = String(e.stderr || e.message).slice(0, 300); }
+      }
+      lic.push(`${src.k === 'kenney' ? 'Kenney (kenney.nl)' : 'OpenGameArt.org'} — ${src.slug} — CC0 1.0 Public Domain`);
+      log('sfx', src.slug, manifest.length);
+    } catch (e) { report.errors.push(`sfx ${src.slug}: ${e.message}`); }
+  }
+  // Wikimedia Commons — CC0 / kamu malı GERÇEK kayıtlar, geniş kategori yelpazesi
+  {
+    const C = {
+      'Whoosh': ['swoosh', 'whoosh', 'swish sound', 'wind gust'],
+      'Darbe & boom': ['explosion', 'thud', 'punch sound', 'door slam', 'bang sound', 'impact sound'],
+      'Arayüz & tık': ['button click', 'mouse click', 'switch click', 'bubble pop', 'cork pop'],
+      'Bildirim & zil': ['bell ringing', 'doorbell', 'chime', 'ding', 'phone ringing', 'alarm clock', 'timer beep', 'bicycle bell'],
+      'Komik & meme': ['boing', 'slide whistle', 'kazoo', 'clown horn', 'squeaky toy', 'cartoon sound', 'duck quack'],
+      'Kalabalık & alkış': ['applause', 'crowd cheering', 'stadium crowd', 'crowd booing', 'laughter', 'children cheering', 'audience'],
+      'Spor': ['referee whistle', 'basketball dribble', 'ball kick', 'tennis ball', 'skateboard', 'boxing bell'],
+      'Doğa': ['rain', 'thunder', 'ocean waves', 'river stream', 'birdsong', 'forest ambience', 'fire crackling', 'waterfall', 'wind blowing'],
+      'Hayvanlar': ['dog barking', 'cat meow', 'cow moo', 'horse neigh', 'sheep', 'frog croak', 'owl', 'seagull', 'crickets', 'rooster', 'lion roar'],
+      'Ev & günlük': ['door opening', 'footsteps', 'keyboard typing', 'pencil writing', 'paper rustling', 'keys jingling', 'zipper', 'glass clink', 'pouring water', 'kettle', 'frying', 'vacuum cleaner', 'shower'],
+      'Ulaşım': ['car horn', 'car engine', 'train', 'airplane', 'motorcycle', 'siren', 'helicopter', 'ship horn', 'tram'],
+      'İnsan sesleri': ['heartbeat', 'breathing', 'gasp', 'yawn', 'sneeze', 'cough', 'whistling', 'kiss sound', 'humming', 'clapping hands'],
+      'Müzik vuruşları': ['drum roll', 'cymbal crash', 'gong', 'fanfare', 'rimshot', 'harp glissando', 'piano chord', 'guitar strum', 'trumpet', 'tada'],
+      'Teknoloji': ['camera shutter', 'dial-up modem', 'computer beep', 'printer', 'robot voice', 'typewriter', 'mobile phone vibration'],
+      'Para & kasa': ['cash register', 'coins', 'coin drop'],
+      'Bilim kurgu': ['laser sound', 'spaceship', 'synthesizer sweep', 'theremin'],
+      'Ortam': ['city traffic', 'cafe ambience', 'restaurant ambience', 'office ambience', 'classroom', 'market', 'church bells', 'clock ticking', 'fireworks', 'night ambience'],
+    };
+    const OK = /^(public domain|pdm|pdm-owner|cc0|cc-zero|cc0 1\.0)/i;
+    let added = 0; const seenU = new Set();
+    for (const [cat, terms] of Object.entries(C)) {
+      for (const term of terms) {
+        const u = `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=30&gsrsearch=${encodeURIComponent(`${term} filetype:audio`)}&prop=imageinfo&iiprop=url|size|mime|extmetadata|metadata`;
+        const r = await get(u); if (!r) continue;
+        let j; try { j = await r.json(); } catch (_) { continue; }
+        const words = term.split(' ').filter((w) => w.length > 2 && !/sound|ambience/.test(w));
+        let k = 0;
+        for (const pg of Object.values(j.query?.pages || {})) {
+          const ii = pg.imageinfo?.[0]; if (!ii || !/ogg|opus|mpeg|flac|wav/.test(ii.mime) || seenU.has(ii.url)) continue;
+          const lic2 = ((ii.extmetadata || {}).LicenseShortName?.value || '').trim();
+          if (!OK.test(lic2)) continue;
+          if (words.length && !words.some((w) => pg.title.toLowerCase().includes(w.slice(0, 5)))) continue;
+          const len = +((ii.metadata || []).find((m) => m.name === 'length')?.value || 0);
+          if ((len && len > 40) || ii.size > 8 * 1048576) continue;
+          seenU.add(ii.url);
+          const tmp = `${TMP}/wm_${added}${path.extname(ii.url) || '.ogg'}`;
+          if (!(await download(ii.url, tmp))) continue;
+          const id = `wm_${(++n).toString(36)}`;
+          const out = `${W}/sfx/${id}.ogg`;
+          try {
+            // ortam sesleri 12 sn, diğerleri 6 sn; baştaki sessizlik kırpılır, ses seviyesi eşitlenir
+            const maxT = /Ortam|Doğa/.test(cat) ? 12 : 6;
+            execSync(`ffmpeg -loglevel error -y -i "${tmp}" -af "silenceremove=start_periods=1:start_threshold=-45dB,loudnorm=I=-16:TP=-1.5,afade=t=out:st=${maxT - 0.3}:d=0.3" -t ${maxT} -ac 1 -ar 48000 -c:a libopus -b:a 64k "${out}"`);
+            const dur = parseFloat(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 "${out}"`).toString()) || 0;
+            if (dur < 0.15) { fs.unlinkSync(out); continue; }
+            const nm2 = pg.title.replace(/^File:/, '').replace(/\.\w+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 44);
+            manifest.push({ id, n: nm2, c: cat, d: +dur.toFixed(2), s: `Wikimedia Commons · ${lic2}`, q: term });
+            lic.push(`Wikimedia Commons — ${pg.title} — ${lic2} — https://commons.wikimedia.org/wiki/${encodeURIComponent(pg.title)}`);
+            added++; k++;
+          } catch (_) { /* yoksay */ }
+          if (k >= 5) break;
+        }
+      }
+      log('sfx commons', cat, added);
+    }
+    report.sfxCommons = added;
+  }
+  // Kenney/OGA dosyalarını arayüz kategorilerine dağıt (dosya adından)
+  const KEY2 = [[/whoosh|swish|swoosh|woosh/i, 'Whoosh'], [/explos|bang|boom|blast|impact|punch|hit|thud/i, 'Darbe & boom'], [/click|tap|switch|toggle|select|confirm|back/i, 'Arayüz & tık'], [/coin|chip|cash/i, 'Para & kasa'], [/laser|zap|phaser|engine|computer|force/i, 'Bilim kurgu'], [/jingle|win|lose|fanfare|level/i, 'Müzik vuruşları'], [/door|footstep|book|cloth|chop|drawer|metal|wood/i, 'Ev & günlük'], [/water|splash|bubble|rain/i, 'Doğa']];
+  manifest.forEach((m) => { if (/Commons/.test(m.s)) return; if (['Çeşitli', 'Oyun & retro', 'Arayüz & tık'].includes(m.c)) for (const [re, c] of KEY2) if (re.test(m.n)) { m.c = c; break; } });
+  // yedek: gerçek kayıt sayısı çok azsa (kaynaklara erişilemediyse) eski sentez kütüphanesi eklenir
+  if (manifest.length < 150) {
+    try {
+      execSync(`node scripts/sfx-forge.mjs ${W}/sfx/forge`, { stdio: 'inherit' });
+      const idx = JSON.parse(fs.readFileSync(`${W}/sfx/forge/index.json`, 'utf8'));
+      idx.forEach((x) => manifest.push({ ...x, id: `forge/${x.id}`, c: `Sentez · ${x.c}` }));
+      lic.push('Alpicut Ses Fabrikası — sıfırdan sentezlenmiş yedek efektler — serbest');
+      report.errors.push(`gerçek kayıt az (${manifest.length}); sentez yedeği eklendi`);
+    } catch (e) { report.errors.push(`sfx-forge yedek: ${e.message}`); }
+  }
+  fs.writeFileSync(`${W}/sfx/index.json`, JSON.stringify(manifest));
+  mk(`${W}/licenses`);
+  fs.writeFileSync(`${W}/licenses/sfx.txt`, `Alpicut ses efektleri — gerçek kayıtlar, tamamı CC0 / kamu malı (ticari kullanım serbest, atıf gerekmez):\n\n${lic.join('\n')}\n`);
+  report.sfx = manifest.length;
+  log('sfx toplam', manifest.length);
 }
 
 // ---------- 5) Kamu malı klasik müzik kataloğu (Wikimedia Commons) ----------
@@ -125,8 +263,51 @@ const FONT_PKGS = ['barlow', 'barlow-condensed', 'barlow-semi-condensed', 'anton
       }
     }
   }
-  out.sort((a, b) => a.c.localeCompare(b.c) || a.t.localeCompare(b.t));
+  out.forEach((m) => { m.g = 'Klasik'; });
+  // ---------- 5b) v1.7: modern türler — Wikimedia Commons, yalnız kamu malı / CC0 / CC BY (SA, NC, ND hariç) ----------
+  const GENRES = {
+    'Sinematik': ['cinematic music', 'epic orchestral music', 'film score instrumental', 'trailer music'],
+    'Lo-fi & chill': ['lofi music', 'chillhop', 'chill instrumental'],
+    'Elektronik': ['electronic music', 'synthwave', 'house music', 'techno music', 'electro'],
+    'Akustik & folk': ['acoustic guitar music', 'folk instrumental', 'ukulele music'],
+    'Piyano': ['piano solo', 'piano music relaxing'],
+    'Caz & blues': ['jazz music', 'blues music', 'swing music'],
+    'Rock': ['rock instrumental', 'guitar rock music'],
+    'Hip-hop & beat': ['hip hop beat', 'instrumental beat'],
+    'Ortam & meditasyon': ['ambient music', 'meditation music', 'drone ambient'],
+    'Neşeli & reklam': ['happy music', 'upbeat music', 'corporate music'],
+    'Gerilim & karanlık': ['suspense music', 'dark ambient', 'horror music'],
+    'Dünya müziği': ['turkish music instrumental', 'oriental music', 'latin music', 'reggae music', 'celtic music'],
+    'Kevin MacLeod': ['Kevin MacLeod'],
+  };
+  const OK2 = (l) => /^(public domain|pdm|pdm-owner|cc0)/i.test(l) || (/^cc[- ]?by[- ]?\d/i.test(l) && !/sa|nc|nd/i.test(l));
+  let modern = 0;
+  for (const [g, terms] of Object.entries(GENRES)) {
+    for (const term of terms) {
+      const u = `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=50&gsrsearch=${encodeURIComponent(`${term} filetype:audio`)}&prop=imageinfo&iiprop=url|size|mime|extmetadata|metadata`;
+      const r = await get(u); if (!r) continue;
+      let j; try { j = await r.json(); } catch (_) { continue; }
+      for (const pg of Object.values(j.query?.pages || {})) {
+        const ii = pg.imageinfo?.[0]; if (!ii || !/ogg|opus|mpeg|flac|wav/.test(ii.mime) || seen.has(ii.url)) continue;
+        const em = ii.extmetadata || {};
+        const license = (em.LicenseShortName?.value || '').trim();
+        if (!OK2(license)) continue;
+        const len = +((ii.metadata || []).find((m) => m.name === 'length')?.value || 0);
+        if (len < 25 || len > 900 || ii.size > 25 * 1048576) continue;
+        seen.add(ii.url);
+        const artist = (em.Artist?.value || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+        const title = pg.title.replace(/^File:/, '').replace(/\.\w+$/, '').replace(/[_]+/g, ' ').trim().slice(0, 80);
+        out.push({ t: title, c: g === 'Kevin MacLeod' ? 'Kevin MacLeod' : (artist || g), g, u: ii.url, d: Math.round(len), z: ii.size, l: license, a: artist, p: `https://commons.wikimedia.org/wiki/${encodeURIComponent(pg.title)}`, by: /by/i.test(license) && !/^(public|pdm|cc0)/i.test(license) });
+        modern++;
+      }
+    }
+    log('müzik', g, modern);
+  }
+  report.musicModern = modern;
+  out.sort((a, b) => (a.g || '').localeCompare(b.g || '') || a.c.localeCompare(b.c) || a.t.localeCompare(b.t));
   fs.writeFileSync(`${W}/data/music.json`, JSON.stringify(out));
+  mk(`${W}/licenses`);
+  fs.writeFileSync(`${W}/licenses/music.txt`, `Alpicut müzik kataloğu — Wikimedia Commons. Kamu malı / CC0 eserler serbesttir; CC BY eserlerde videoda sanatçıya atıf gerekir (uygulama atıf metnini kopyalar).\n\n${out.map((m) => `${m.t} — ${m.a || m.c} — ${m.l} — ${m.p}`).join('\n')}\n`);
   report.music = out.length;
   log('müzik', out.length);
 }
