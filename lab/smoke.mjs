@@ -26,8 +26,10 @@ const b = await chromium.launch({ executablePath: fs.existsSync('/opt/pw-browser
 const ctx = await b.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const pg = await ctx.newPage();
 pg.on('pageerror', (e) => errs.push(`PAGEERROR ${e.message}`));
-pg.on('console', (m) => { if (m.type() === 'error') errs.push(`console ${m.text()}`.slice(0, 300)); });
-const step = async (n, fn) => { try { R[n] = (await fn()) ?? 'ok'; } catch (e) { R[n] = `HATA: ${e.message}`.slice(0, 400); errs.push(`ADIM ${n}: ${e.message}`.slice(0, 300)); } console.log(n, JSON.stringify(R[n]).slice(0, 300)); };
+pg.on('console', (m) => { if (m.type() === 'error') errs.push(`console ${m.text()} @ ${(m.location()?.url || '').slice(0, 120)} [${curStep}]`.slice(0, 400)); });
+pg.on('requestfailed', (r) => console.log('REQFAIL', r.url().slice(0, 160), r.failure()?.errorText, `[${curStep}]`));
+let curStep = '';
+const step = async (n, fn) => { curStep = n; try { R[n] = (await fn()) ?? 'ok'; } catch (e) { R[n] = `HATA: ${e.message}`.slice(0, 400); errs.push(`ADIM ${n}: ${e.message}`.slice(0, 300)); } console.log(n, JSON.stringify(R[n]).slice(0, 300)); };
 const shot = (n) => pg.screenshot({ path: `${OUT}/${n}.png` });
 await pg.goto('http://localhost:8091/index.html');
 await pg.waitForTimeout(800);
