@@ -8,7 +8,7 @@ const C = (id, start, end, extra = {}) => ({ ...clone(CTA_BASE), ...clone(CTA_PR
 const SH = (id, start, end, extra = {}) => ({ ...clone(SHAPE_BASE), ...clone(SHAPE_PRESETS.find((x) => x.id === id).p), ...extra, id: uid(), kind: 'shape', start, end, sc: 1, kf: {} });
 
 // v1.6: Motion stüdyosu katmanı
-const M = (id, start, end, extra = {}) => { const tp = SOCIAL_TEMPLATES3.find((x) => x.id === id); return { kind: 'social', x: 0.5, y: 0.5, rot: 0, sc: 1, opacity: 1, scale: 1, dark: false, accent: '#9D8CF2', ...clone(tp.p), ...extra, id: uid(), start, end, kf: {} }; };
+const M = (id, start, end, extra = {}) => { const tp = SOCIAL_TEMPLATES3.find((x) => x.id === id); return { kind: 'social', x: 0.5, y: 0.5, rot: 0, sc: 1, opacity: 1, scale: 1, dark: false, ...(/^(cd|no|wd|sm)_/.test(tp.p.type) ? {} : { accent: '#9D8CF2' }), ...clone(tp.p), ...extra, id: uid(), start, end, kf: {} }; };
 
 export const PROJECT_TEMPLATES = [
   { id: 'aitool', name: 'Yapay zekâ aracı tanıtımı', desc: 'Komut yazılıyor, Alpi-co sohbet ekranı, görsel üretimi, abone çağrısı', ratio: '9:16', icon: '✨',
@@ -110,10 +110,23 @@ PROJECT_TEMPLATES.push(
     build: () => ({ dur: 30, layers: [T('ed_fact', 0, 4), T('ed_step', 4, 12), T('ed_def', 12, 20), T('ed_myth', 20, 25), C('follow', 26, 30)], subs: SUBX({ tpl: 'c_karaoke', font: 'Montserrat', weight: 900, size: 72, accent: '#22D3EE', strokeW: 9, hl: 'karaoke' }), fx: clone(FX_BASE) }) },
   { id: 'business', name: 'İş / finans ipucu', desc: 'İpucu numarası, büyüme rakamı, kurumsal alt bant, söz', ratio: '9:16', icon: '📈',
     build: () => ({ dur: 30, layers: [T('bz_tip', 0, 30), T('bz_name', 1, 6), T('bz_stat', 8, 13), T('bz_quote', 22, 28)], subs: SUBX({ tpl: 'c_block', font: 'Montserrat', weight: 800, size: 60, strokeW: 0, shadow: 0, box: 'block', boxColor: '#15141B', boxOpacity: 0.92, upper: false, anim: 'slide' }), fx: clone(FX_BASE) }) },
-  { id: 'wedding', name: 'Düğün / nişan', desc: 'İsimler, tarih, zarif yazılar, yumuşak geçişler', ratio: '9:16', icon: '💍',
-    build: () => ({ dur: 30, layers: [T('wd_names', 0, 6), T('wd_date', 1, 6), T('ev_invite', 20, 26), T('mo_soft', 26, 30, { text: 'sonsuza *dek*' })], subs: SUBX({ tpl: 'c_serif', font: 'Playfair Display', weight: 700, italic: true, size: 66, strokeW: 0, shadow: 0.9, upper: false }), fx: { ...clone(FX_BASE), vignette: 0.35, grain: 0.1 } }) },
-  { id: 'event', name: 'Etkinlik duyurusu', desc: 'Davet, geri sayım, bilet çıkartması, tarih', ratio: '9:16', icon: '🎉',
-    build: () => ({ dur: 15, layers: [T('ev_invite', 0, 4), T('ev_count', 4, 9), ST({ text: '🎟️ BİLET', bg: '#7C3AED', fg: '#fff', shape: 'tag' }, 9, 15, { y: 0.65 }), T('wd_date', 9, 15, { text: 'CUMARTESİ · 21:00', y: 0.4 })], subs: clone(SUB_BASE), fx: clone(FX_BASE) }) },
+  { id: 'wedding', name: 'Düğün filmi', desc: 'Bölüm başlıkları, zarif isim açılışı, monogram, gül yaprakları, aile alt bantları, kapanış', ratio: '9:16', icon: '💍',
+    build: () => ({ dur: 40, layers: [
+      M('wd_ch_0', 0, 4), M('wd_namesv_0', 4, 10), M('wd_pet_1', 4, 14), M('wd_low_0_0', 12, 16), M('wd_low_1_0', 17, 21),
+      M('wd_ch_2', 22, 26), M('wd_vow_0', 26, 32), M('wd_ring_0', 32, 36), M('wd_end_0', 36, 40), M('wd_pet_0', 34, 40),
+    ], subs: SUBX({ tpl: 'c_serif', font: 'Playfair Display', weight: 700, italic: true, size: 66, strokeW: 0, shadow: 0.9, upper: false }), fx: { ...clone(FX_BASE), vignette: 0.3, grain: 0.06 } }) },
+  { id: 'engage', name: 'Nişan / söz videosu', desc: 'Yüzükler, isimler, söz, tarih kaydetme kartı, kapanış', ratio: '9:16', icon: '💐',
+    build: () => ({ dur: 24, layers: [M('wd_ring_1', 0, 5), M('wd_names_1', 5, 11), M('wd_vowc_1', 11, 16), M('wd_save_1', 16, 21), M('wd_end_1', 21, 24)], subs: SUBX({ tpl: 'c_serif', font: 'Playfair Display', weight: 700, italic: true, size: 64, strokeW: 0, shadow: 0.9, upper: false }), fx: { ...clone(FX_BASE), vignette: 0.25 } }) },
+  { id: 'invite', name: 'Dijital davetiye', desc: 'Davetiye kartı, büyük güne kalan gün, monogram — WhatsApp\'ta paylaşmaya hazır', ratio: '9:16', icon: '💌',
+    build: () => ({ dur: 18, layers: [M('wd_mono_0', 0, 5), M('wd_inv_0', 5, 13), M('wd_days_0', 13, 18), M('wd_pet_1', 0, 18)], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), bg: '#EFE4D6' } }) },
+  { id: 'kina', name: 'Kına gecesi', desc: 'Kırmızı-altın kına kartı, isim, alt bantlar, gül yaprakları', ratio: '9:16', icon: '🪔',
+    build: () => ({ dur: 20, layers: [M('wd_kina_0', 0, 6), M('wd_pet_2', 0, 20), M('wd_low_3_0', 8, 12), M('wd_end_2', 16, 20)], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), vignette: 0.35 } }) },
+  { id: 'event', name: 'Etkinlik duyurusu', desc: 'Geri sayımlı açılış, neon başlık, tarih, kayıt çağrısı', ratio: '9:16', icon: '🎉',
+    build: () => ({ dur: 16, layers: [M('cd_neon_3', 0, 4.4), M('no_motel0', 4.4, 9, { text: 'Parti', sub: 'CUMARTESİ 21:00' }), M('sm_link_neon', 9, 16, { text: 'Kayıt linki bio\'da' })], subs: clone(SUB_BASE), fx: clone(FX_BASE) }) },
+  { id: 'retro', name: 'Nostalji vlog (VHS)', desc: 'VHS oynatma ekranı, el kamerası damgası, 80\'ler başlık, kaset kapanış', ratio: '9:16', icon: '📼',
+    build: () => ({ dur: 24, layers: [M('no_synth0', 0, 4), M('no_vhs', 4, 24), M('no_tape0', 19, 24)], subs: SUBX({ tpl: 'c_mono', font: 'Roboto Mono', weight: 700, size: 58, upper: true }), fx: { ...clone(FX_BASE), grain: 0.2, vignette: 0.35 } }) },
+  { id: 'shortspack', name: 'Shorts etkileşim paketi', desc: 'Geri sayım, abone ol, beğeni, yorum, bölüm 2 ve bitiş ekranı', ratio: '9:16', icon: '📈',
+    build: () => ({ dur: 30, layers: [M('cd_ai_3', 0, 4.4), M('sm_sub_red', 6, 11), M('sm_like_red', 14, 17), M('sm_com_dark', 18, 23), M('sm_part_red', 24, 27), M('sm_end_red', 27, 30)], subs: clone(SUB_BASE), fx: clone(FX_BASE) }) },
   { id: 'motivation', name: 'Motivasyon sözü', desc: 'Günün sözü etiketi, büyük söz, sinema şeritleri, hafif gren', ratio: '9:16', icon: '🔥',
     build: () => ({ dur: 12, layers: [T('mo_day', 0, 12), T('mo_quote', 0.5, 12)], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), letterbox: 0.1, grain: 0.18, vignette: 0.4 } }) },
   { id: 'gaming', name: 'Oyun highlight', desc: 'Seri öldürme, seviye atlama, zafer ekranı, neon altyazı', ratio: '9:16', icon: '🎮',
