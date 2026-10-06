@@ -3,6 +3,7 @@
 // tuval motoru için yeniden yazıldı. Gerçek marka logosu/ekranı kopyalanmaz — hepsi özgün ve özelleştirilebilir.
 // Hepsi zamana bağlı ve deterministiktir: önizleme = dışa aktarma.
 import { roundRect, clamp } from './render.js';
+import { drawMotion4, TEMPLATES4, FIELDS4, META4 } from './motion4.js';
 
 const UI = 'Bricolage Grotesque';
 const SERIF = 'Source Serif 4';
@@ -449,6 +450,11 @@ export const FIELD_META3 = {
   px: { label: 'Spot yatay konum', type: 'range', min: 0, max: 1, step: 0.01 }, py: { label: 'Spot dikey konum', type: 'range', min: 0, max: 1, step: 0.01 },
   from: { label: 'Başlangıç', type: 'number' }, to: { label: 'Bitiş', type: 'number' },
 };
+
+// v1.8: geri sayım, nostalji, düğün & nişan, sosyal medya şablonları (motion4.js)
+SOCIAL_TEMPLATES3.push(...TEMPLATES4);
+Object.assign(SOCIAL_FIELDS3, FIELDS4);
+Object.assign(FIELD_META3, META4);
 
 // ---------- çizim ----------
 export function drawSocial3(ctx, L, lt, env) {
@@ -1608,6 +1614,6 @@ export function drawSocial3(ctx, L, lt, env) {
       ctx.restore();
       return { w: W, h: h2 };
     }
-    default: return null;
+    default: return drawMotion4(ctx, L, lt, env);
   }
 }

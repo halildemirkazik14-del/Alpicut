@@ -18,6 +18,7 @@ import { star, favIds, registerFav } from './favs.js';
 import { transBody, TR_CATS } from './transitions.js';
 import { GL_LIST, transGL } from './gltrans.js';
 import { SOCIAL_TEMPLATES, drawSocial, SOCIAL_FIELDS, SOCIAL_TEMPLATES3, FIELD_META3 } from './social.js';
+import { FULL4 } from './motion4.js';
 import { fontPickerBody, isBundled, fontWeights, ensureProjectFonts } from './fonts.js';
 import { colorTab, chromaTab, audioFxTab, audioToolsTab, slipControl, fxLayerInspector, openStickers, renderCover } from './ui3.js';
 
@@ -818,7 +819,10 @@ export function openSocial(tab) {
 
 // ---------- v1.6 Motion stüdyosu (HyperFrames'ten esinlenen, hareketli önizlemeli) ----------
 const MOTION_TYPES = new Set(SOCIAL_TEMPLATES3.map((t) => t.p.type));
-const MOTION_CATS = () => ['★', ...new Set(SOCIAL_TEMPLATES3.map((t) => t.cat))];
+// v1.8: sosyal medya alt kategorileri Motion'da tek sekmede, ayrıntısı Sosyal medya stüdyosunda
+const SOCIAL_SUB = () => [...new Set(SOCIAL_TEMPLATES3.filter((t) => t.cat.startsWith('Sosyal · ')).map((t) => t.cat.slice(9)))];
+const MOTION_CATS = () => ['★', 'Sosyal medya', 'Geri sayım', 'Nostalji', 'Düğün & nişan', ...new Set(SOCIAL_TEMPLATES3.map((t) => t.cat).filter((c) => !c.startsWith('Sosyal · ') && !['Geri sayım', 'Nostalji', 'Düğün & nişan'].includes(c)))];
+const motionList = (tb) => (tb === '★' ? SOCIAL_TEMPLATES3.filter((t) => favIds('motion').includes(t.id)) : tb === 'Sosyal medya' ? SOCIAL_TEMPLATES3.filter((t) => t.cat.startsWith('Sosyal · ')) : SOCIAL_TEMPLATES3.filter((t) => t.cat === tb || t.cat === `Sosyal · ${tb}`));
 // küçük canlı önizleme: kartlar ekranda kaldıkça döngüde oynar
 function motionPreview(L, dur) {
   const c = h('canvas', { width: 360, height: 300 });
@@ -826,7 +830,7 @@ function motionPreview(L, dur) {
   const env0 = { W: 1080, H: 1920, S: 0.3, img: (id) => app.engine.imgForMedia(id) };
   const m = document.createElement('canvas').getContext('2d');
   const box = drawSocial(m, L, Math.min(dur * 0.7, dur - 0.3), env0) || { w: 600, h: 200 };
-  const full = /^(tunnel|starfield)$/.test(L.type);
+  const full = /^(tunnel|starfield)$/.test(L.type) || FULL4.has(L.type);
   const k = full ? 300 / 1920 : Math.min(0.5, 330 / box.w, 270 / box.h);
   let t0 = performance.now(), last = 0;
   const frame = (now) => {
@@ -844,23 +848,41 @@ function motionPreview(L, dur) {
   return c;
 }
 
+function motionGrid(body, list) {
+  const grid = h('div', { class: 'grid-tpl motion-grid' });
+  if (!list.length) body.append(h('p', { class: 'hint' }, 'Henüz favori yok. Kartlardaki ☆ ile ekle.'));
+  list.forEach((tp) => {
+    const dur = tp.dur || 4;
+    const L = { ...clone(SOCIAL_BASE), ...clone(tp.p), start: 0, end: dur };
+    const cv = motionPreview(L, dur);
+    grid.append(h('div', { class: 'tpl', role: 'button', onclick: () => { const x = clone(L); delete x.start; delete x.end; app.addLayer(x, dur); } }, cv, h('span', {}, tp.name), star('motion', tp.id, { name: tp.name })));
+  });
+  body.append(grid);
+}
+
 export function openMotion(tab) {
   const cats = MOTION_CATS();
   openSheet({
     id: 'motion', title: `Motion stüdyosu · ${SOCIAL_TEMPLATES3.length}`, tabs: cats, tab: tab && cats.includes(tab) ? tab : cats[1], tall: true,
     render: (body, tb) => {
       body.append(h('p', { class: 'hint', html: 'Hepsi canlı önizlemeli ve <b>tamamen düzenlenebilir</b>: metin, renk, hız, süre, görsel. Dokun: ekle. ☆ ile favorile.' }));
-      const grid = h('div', { class: 'grid-tpl motion-grid' });
-      const fv = favIds('motion');
-      const list = tb === '★' ? SOCIAL_TEMPLATES3.filter((t) => fv.includes(t.id)) : SOCIAL_TEMPLATES3.filter((t) => t.cat === tb);
-      if (!list.length) body.append(h('p', { class: 'hint' }, 'Henüz favori yok. Kartlardaki ☆ ile ekle.'));
-      list.forEach((tp) => {
-        const dur = tp.dur || 4;
-        const L = { ...clone(SOCIAL_BASE), ...clone(tp.p), start: 0, end: dur };
-        const cv = motionPreview(L, dur);
-        grid.append(h('div', { class: 'tpl', role: 'button', onclick: () => { const x = clone(L); delete x.start; delete x.end; app.addLayer(x, dur); } }, cv, h('span', {}, tp.name), star('motion', tp.id, { name: tp.name })));
-      });
-      body.append(grid);
+      if (tb === 'Sosyal medya') body.append(h('button', { class: 'btn block', style: { marginBottom: '10px' }, onclick: () => openSocialHub() }, 'Sosyal medya stüdyosunu aç →'));
+      motionGrid(body, motionList(tb));
+    },
+  });
+}
+
+// v1.8: ayrı Sosyal medya stüdyosu — abone ol, takip, beğeni, yorum, paylaş, bitiş ekranı… (yüzlerce)
+export function openSocialHub(tab) {
+  const subs = SOCIAL_SUB();
+  const n = SOCIAL_TEMPLATES3.filter((t) => t.cat.startsWith('Sosyal · ')).length;
+  const tabs = [...subs, 'Klasik'];
+  openSheet({
+    id: 'socialhub', title: `Sosyal medya stüdyosu · ${n}`, tabs, tab: tab && tabs.includes(tab) ? tab : tabs[0], tall: true,
+    render: (body, tb) => {
+      if (tb === 'Klasik') { body.append(h('p', { class: 'hint' }, 'Yorum, bildirim, sohbet ve profil kartları.')); body.append(h('button', { class: 'btn block', onclick: () => { closeSheet(); setTimeout(() => openSocial(), 60); } }, 'Klasik sosyal şablonları aç')); return; }
+      body.append(h('p', { class: 'hint', html: 'Platform renklerinde ama logosuz, <b>tamamen düzenlenebilir</b>: kanal adı, sayı, yazı, görünüm. Dokun: ekle.' }));
+      motionGrid(body, SOCIAL_TEMPLATES3.filter((t) => t.cat === `Sosyal · ${tb}`));
     },
   });
 }

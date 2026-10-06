@@ -73,6 +73,8 @@ export const I = {
   key: s('<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M14 9l2 2"/>'),
   send: s('<path d="M4 12 20 4l-6 16-3-7z"/><path d="m11 13 9-9"/>'),
   heart: s('<path d="M12 20s-7-4.4-9.2-9A5 5 0 0 1 12 6a5 5 0 0 1 9.2 5c-2.2 4.6-9.2 9-9.2 9z"/>'),
+  clock: s('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2.5h5"/>'),
+  film: s('<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>'),
   wand: s('<path d="m4 20 11-11M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 10l.7 1.3L21 12l-1.3.7L19 14l-.7-1.3L17 12l1.3-.7z"/><path d="m13 10 1 1"/>'),
   filter: s('<circle cx="9" cy="10" r="5.5"/><circle cx="15" cy="10" r="5.5"/><circle cx="12" cy="15" r="5.5"/>'),
   trans: s('<rect x="2.5" y="6" width="9" height="12" rx="2"/><rect x="12.5" y="6" width="9" height="12" rx="2" fill="currentColor" fill-opacity=".25"/><path d="M10 12h4"/>'),

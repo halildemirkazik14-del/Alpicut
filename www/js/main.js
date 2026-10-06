@@ -27,7 +27,7 @@ import {
 } from './ui3.js';
 import {
   openSheet, closeSheet, closeAllSheets, refreshSheet, refreshLive, isSheetOpen, openInspector, openTemplates, openCTAs,
-  openScoreMenu, openSubsMenu, openFx, openRatio, openExport, openShapes, openSfx, openSocial, openMotion,
+  openScoreMenu, openSubsMenu, openFx, openRatio, openExport, openShapes, openSfx, openSocial, openMotion, openSocialHub,
 } from './sheets.js';
 import { store, lsGet, lsSet, isNative } from './storage.js';
 import { parseSRT } from './srt.js';
@@ -177,7 +177,9 @@ const TOOL_CATS = [
     ['adjust', 'Arka plan sil', () => aiTarget('Arka plan'), '', 'Yeşil perde olmadan kişiyi ayır'], ['color', 'Chroma key', () => aiTarget('Chroma'), '', 'Yeşil/mavi perdeyi sil'], ['mic', 'Seslendirme', () => openTTS(), '', 'Metni doğal sesle okut'],
     ['edit', 'Metinden kurgu', () => openTranscript(), '', 'Kelimeleri silerek videoyu kes'], ['ratio', 'Akıllı kadraj', () => aiReframe(), '', 'Yatay videoda yüzü takip et'], ['doctor', 'Proje kontrolü', () => openDoctor(), '', 'Hataları bul, tek dokunuşla düzelt'], ['key', 'Hesaplar', () => openAccounts(), '', 'Claude, ChatGPT, DeepSeek, Gemini…'],
   ] },
-  { id: 'motion', name: 'Motion', icon: 'anim', desc: 'HyperFrames esinli canlı şablonlar — hepsi düzenlenebilir', tools: () => [
+  { id: 'motion', name: 'Motion', icon: 'anim', desc: 'Yüzlerce canlı şablon — hepsi düzenlenebilir', tools: () => [
+    ['cta', 'Sosyal medya', () => openSocialHub(), 'ai', 'Abone ol, takip, beğeni, yorum, bitiş ekranı'], ['clock', 'Geri sayım', () => openMotion('Geri sayım'), '', 'Yapay zekâ, sci-fi, film, neon, tarihi'],
+    ['film', 'Nostalji', () => openMotion('Nostalji'), '', "VHS, 70'ler, 80'ler, kaset, polaroid"], ['heart', 'Düğün & nişan', () => openMotion('Düğün & nişan'), '', 'İsimler, davetiye, monogram, kına'],
     ['ai', 'Yapay zekâ', () => openMotion('Yapay zekâ'), 'ai', 'Sohbet ekranı, komut, düşünme, görsel üretimi'], ['edit', 'Kod & geliştirici', () => openMotion('Kod & geliştirici'), '', 'Kod yazımı, terminal, diff, repo kartı'],
     ['bubble', 'Pop-up', () => openMotion('Pop-up'), '', 'Pencere, bildirim, başarı/hata'], ['anim', 'Motion 2D', () => openMotion('Motion 2D'), '', 'Kinetik yazı, grafik, sayaç, alt bant'],
     ['layer', 'Motion 3D', () => openMotion('Motion 3D'), '', 'Karusel, küp, kart çevirme, tünel'], ['sticker', 'Kağıt & stop-motion', () => openMotion('Kağıt & stop-motion'), '', 'Kesik kağıt, yırtık bant, damga'],
@@ -188,7 +190,7 @@ const TOOL_CATS = [
   ] },
   { id: 'text', name: 'Metin', icon: 'text', desc: 'Yazı, şablon, altyazı', tools: () => [
     ['text', 'Yazı ekle', () => addLayer(clone(TEXT_BASE)), '', 'Boş yazı katmanı'], ['template', 'Yazı şablonları', () => openTemplates(), '', 'Yüzlerce hazır başlık ve etiket'], ['subtitle', 'Altyazı', openSubsMenu, '', 'Otomatik, SRT veya elle'],
-    ['brand', 'Altyazı şablonları', () => openCaptionStyles(), '', 'Hazır altyazı görünümleri'], ['cta', 'Çağrı butonu', openCTAs, '', 'Abone ol, beğen, takip et'],
+    ['brand', 'Altyazı şablonları', () => openCaptionStyles(), '', 'Hazır altyazı görünümleri'], ['cta', 'Sosyal medya çağrıları', () => openSocialHub(), '', 'Abone ol, beğen, takip et — yüzlerce'],
   ] },
   { id: 'audio', name: 'Ses', icon: 'audio', desc: 'Müzik, efekt, kayıt', tools: () => [
     ['mic', 'Ses stüdyosu', () => { const o = selected(); if (o && o.mediaId) studioClean(o); else { const c = app.P.clips.find((x) => x.type === 'video') || app.P.audio[0]; if (c) studioClean(c); else toast('Önce video ya da ses ekle'); } }, 'ai', 'Gürültü giderme, konuşma/müzik ayırma'], ['audio', 'Müzik', openMusicLibrary, '', 'Telifsiz müzik kütüphanesi'], ['sfx', 'Ses efekti', openSfxLibrary, '', 'Whoosh, riser, gerilim, glitch…'], ['mic', 'Kayıt stüdyosu', openMic, '', 'Mikrofonla seslendirme kaydet'], ['bot', 'Seslendirme', () => openTTS(), '', 'Metinden sese'],
@@ -199,7 +201,7 @@ const TOOL_CATS = [
     ['anim', 'Genel ayar', openFx, '', 'Vinyet, gren, sinema şeridi'], ['sticker', 'Çıkartma', () => openStickers(), '', 'Rozet, emoji, etiket'], ['shape', 'Şekil', openShapes, '', 'Ok, çember, çerçeve'],
   ] },
   { id: 'social', name: 'Sosyal', icon: 'bubble', desc: 'Sosyal medya şablonları', tools: () => [
-    ['bubble', 'Sosyal şablon', () => openSocial(), '', 'Yorum, bildirim, anket…'], ['cta', 'Abone / beğeni', () => openSocial('Abone & beğen'), '', 'Tıklama animasyonlu'], ['chat', 'Sohbet', () => openSocial('Sohbet'), '', 'Mesaj balonları'], ['brand', 'Marka kiti', openBrand, '', 'Renk, yazı tipi, logo'],
+    ['cta', 'Sosyal medya stüdyosu', () => openSocialHub(), 'ai', 'Yüzlerce abone, beğeni, yorum, paylaş şablonu'], ['bubble', 'Sosyal kartlar', () => openSocial(), '', 'Yorum, bildirim, anket…'], ['chat', 'Sohbet', () => openSocial('Sohbet'), '', 'Mesaj balonları'], ['brand', 'Marka kiti', openBrand, '', 'Renk, yazı tipi, logo'],
   ] },
   { id: 'edit', name: 'Düzen', icon: 'edit', desc: 'Katman, oran, kapak', tools: () => [
     ['layer', 'Katman ekle', () => addMedia('layer'), '', 'Video/foto üst katman (B-roll)'], ['ratio', 'Oran', openRatio, '', '9:16, 1:1, 16:9…'], ['marker', 'İşaret', toggleMarker, '', 'Oynatıcıya işaret koy'], ['check', 'Çoklu seç', startMulti, '', 'Katmanları grupla/sil'],
