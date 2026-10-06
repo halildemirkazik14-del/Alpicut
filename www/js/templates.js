@@ -41,14 +41,6 @@ export const PROJECT_TEMPLATES = [
       M('m_sticky', 5, 10, { y: 0.45 }),
       M('m_stamp', 11, 15, { y: 0.45 }),
     ], subs: clone(SUB_BASE), fx: clone(FX_BASE) }) },
-  { id: 'football', name: 'Futbol yorum Shorts', desc: 'Hook başlık, skor kartı, neon çerçeve, kelime vurgulu altyazı, abone çağrısı', ratio: '9:16', icon: '⚽',
-    build: () => ({ dur: 30, layers: [
-      SH('neonFrame', 0, 30),
-      { ...clone(SCORE_BASE), id: uid(), start: 0.3, end: 6, sc: 1, kf: {} },
-      T('hook', 0, 3, { text: 'BU POZİSYON\n*PENALTI MI?*' }),
-      T('playerName', 6, 10),
-      C('subscribe', 25, 29),
-    ], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), mode: 'line', hl: 'color', accent: '#FACC15' } }, fx: { ...clone(FX_BASE), progress: true } }) },
   { id: 'news', name: 'Son dakika haberi', desc: 'Son dakika bandı, haber alt bandı, takip çağrısı', ratio: '9:16', icon: '📰',
     build: () => ({ dur: 20, layers: [
       T('breaking', 0, 20),
@@ -94,8 +86,6 @@ PROJECT_TEMPLATES.push(
     build: () => ({ dur: 12, layers: [SO('ytcard', 0.3, 6, { y: 0.45 }), T('v_yellowbox', 0, 3, { text: 'KANALIMA *HOŞ GELDİN*', y: 0.15 }), SO('ytend', 6.5, 12)], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), bg: '#0B0B10' } }) },
   { id: 'halfsplit', name: 'Yarım ekran yazılı video', desc: 'Üst yarıda büyük başlık, alt yarıda video (Reels tarzı)', ratio: '9:16', icon: '🔳',
     build: () => ({ dur: 15, layers: [SO('halfTop', 0, 15)], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), y: 0.85 } }, fx: clone(FX_BASE) }) },
-  { id: 'matchday', name: 'Maç günü / derbi', desc: 'VS kartı, oyuncu kartı, haber bandı, geri sayım', ratio: '9:16', icon: '🏟️',
-    build: () => ({ dur: 15, layers: [SO('versus', 0, 4), SO('player', 4, 9), SO('ticker', 0, 15), T('s_derby', 9, 12)], subs: clone(SUB_BASE), fx: { ...clone(FX_BASE), vignette: 0.3 } }) },
   { id: 'interview', name: 'Röportaj / yorumcu', desc: 'Alt bant isim/unvan, kelime vurgulu altyazı, abone bandı', ratio: '9:16', icon: '🎤',
     build: () => ({ dur: 30, layers: [SO('lower', 1, 6), C('subscribe', 25, 29)], subs: { ...clone(SUB_BASE), style: { ...clone(SUB_BASE.style), mode: 'line', hl: 'color', accent: '#FACC15' } }, fx: clone(FX_BASE) }) },
 );
@@ -137,4 +127,3 @@ PROJECT_TEMPLATES.push(
 );
 
 // v1.6: herkese hitap — spor şablonları listenin sonuna
-['football', 'matchday'].forEach((id) => { const i = PROJECT_TEMPLATES.findIndex((t) => t.id === id); if (i >= 0) PROJECT_TEMPLATES.push(...PROJECT_TEMPLATES.splice(i, 1)); });

@@ -155,7 +155,7 @@ export function drawSocial2(ctx, L, lt, env, T) {
       ctx.fillStyle = T.sub; ctx.font = F(500, 32);
       ctx.fillText(`${L.handle || '@kanal'} · ${fmtCount(L.subs ?? 128000)} abone · ${L.videos ?? 340} video`, -w / 2 + 270, -hh / 2 + 340);
       ctx.fillStyle = T.fg; ctx.font = F(500, 34);
-      wrap(ctx, L.text || 'Futbol analizi ve maç özetleri • Her gün yeni video', w - 100).slice(0, 2).forEach((ln, i) => ctx.fillText(ln, -w / 2 + 50, -hh / 2 + 420 + i * 44));
+      wrap(ctx, L.text || 'Yaratıcı içerikler • Her hafta yeni video', w - 100).slice(0, 2).forEach((ln, i) => ctx.fillText(ln, -w / 2 + 50, -hh / 2 + 420 + i * 44));
       // abone ol butonu: tıklanıp "abone olundu"ya döner
       const tap = L.tapAt ?? 1.3;
       const done = lt > tap;
@@ -317,7 +317,7 @@ export function drawSocial2(ctx, L, lt, env, T) {
       avatar(ctx, { ...L, name: L.name }, 120, -hh / 2 + 220, 150, env);
       ctx.textAlign = 'center'; ctx.font = F(900, 74, 'Barlow Condensed'); ctx.fillStyle = fg; ctx.fillText((L.name || 'OYUNCU ADI').toLocaleUpperCase('tr-TR'), 0, -hh / 2 + 480);
       ctx.fillStyle = L.accent || '#10B981'; ctx.fillRect(-60, -hh / 2 + 510, 120, 8);
-      const rows = String(L.stats || 'Gol|18\nAsist|9\nMaç|31\nDakika|2650').split('\n').map((r) => r.split('|'));
+      const rows = String(L.stats || 'Video|128\nAbone|45B\nİzlenme|2.1M\nYıl|4').split('\n').map((r) => r.split('|'));
       rows.slice(0, 5).forEach(([k, v], i) => {
         const y = -hh / 2 + 600 + i * 80;
         const a = clamp((lt - 0.3 - i * 0.12) / 0.35);
@@ -360,27 +360,26 @@ export function drawSocial2(ctx, L, lt, env, T) {
 }
 
 const A = (inn = 'pop', out = 'fade', loop = 'none', inDur = 0.45) => ({ in: inn, out, loop, inDur, outDur: 0.35 });
-const CHAT1 = '< Maçı izledin mi?? 😱\n> İzledim! Son dakika golü efsaneydi\n< Kaleci ne yaptı öyle 😂\n> Bu sezon şampiyonluk bizim 🏆\n< Videosunu at hemen!';
+const CHAT1 = '< Yeni videoyu izledin mi?? 😱\n> İzledim! Sonu efsaneydi\n< O geçiş nasıl yapıldı öyle 😂\n> Bence bu sefer viral olur 🚀\n< Linkini at hemen!';
 const CHAT2 = '< Yapay zekâ ile video yapmayı öğrettin mi?\n> Evet, kanalda yeni bölüm var\n< Link?\n> Profilde 👆\n< Abone oldum bile 🔥';
 
 export const SOCIAL_TEMPLATES2 = [
   { id: 'imsg', name: 'iPhone sohbet', cat: 'Sohbet', p: { type: 'imessage', name: 'Ahmet', msgs: CHAT1, every: 1.1, y: 0.5, scale: 0.92, anim: A('pop') }, dur: 7 },
   { id: 'imsgDark', name: 'iPhone sohbet (koyu)', cat: 'Sohbet', p: { type: 'imessage', dark: true, name: 'Zeynep', msgs: CHAT2, every: 1.1, y: 0.5, scale: 0.92, anim: A('pop') }, dur: 7 },
-  { id: 'wa', name: 'WhatsApp tarzı sohbet', cat: 'Sohbet', p: { type: 'whatsapp', name: 'Futbol Grubu ⚽', status: 'Ali, Can, Elif, sen', msgs: 'Ali: Gol!!! ⚽⚽\nCan: VAR inceliyor 😬\n> Kesin gol, ofsayt yok\nElif: Hakem iptal etti 😡\n> İnanamıyorum…', every: 1.1, y: 0.5, scale: 0.92, anim: A('pop') }, dur: 7 },
+  { id: 'wa', name: 'WhatsApp tarzı sohbet', cat: 'Sohbet', p: { type: 'whatsapp', name: 'Ekip 🎬', status: 'Ali, Can, Elif, sen', msgs: 'Ali: Kurgu bitti mi? 🎬\nCan: Son rötuşlar 🔥\nElif: Müziği değiştirelim mi?\nAli: Bence harika olmuş 👏', every: 1.1, y: 0.5, scale: 0.92, anim: A('pop') }, dur: 7 },
   { id: 'waDark', name: 'WhatsApp tarzı (koyu)', cat: 'Sohbet', p: { type: 'whatsapp', dark: true, name: 'Annem ❤️', status: 'çevrimiçi', msgs: '< Yemek hazır, gel\n> 5 dk anne video çekiyorum\n< Hangi video?\n> Bir milyon izlenme olacak 😎\n< 😂😂', every: 1.1, y: 0.5, scale: 0.92, anim: A('pop') }, dur: 7 },
-  { id: 'ytcard', name: 'YouTube kanal kartviziti', cat: 'Profil', p: { type: 'ytcard', name: 'Kanal Adı', handle: '@kanaladi', subs: 128000, videos: 340, text: 'Futbol analizi ve maç özetleri • Her gün yeni video', btn: 'Abone ol', doneBtn: 'Abone olundu', accent: '#EF4444', accent2: '#7C3AED', tapAt: 1.4, y: 0.5, anim: A('pop') }, dur: 4 },
+  { id: 'ytcard', name: 'YouTube kanal kartviziti', cat: 'Profil', p: { type: 'ytcard', name: 'Kanal Adı', handle: '@kanaladi', subs: 128000, videos: 340, text: 'Yaratıcı içerikler • Her hafta yeni video', btn: 'Abone ol', doneBtn: 'Abone olundu', accent: '#EF4444', accent2: '#7C3AED', tapAt: 1.4, y: 0.5, anim: A('pop') }, dur: 4 },
   { id: 'ytcardDark', name: 'Kanal kartviziti (koyu)', cat: 'Profil', p: { type: 'ytcard', dark: true, name: 'AI Stüdyo', handle: '@aistudyo', subs: 54000, videos: 120, text: 'Yapay zekâ ile video üretimi, araç incelemeleri', btn: 'Abone ol', doneBtn: 'Abone olundu', accent: '#8B5CF6', accent2: '#22D3EE', tapAt: 1.4, y: 0.5, anim: A('pop') }, dur: 4 },
-  { id: 'xprof', name: 'X tarzı profil kartı', cat: 'Profil', p: { type: 'xprofile', name: 'Spor Gündemi', handle: '@sporgundemi', verified: true, text: 'Transfer haberleri, maç analizleri ve istatistikler. 📊⚽', followers: 245000, following: 412, btn: 'Takip et', accent: '#1D9BF0', y: 0.5, anim: A('pop') }, dur: 4 },
-  { id: 'xprofDark', name: 'X profil (koyu)', cat: 'Profil', p: { type: 'xprofile', dark: true, name: 'Futbol Analiz', handle: '@futbolanaliz', verified: true, text: 'Taktik, veri ve video analiz.', followers: 98000, following: 210, btn: 'Takip et', accent: '#334155', y: 0.5, anim: A('pop') }, dur: 4 },
-  { id: 'igprof', name: 'Instagram tarzı profil', cat: 'Profil', p: { type: 'igprofile', name: 'Kanal Adı', text: 'Futbol • Yapay zekâ • Günlük içerik\n👇 Yeni video', posts: 248, followers: 52000, following: 310, btn: 'Takip et', y: 0.5, anim: A('pop') }, dur: 4 },
-  { id: 'halfTop', name: 'Yarım ekran yazı (üst)', cat: 'Yarım ekran', p: { type: 'halftext', side: 'top', title: 'BU GOL *TARİHE* GEÇTİ', text: 'Son dakikada gelen inanılmaz an', bg: '#FFFFFF', fg: '#111111', fg2: '#555555', accent: '#E11D48', x: 0.5, y: 0.25, scale: 1, anim: A('none', 'fade') }, dur: 5 },
+  { id: 'xprof', name: 'X tarzı profil kartı', cat: 'Profil', p: { type: 'xprofile', name: 'Gündem', handle: '@gundem', verified: true, text: 'Günlük gündem, analizler ve veriler. 📊', followers: 245000, following: 412, btn: 'Takip et', accent: '#1D9BF0', y: 0.5, anim: A('pop') }, dur: 4 },
+  { id: 'xprofDark', name: 'X profil (koyu)', cat: 'Profil', p: { type: 'xprofile', dark: true, name: 'Teknoloji Notları', handle: '@teknonotlar', verified: true, text: 'Taktik, veri ve video analiz.', followers: 98000, following: 210, btn: 'Takip et', accent: '#334155', y: 0.5, anim: A('pop') }, dur: 4 },
+  { id: 'igprof', name: 'Instagram tarzı profil', cat: 'Profil', p: { type: 'igprofile', name: 'Kanal Adı', text: 'Tasarım • Yapay zekâ • Günlük içerik\n👇 Yeni video', posts: 248, followers: 52000, following: 310, btn: 'Takip et', y: 0.5, anim: A('pop') }, dur: 4 },
+  { id: 'halfTop', name: 'Yarım ekran yazı (üst)', cat: 'Yarım ekran', p: { type: 'halftext', side: 'top', title: 'BU AN *TARİHE* GEÇTİ', text: 'Kimsenin beklemediği o an', bg: '#FFFFFF', fg: '#111111', fg2: '#555555', accent: '#E11D48', x: 0.5, y: 0.25, scale: 1, anim: A('none', 'fade') }, dur: 5 },
   { id: 'halfBottom', name: 'Yarım ekran yazı (alt)', cat: 'Yarım ekran', p: { type: 'halftext', side: 'bottom', title: 'YAPAY ZEKÂ *BUNU* YAPTI', text: 'Sonuna kadar izle', bg: '#0B0B0F', fg: '#FFFFFF', fg2: '#A3A3B5', accent: '#8B5CF6', x: 0.5, y: 0.75, scale: 1, anim: A('none', 'fade') }, dur: 5 },
-  { id: 'halfQuote', name: 'Yarım ekran alıntı', cat: 'Yarım ekran', p: { type: 'halftext', side: 'top', portion: 0.4, title: '“FUTBOL BİR *TUTKUDUR*”', text: '— Teknik direktör', bg: '#FACC15', fg: '#111111', fg2: '#3F3F46', accent: '#111111', x: 0.5, y: 0.2, scale: 1, anim: A('none', 'fade') }, dur: 5 },
+  { id: 'halfQuote', name: 'Yarım ekran alıntı', cat: 'Yarım ekran', p: { type: 'halftext', side: 'top', portion: 0.4, title: '“TUTKU *HER ŞEYDİR*”', text: '— Bir içerik üreticisi', bg: '#FACC15', fg: '#111111', fg2: '#3F3F46', accent: '#111111', x: 0.5, y: 0.2, scale: 1, anim: A('none', 'fade') }, dur: 5 },
   { id: 'ytend', name: 'Bitiş ekranı', cat: 'Abone & beğen', p: { type: 'ytend', name: 'Kanal', btn: 'ABONE OL', accent: '#EF4444', label1: 'Sonraki video', label2: 'Önerilen video', y: 0.5, anim: A('fade') }, dur: 6 },
-  { id: 'lower', name: 'Alt bant (isim/unvan)', cat: 'Haber & spor', p: { type: 'lowerthird', name: 'AHMET YILMAZ', title: 'Spor yorumcusu', accent: '#E11D48', x: 0.42, y: 0.78, anim: A('fade', 'fade') }, dur: 4 },
-  { id: 'ticker', name: 'Haber bandı (kayan)', cat: 'Haber & spor', p: { type: 'ticker', title: 'SON DAKİKA', text: 'Transfer resmen açıklandı • Derbi biletleri tükendi • Milli takım kadrosu belli oldu', speed: 220, x: 0.5, y: 0.9, anim: A('slideUp', 'slideDown') }, dur: 8 },
-  { id: 'player', name: 'Oyuncu kartı', cat: 'Haber & spor', p: { type: 'playercard', name: 'Oyuncu Adı', number: 10, pos: 'FORVET', stats: 'Gol|18\nAsist|9\nMaç|31\nDakika|2650', accent: '#10B981', y: 0.48, scale: 0.9, anim: A('pop') }, dur: 5 },
-  { id: 'versus', name: 'VS kartı', cat: 'Haber & spor', p: { type: 'versus', teamA: 'EV SAHİBİ', teamB: 'DEPLASMAN', colorA: '#E11D48', colorB: '#2563EB', text: 'Pazar 20:00', y: 0.45, anim: A('fade') }, dur: 4 },
+  { id: 'lower', name: 'Alt bant (isim/unvan)', cat: 'Haber', p: { type: 'lowerthird', name: 'AHMET YILMAZ', title: 'Spor yorumcusu', accent: '#E11D48', x: 0.42, y: 0.78, anim: A('fade', 'fade') }, dur: 4 },
+  { id: 'ticker', name: 'Haber bandı (kayan)', cat: 'Haber', p: { type: 'ticker', title: 'SON DAKİKA', text: 'Yeni özellik yayında • Biletler tükendi • Milli takım kadrosu belli oldu', speed: 220, x: 0.5, y: 0.9, anim: A('slideUp', 'slideDown') }, dur: 8 },
+  { id: 'versus', name: 'VS kartı', cat: 'Haber', p: { type: 'versus', teamA: 'EV SAHİBİ', teamB: 'DEPLASMAN', colorA: '#E11D48', colorB: '#2563EB', text: 'Pazar 20:00', y: 0.45, anim: A('fade') }, dur: 4 },
 ];
 
 export const SOCIAL_FIELDS2 = {

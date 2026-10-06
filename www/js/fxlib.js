@@ -219,8 +219,7 @@ function drawShapeSticker(ctx, d, t) {
   }
 }
 export const STICKER_BADGES = [
-  ['gol', 'GOL!'], ['var', 'VAR'], ['ofsayt', 'Ofsayt'], ['kirmizi', 'Kırmızı kart'], ['sari', 'Sarı kart'],
-  ['penalti', 'Penaltı'], ['mvp', 'MVP'], ['live', 'Canlı'], ['vs', 'VS'], ['yeni', 'Yeni'], ['trend', 'Trend'], ['transfer', 'Transfer'],
+  ['mvp', 'MVP'], ['live', 'Canlı'], ['vs', 'VS'], ['yeni', 'Yeni'], ['trend', 'Trend'],
 ];
 
 function star(ctx, n, r1, r2) {

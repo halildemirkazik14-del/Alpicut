@@ -581,10 +581,10 @@ function stickerPreview(L) {
 
 export function openStickers(replace) {
   openSheet({
-    id: 'stickers', title: 'Çıkartmalar', tall: true, tabs: [...Object.keys(STICKER_SETS), 'Spor', 'Emoji'],
+    id: 'stickers', title: 'Çıkartmalar', tall: true, tabs: [...Object.keys(STICKER_SETS), 'Rozet', 'Emoji'],
     render: (body, tab) => {
       const grid = h('div', { class: `stk-grid${STICKER_SETS[tab] ? ' wide' : ''}` });
-      const items = tab === 'Spor' ? STICKER_BADGES.map(([id, n]) => ({ badge: id, name: n }))
+      const items = tab === 'Rozet' ? STICKER_BADGES.map(([id, n]) => ({ badge: id, name: n }))
         : tab === 'Emoji' ? STICKER_EMOJI.map((g) => ({ glyph: g, name: g }))
           : (STICKER_SETS[tab] || []).map((d) => ({ sd: d, name: d.text }));
       items.forEach((it) => {
