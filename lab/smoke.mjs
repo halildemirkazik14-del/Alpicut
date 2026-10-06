@@ -27,7 +27,7 @@ const ctx = await b.newContext({ viewport: { width: 400, height: 860 }, deviceSc
 const pg = await ctx.newPage();
 pg.on('pageerror', (e) => errs.push(`PAGEERROR ${e.message}`));
 pg.on('console', (m) => { if (m.type() === 'error') errs.push(`console ${m.text()}`.slice(0, 300)); });
-const step = async (n, fn) => { try { R[n] = (await fn()) ?? 'ok'; } catch (e) { R[n] = `HATA: ${e.message}`.slice(0, 400); } console.log(n, JSON.stringify(R[n]).slice(0, 300)); };
+const step = async (n, fn) => { try { R[n] = (await fn()) ?? 'ok'; } catch (e) { R[n] = `HATA: ${e.message}`.slice(0, 400); errs.push(`ADIM ${n}: ${e.message}`.slice(0, 300)); } console.log(n, JSON.stringify(R[n]).slice(0, 300)); };
 const shot = (n) => pg.screenshot({ path: `${OUT}/${n}.png` });
 await pg.goto('http://localhost:8091/index.html');
 await pg.waitForTimeout(800);
@@ -182,8 +182,22 @@ await step('socialRender', () => pg.evaluate(async () => {
   }
   return { n: Object.keys(out).length, bad: Object.entries(out).filter(([, v]) => /HATA|yok/.test(v)) };
 }));
+// v1.8: yeni motion stüdyoları açılıyor ve her şablon hatasız çiziliyor
+await step('motion4', async () => {
+  const r = await pg.evaluate(async () => {
+    const S = await import('./js/social.js'); const M = await import('./js/motion4.js'); const sh = await import('./js/sheets.js');
+    const m = document.createElement('canvas').getContext('2d'); const bad = [];
+    M.TEMPLATES4.forEach((tp) => { const dur = tp.dur || 4; const L = { kind: 'social', x: 0.5, y: 0.5, scale: 1, ...JSON.parse(JSON.stringify(tp.p)), start: 0, end: dur };
+      [0.1, dur * 0.5, dur - 0.05].forEach((t) => { try { m.save(); S.drawSocial(m, L, t, { W: 1080, H: 1920, S: 0.3, img: () => null }); m.restore(); } catch (e) { bad.push(`${tp.id}@${t.toFixed(1)}: ${e.message}`); } }); });
+    sh.openSocialHub(); await new Promise((q) => setTimeout(q, 600)); const hub = document.querySelectorAll('.motion-grid .tpl').length;
+    sh.closeAllSheets?.(); sh.openMotion('Geri sayım'); await new Promise((q) => setTimeout(q, 600)); const cd = document.querySelectorAll('.motion-grid .tpl').length; sh.closeAllSheets?.();
+    return { n: M.TEMPLATES4.length, bad: bad.slice(0, 10), hub, cd };
+  });
+  if (r.bad.length || !r.hub || !r.cd) throw new Error(JSON.stringify(r));
+  return r;
+});
 await step('socialShots', async () => {
-  for (const id of ['imsg', 'wa', 'ytcard', 'xprof', 'igprof', 'halfTop', 'player', 'versus']) {
+  for (const id of ['imsg', 'wa', 'ytcard', 'xprof', 'igprof', 'halfTop', 'ticker', 'versus']) {
     await pg.evaluate(async (tid) => {
       const app = window.__alpicut; const S = await import('./js/social.js');
       const t = S.SOCIAL_TEMPLATES.find((x) => x.id === tid);
