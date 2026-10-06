@@ -31,6 +31,7 @@ import {
 } from './sheets.js';
 import { store, lsGet, lsSet, isNative } from './storage.js';
 import { parseSRT } from './srt.js';
+import { queueProxy, onProxyChange } from './proxy.js';
 import { openPop, closePop, isPopOpen } from './popover.js';
 import { openCaptionStyles } from './captions.js';
 import { renderKfBar, updateKfBar } from './kfbar.js';
@@ -105,6 +106,7 @@ function init() {
   if (document.fonts) document.fonts.addEventListener('loadingdone', () => app.engine.requestDraw());
   loadFonts();
   getCatalog();
+  onProxyChange((m, p) => { if (p >= 1 && m.purl) { toast(`Hafif önizleme hazır: ${m.name || 'video'}`); app.engine.requestDraw(); } });
   renderHome();
 }
 
@@ -1031,8 +1033,11 @@ function thumbOf(src, w, h) {
 function registerMedia(rec) {
   if (app.P && rec.kind !== 'lut') { app.P.mediaNames = app.P.mediaNames || {}; app.P.mediaNames[rec.id] = rec.name; }
   const url = URL.createObjectURL(rec.blob);
-  app.engine.media.set(rec.id, { ...rec, url });
-  return app.engine.media.get(rec.id);
+  const purl = rec.proxyBlob ? URL.createObjectURL(rec.proxyBlob) : null;
+  app.engine.media.set(rec.id, { ...rec, url, purl });
+  const m = app.engine.media.get(rec.id);
+  if (!purl) setTimeout(() => queueProxy(m), 1500); // v1.6: ağır videoya hafif önizleme kopyası
+  return m;
 }
 
 async function importFiles(files, forceAudio = false) {

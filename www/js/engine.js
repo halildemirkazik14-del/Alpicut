@@ -4,6 +4,7 @@ import { drawClip, drawTransition, drawLayer, drawSubtitles, drawFx, clamp } fro
 import { applyLayerFx } from './fxlib.js';
 import { transGL } from './gltrans.js';
 import { hasKeys, propAt } from './kf.js';
+import { proxyMode } from './proxy.js';
 
 // Hız eğrileri (CapCut tarzı): 0..1 arası 7 kontrol noktasında hız çarpanı
 export const SPEED_CURVES = {
@@ -337,15 +338,25 @@ export class Engine {
       return img;
     }
     let el = this.els.get(item.id);
+    // v1.6: proxy hazırsa önizlemede hafif kopya; dışa aktarmada her zaman orijinal
+    const src = (m.purl && m.kind === 'video' && !this.exporting && proxyMode() !== 'off') ? m.purl : m.url;
     if (el && el._mid !== m.id) { el.pause(); el = null; }
+    else if (el && el._src !== src && !this.playing) {
+      const ct = el.currentTime; el.pause();
+      try { this.nodes.get(el)?.out.disconnect(); } catch (_) { /* yoksay */ }
+      this.nodes.delete(el); el.removeAttribute('src'); try { el.load(); } catch (_) { /* yoksay */ } el.remove();
+      el = null; this._carry = ct;
+    }
     if (!el) {
       el = document.createElement(m.kind === 'audio' ? 'audio' : 'video');
       el._mid = m.id;
+      el._src = src;
       el.preload = 'auto';
       el.playsInline = true;
       el.setAttribute('playsinline', '');
       el.setAttribute('webkit-playsinline', '');
-      el.src = m.url;
+      el.src = src;
+      if (this._carry != null) { const ct = this._carry; this._carry = null; el.addEventListener('loadedmetadata', () => { try { el.currentTime = ct; } catch (_) { /* yoksay */ } }, { once: true }); }
       el.addEventListener('seeked', () => {
         if (el._want != null && !this.playing && Math.abs(el.currentTime - el._want) > 0.04) { const w = el._want; el._want = null; try { el.currentTime = w; } catch (_) { /* yoksay */ } }
         this.requestDraw();

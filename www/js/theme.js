@@ -1,6 +1,7 @@
 // Alpicut — tema sistemi: hazır temalar (Obsidyen mor, Altın, Gümüş, Gece, Beyaz) + kendi vurgu rengin
 import { h } from './state.js';
 import { lsGet, lsSet } from './storage.js';
+import { proxyMode, setProxyMode } from './proxy.js';
 
 export const THEMES = {
   amethyst: { name: 'Ametist', desc: 'Sıcak grafit, yumuşak mor (varsayılan)', scheme: 'dark',
@@ -106,6 +107,12 @@ export function themePickerBody(body, refresh) {
   pick.addEventListener('change', () => { setTheme(cur.id, pick.value); refresh(); });
   row.append(pick);
   body.append(row);
+  // v1.6: performans — hafif önizleme kopyası (proxy)
+  body.append(h('div', { class: 'sub-title' }, 'Hafif önizleme (proxy)'));
+  body.append(h('p', { class: 'hint' }, 'Ağır videolar için telefonda küçük bir kopya hazırlanır; düzenleme ve kaydırma akıcı olur. Dışa aktarmada her zaman orijinal kalite kullanılır.'));
+  const prow = h('div', { class: 'chips' });
+  [['auto', 'Otomatik'], ['always', 'Her videoda'], ['off', 'Kapalı']].forEach(([v, n]) => prow.append(h('button', { class: proxyMode() === v ? 'on' : '', onclick: () => { setProxyMode(v); refresh(); } }, n)));
+  body.append(prow);
 }
 
 applyTheme();
