@@ -92,6 +92,31 @@ export const COMMANDS = {
       return { ok: true, id: L.id, summary: `“${a.text.replace(/\*/g, '')}” yazısı eklendi (${sec(L.start)})` };
     },
   },
+  add_motion: {
+    desc: 'Motion stüdyosundan hareketli şablon ekler (HyperFrames esinli). template: şablon id (motion_catalog ile listele). texts: şablonun metin alanlarını değiştirir, ör. {"text":"…","title":"…","name":"…","prompt":"…","answer":"…","lines":"satır1\\nsatır2"}. start, duration saniye. y: 0-1 dikey konum.',
+    params: { type: 'object', properties: { template: { type: 'string' }, start: { type: 'number' }, duration: { type: 'number' }, y: { type: 'number' }, texts: { type: 'object' } }, required: ['template'] },
+    run: async (a) => {
+      const { SOCIAL_TEMPLATES3 } = await import('./social3.js');
+      const tp = SOCIAL_TEMPLATES3.find((t) => t.id === a.template) || SOCIAL_TEMPLATES3.find((t) => t.p.type === a.template);
+      if (!tp) return { ok: false, error: `Şablon yok: ${a.template}` };
+      const L = { kind: 'social', x: 0.5, y: 0.5, rot: 0, sc: 1, opacity: 1, scale: 1, dark: false, accent: '#9D8CF2', ...clone(tp.p), id: uid(), kf: {} };
+      const allowed = ['text', 'title', 'name', 'prompt', 'answer', 'lines', 'stats', 'code', 'sub', 'btn', 'label', 'textA', 'textB', 'nameA', 'nameB', 'title2', 'text2'];
+      Object.entries(a.texts || {}).forEach(([k, v]) => { if (allowed.includes(k) && typeof v === 'string') L[k] = v; });
+      if (typeof a.y === 'number') L.y = Math.max(0.05, Math.min(0.95, a.y));
+      L.start = Math.max(0, a.start ?? app.engine.t); L.end = L.start + (a.duration ?? tp.dur ?? 4);
+      app.P.layers.push(L); app.commit();
+      return { ok: true, id: L.id, summary: `Motion eklendi: ${tp.name} (${sec(L.start)})` };
+    },
+  },
+  motion_catalog: {
+    desc: 'Motion stüdyosundaki hareketli şablonları listeler (id, ad, kategori, düzenlenebilir metin alanları).',
+    params: { type: 'object', properties: { category: { type: 'string' } } },
+    run: async (a = {}) => {
+      const { SOCIAL_TEMPLATES3, SOCIAL_FIELDS3 } = await import('./social3.js');
+      const list = SOCIAL_TEMPLATES3.filter((t) => !a.category || t.cat.toLowerCase().includes(String(a.category).toLowerCase())).map((t) => `${t.id} · ${t.name} · ${t.cat} · alanlar: ${(SOCIAL_FIELDS3[t.p.type] || []).filter((f) => !/accent|dark|color|speed|every|avatar|v1|dur|state|style|shape|fps|depth|count|tapAt/.test(f)).join(',')}`);
+      return { ok: true, catalog: list.join('\n'), summary: `${list.length} motion şablonu` };
+    },
+  },
   add_cta: {
     desc: 'Abone ol / beğen / takip et butonu ekler. kind: subscribe|like|follow',
     params: { type: 'object', properties: { kind: { type: 'string' }, start: { type: 'number' }, duration: { type: 'number' } } },

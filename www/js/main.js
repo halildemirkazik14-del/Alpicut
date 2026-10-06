@@ -34,6 +34,7 @@ import { parseSRT } from './srt.js';
 import { queueProxy, onProxyChange } from './proxy.js';
 import { queueScrub } from './scrubcache.js';
 import { enterFull, exitFull, isFull } from './fullscreen.js';
+import { addToAssets, inAssets, openAssets } from './assets.js';
 import { openPop, closePop, isPopOpen } from './popover.js';
 import { openCaptionStyles } from './captions.js';
 import { renderKfBar, updateKfBar } from './kfbar.js';
@@ -81,6 +82,8 @@ function init() {
   $('newProject').addEventListener('click', () => newProject());
   $('fromTemplate').innerHTML = `${I.template} Şablondan başla`;
   $('fromTemplate').addEventListener('click', openProjectTemplates);
+  $('btnAssets').innerHTML = I.folder; $('btnAssets').addEventListener('click', () => openAssets());
+  $('vibeBtn').addEventListener('click', async () => { const v = await import('./vibe.js'); v.openVibe(); });
   $('importPkg').innerHTML = `${I.upload} Yedekten aç (.alpicut)`;
   $('importPkg').addEventListener('click', async () => {
     const files = await pickFiles('', false);
@@ -199,6 +202,7 @@ const TOOL_CATS = [
     ['layer', 'Katman ekle', () => addMedia('layer'), '', 'Video/foto üst katman (B-roll)'], ['ratio', 'Oran', openRatio, '', '9:16, 1:1, 16:9…'], ['marker', 'İşaret', toggleMarker, '', 'Oynatıcıya işaret koy'], ['check', 'Çoklu seç', startMulti, '', 'Katmanları grupla/sil'],
     ['cover', 'Kapak', openCover, '', 'Thumbnail tasarla'], ['palette', 'Tema', () => openThemePicker(), '', 'Arayüz renkleri'],
   ] },
+  { id: 'assets', name: 'Assets', icon: 'folder', direct: () => openAssets() },
   { id: 'fav', name: 'Favoriler', icon: 'star', direct: () => openFavorites() },
 ];
 
@@ -470,7 +474,7 @@ async function deleteProject(id) {
   if (!target) return;
   const keep = new Set();
   all.filter((p) => p.id !== id).forEach((p) => mediaIds(p.data).forEach((m) => keep.add(m)));
-  for (const m of mediaIds(target.data)) if (!keep.has(m)) { try { await store.delMedia(m); } catch (_) { /* yoksay */ } }
+  for (const m of mediaIds(target.data)) if (!keep.has(m) && !inAssets(m)) { try { await store.delMedia(m); } catch (_) { /* yoksay */ } }
   await store.delProject(id);
 }
 
@@ -496,7 +500,7 @@ function newProject(tpl) {
   if (built) { P.subs = built.subs; P.fx = built.fx; }
   showEditor(P);
   saveNow();
-  if (tpl) setTimeout(() => toast('Şablon hazır — şimdi alttan Medya ekle', 3500), 600);
+  if (tpl && !tpl.silent) setTimeout(() => toast('Şablon hazır — şimdi alttan Medya ekle', 3500), 600);
 }
 
 async function openProject(id) {
@@ -1110,10 +1114,23 @@ async function importFiles(files, forceAudio = false) {
         const rec = { id: uid(), kind, name: f.name, blob: f, ...meta };
         try { await store.putMedia(rec); } catch (e) { console.warn(e); toast('Uyarı: medya cihaza kaydedilemedi, proje kapanınca kaybolabilir'); }
         out.push(registerMedia(rec));
+        addToAssets(rec); // v1.7: her medya Assets kütüphanesine
       } catch (e) { toast(`${f.name}: ${e.message || 'açılamadı'}`); }
     }
   } finally { b.close(); }
   return out;
+}
+
+// v1.7: medyadan ana iz klibi (Vibe editing de kullanır)
+function makeClip(m) {
+  const [W, H] = RATIOS[app.P.ratio];
+  const wide = m.w && m.h && (m.w / m.h) > (W / H) * 1.3;
+  return {
+    id: uid(), mediaId: m.id, type: m.kind === 'image' ? 'image' : 'video',
+    in: 0, out: m.duration || 3, dur: 3, speed: 1, volume: 1, mute: false,
+    fit: wide ? 'contain' : 'cover', bgMode: 'blur', bgColor: '#000000', zoom: 1, panX: 0, panY: 0,
+    kenburns: m.kind === 'image', filters: { ...DEFAULT_FILTERS }, filterPreset: 'none', trans: { type: 'none', dur: 0.5 },
+  };
 }
 
 async function addMedia(target) {
@@ -1594,7 +1611,7 @@ Object.assign(app, {
   registerMedia, cutTimelineRanges, studioClean, toggleMulti, ungroup, reverseClip, openSilenceFor: (o) => openSilence(o, app.sel?.type === 'clip' ? 'clip' : 'audio'),
   getStyles, saveStyle, deleteStyle, exportStyles, importStyles,
   layout: () => layoutClips(app.P.clips),
-  fitStage, openCover, renderTimeline, ratioWH: () => RATIOS[app.P?.ratio || "9:16"],
+  fitStage, openCover, renderTimeline, newProject, registerMedia, openAssets, makeClip, newAudio: (m, t) => newAudio(m, t), ratioWH: () => RATIOS[app.P?.ratio || "9:16"],
 });
 
 init();
