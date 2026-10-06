@@ -286,7 +286,29 @@ function targetClip() {
 function aiTarget(tab) { const o = targetClip(); if (!o) { toast('Önce Medya ile bir video ekle'); return; } openInspector(tab); }
 function aiReframe() { const o = targetClip(); if (!o || app.sel.type !== 'clip') { toast('Önce Medya ile bir video ekle'); return; } smartReframe(o); }
 
+// v1.8: oynatıcının altındaki hızlı araçlar — bir öğe seçilince zaman kodu yerine yumuşakça belirir
+function updateQuick() {
+  const q = $('trQuick'), tr = $('transportBar'), more = $('btnItemMore');
+  if (!q || !tr) return;
+  const s = app.sel, o = selected();
+  const on = !!(s && o && !app.multi && !o.locked);
+  tr.classList.toggle('has-sel', on);
+  q.textContent = '';
+  if (!on) return;
+  const canSplit = s.type !== 'subs';
+  const btn = (ic, label, fn, cls = '') => h('button', { class: `trq ${cls}`, 'aria-label': label, title: label, onclick: () => { app.pause(); fn(); } }, h('span', { html: I[ic] || I.edit }), h('small', {}, label));
+  if (canSplit) q.append(btn('split', 'Böl', () => splitSel()));
+  if (s.type !== 'subs') q.append(btn('copy', 'Kopya', dupSel));
+  q.append(btn('trash', 'Sil', delSel, 'danger'));
+  if (more && !more._wired) {
+    more._wired = true;
+    more.innerHTML = I.more;
+    more.addEventListener('click', () => { app.pause(); const r = more.getBoundingClientRect(); itemMenu({ x: r.left + r.width / 2, y: $('transportBar').getBoundingClientRect().top }); });
+  }
+}
+
 function renderToolbar() {
+  updateQuick();
   const bar = $('toolbar');
   bar.textContent = '';
   const s = app.sel, o = selected();
@@ -856,9 +878,8 @@ function bindPreview() {
     if (G.vpinch || G.panned) { app.engine.requestDraw(); return; }
     if (G.moved || G.cmoved) { commit(); refreshSheet(); if (G.C) undoToast(app.autoKey || hasKeys(G.C.c, 'zoom') || hasKeys(G.C.c, 'panX') ? 'Keyframe yazıldı' : 'Kadraj değişti'); return; }
     if (G.tapL) {
+      // v1.8: önizlemede dokunmak yalnızca seçer; menü oynatıcı altındaki ⋯ veya zaman çizelgesinde basılı tutarak açılır
       select({ type: 'layer', id: G.tapL.id }, false);
-      const r = cv.getBoundingClientRect();
-      itemMenu({ x: e.clientX, y: Math.min(r.bottom, e.clientY + 24) }, 'below');
       return;
     }
     const now = performance.now();

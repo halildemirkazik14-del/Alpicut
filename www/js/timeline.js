@@ -215,19 +215,49 @@ export function bindTimeline() {
     const rect = it.getBoundingClientRect();
     // menü, dokunulan noktanın üstünde açılsın (öğenin ortasında değil)
     const anchor = { x: Math.max(rect.left + 8, Math.min(rect.right - 8, e.clientX || rect.left + rect.width / 2)), y: Math.max($('timeline').getBoundingClientRect().top, rect.top) };
+    void anchor;
     if (it.dataset.type === 'subs') {
       const cue = app.P.subs.cues[+it.dataset.cue];
       app.select({ type: 'subs', id: 'subs' }, false);
       if (cue) { app.engine.seek(cue.start + (app.P.subs.offset || 0) + 0.01); app.updateTime(); syncScroll(app.engine.t, true); }
-      app.itemMenu(anchor);
       return;
     }
     const s = { type: it.dataset.type, id: it.dataset.id };
     if (app.multi) { if (s.type === 'layer') app.toggleMulti(s.id); else window.__toast?.('Çoklu seçim yalnızca katmanlar içindir'); return; }
-    // v1.5: dokununca denetçi açılmaz; önce hızlı işlem menüsü çıkar
+    // v1.8: dokunmak yalnızca seçer. İşlem menüsü basılı tutunca (veya oynatıcı altındaki ⋯ ile) açılır.
     if (!(app.sel?.type === s.type && app.sel?.id === s.id)) app.select(s, false);
-    app.itemMenu(anchor);
   });
+
+  // v1.8: basılı tutunca işlem menüsü. Parmak kayarsa (kaydırma/sürükleme) menü açılmaz.
+  const HOLD_MS = 550;
+  let press = null;
+  const cancelPress = () => { if (press) { clearTimeout(press.timer); press = null; } };
+  inner.addEventListener('contextmenu', (e) => { if (e.target.closest('.item')) e.preventDefault(); });
+  inner.addEventListener('pointerdown', (e) => {
+    cancelPress();
+    if (app.multi || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const it = e.target.closest('.item');
+    if (!it || e.target.closest('[data-h]')) return;
+    const p = { it, x0: e.clientX, y0: e.clientY };
+    p.timer = setTimeout(() => {
+      if (press !== p) return;
+      press = null;
+      // basılı tutma sürüklemeye dönüştüyse ve öğe taşındıysa menü açma
+      if (drag && drag.it === it && drag.moved) return;
+      if (drag && drag.it === it) { clearTimeout(drag.hold); it.classList.remove('lift'); drag = null; }
+      it._dragged = true; setTimeout(() => { it._dragged = false; }, 400);
+      const s = it.dataset.type === 'subs' ? { type: 'subs', id: 'subs' } : { type: it.dataset.type, id: it.dataset.id };
+      if (!(app.sel?.type === s.type && app.sel?.id === s.id)) app.select(s, false);
+      try { navigator.vibrate?.(18); } catch (_) { /* yoksay */ }
+      const rect = it.getBoundingClientRect();
+      app.itemMenu({ x: Math.max(rect.left + 8, Math.min(rect.right - 8, p.x0)), y: Math.max($('timeline').getBoundingClientRect().top, rect.top) });
+    }, HOLD_MS);
+    press = p;
+  });
+  inner.addEventListener('pointermove', (e) => { if (press && Math.hypot(e.clientX - press.x0, e.clientY - press.y0) > 8) cancelPress(); });
+  inner.addEventListener('pointerup', cancelPress);
+  inner.addEventListener('pointercancel', cancelPress);
+  sc.addEventListener('scroll', cancelPress, { passive: true });
 
   inner.addEventListener('pointerdown', (e) => {
     const it = e.target.closest('.item.sel');

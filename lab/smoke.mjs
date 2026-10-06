@@ -55,6 +55,28 @@ await step('media', () => pg.evaluate(async () => {
 }));
 await shot('02-editor');
 
+// v1.8: dokunmak yalnızca seçer (menü açılmaz); basılı tutunca menü açılır; hızlı araçlar görünür
+await step('tapHold', async () => {
+  const it = await pg.$('#tlInner .item[data-type="clip"]');
+  if (!it) throw new Error('klip yok');
+  const b = await it.boundingBox();
+  const x = b.x + Math.min(40, b.width / 2), y = b.y + b.height / 2;
+  await pg.mouse.click(x, y); await pg.waitForTimeout(400);
+  const afterTap = { pop: await pg.isVisible('.pop'), quick: await pg.$$eval('#trQuick .trq', (q) => q.length), hasSel: await pg.$eval('#transportBar', (t) => t.classList.contains('has-sel')) };
+  if (afterTap.pop) throw new Error('dokununca menü açıldı');
+  if (!afterTap.hasSel || afterTap.quick < 2) throw new Error(`hızlı araçlar yok ${JSON.stringify(afterTap)}`);
+  await pg.mouse.move(x, y); await pg.mouse.down(); await pg.waitForTimeout(800); await pg.mouse.up(); await pg.waitForTimeout(300);
+  const afterHold = await pg.isVisible('.pop');
+  if (!afterHold) throw new Error('basılı tutunca menü açılmadı');
+  await shot('02b-hold-menu');
+  await pg.evaluate(async () => { try { (await import('./js/popover.js')).closePop?.(); } catch (_) { /* yok */ } });
+  await pg.click('#btnItemMore'); await pg.waitForTimeout(300);
+  const viaMore = await pg.isVisible('.pop');
+  await pg.evaluate(async () => { try { (await import('./js/popover.js')).closePop?.(); } catch (_) { /* yok */ } window.__alpicut.deselect(); });
+  if (!viaMore) throw new Error('⋯ menüyü açmadı');
+  return { afterTap, afterHold, viaMore };
+});
+
 // araç kategorileri
 await step('toolCats', async () => {
   const names = await pg.$$eval('#toolbar .tool', (b) => b.map((x) => x.textContent.trim()));
