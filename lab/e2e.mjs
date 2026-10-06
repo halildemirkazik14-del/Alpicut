@@ -155,6 +155,43 @@ await step('pipeline', () => pg.evaluate(async () => {
   return { n, tCap: Math.round(tCap), cues, before: +before.toFixed(2), after: +app.engine.duration().toFixed(2), jumpcut: j?.summary || j?.error, denoise: d?.summary || d?.error, issues: a.doctorIssues().map((x) => x.text) };
 }));
 
+// v1.8: hareketli videoda arka plan silme kararlılığı — portre her karede kayar; maske titremesi ölçülür
+await step('segVideo', async () => {
+  const r = await pg.evaluate(async () => {
+    const S = await import('./js/seg.js');
+    await S.initSegmenter();
+    const urls = ['https://storage.googleapis.com/mediapipe-assets/portrait.jpg', 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Pierre-Person.jpg/480px-Pierre-Person.jpg'];
+    let img = null;
+    for (const u of urls) { try { const b = await (await fetch(u)).blob(); img = await createImageBitmap(b); break; } catch (_) { /* sonraki */ } }
+    if (!img) throw new Error('örnek fotoğraf yok');
+    const W = 720, H = 1280, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d');
+    const k = Math.max(W / img.width, H / img.height) * 1.1, dx = 7;
+    const covs = [], jit = []; let prev = null, ms = 0, last = null;
+    for (let f = 0; f < 24; f++) {
+      x.fillStyle = '#556'; x.fillRect(0, 0, W, H);
+      x.drawImage(img, (W - img.width * k) / 2 + (f - 12) * dx, (H - img.height * k) / 2, img.width * k, img.height * k);
+      const t0 = performance.now();
+      const m = S.personMask(cv, W, H, { _t: f / 30, smooth: 0.35, edge: 0.12, threshold: 0.5 });
+      ms += performance.now() - t0;
+      if (!m) throw new Error('maske yok');
+      const d = m.getContext('2d').getImageData(0, 0, m.width, m.height).data, mw = m.width, mh = m.height;
+      let s = 0; for (let i = 3; i < d.length; i += 4) s += d[i]; covs.push(+(s / (d.length / 4) / 255).toFixed(3));
+      if (prev) { const sh = Math.round(dx * mw / W); let e = 0, n = 0; for (let y = 0; y < mh; y += 2) for (let xx = sh; xx < mw; xx += 2) { const a = d[(y * mw + xx) * 4 + 3], b = prev[(y * mw + xx - sh) * 4 + 3]; if (a > 8 || b > 8) { e += Math.abs(a - b); n++; } } jit.push(e / Math.max(1, n) / 255); }
+      prev = d; last = m;
+    }
+    const o = document.createElement('canvas'); o.width = W; o.height = H; const ox = o.getContext('2d'); ox.fillStyle = '#7C3AED'; ox.fillRect(0, 0, W, H);
+    const cut = S.removeBackground(cv, W, H, { _t: 23 / 30 + 0.0001, smooth: 0.35, edge: 0.12, feather: 1.5, choke: true }, 960); if (cut) ox.drawImage(cut, 0, 0, W, H);
+    window.__segVid = o.toDataURL('image/png');
+    const jm = jit.reduce((a, b) => a + b, 0) / jit.length;
+    return { covMin: Math.min(...covs), covMax: Math.max(...covs), jitter: +jm.toFixed(4), msPerFrame: +(ms / 24).toFixed(1), work: `${last.width}x${last.height}` };
+  });
+  const png = await pg.evaluate(() => window.__segVid);
+  if (png) fs.writeFileSync(`${OUT}/segvideo.png`, Buffer.from(png.split(',')[1], 'base64'));
+  if (r.covMin < 0.15 || r.covMax > 0.9) throw new Error(`maske kapsamı tutarsız ${JSON.stringify(r)}`);
+  if (r.jitter > 0.12) throw new Error(`maske titremesi yüksek ${JSON.stringify(r)}`);
+  return r;
+});
+
 // arayüz: şablon ve geçiş ekranları
 await step('ui', async () => {
   // v1.8: alt sayfalar artık panel (wm.js) — kapatmak için closeAll; eksik araç adı testi düşürmez, ekran görüntüsü atlanır
