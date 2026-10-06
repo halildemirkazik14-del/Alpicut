@@ -1,4 +1,5 @@
 // Alpicut — çizim fonksiyonları (klip, katman, yazı, CTA, skor, altyazı, efektler)
+import { scrubFrame } from './scrubcache.js';
 import { filterString } from './presets.js';
 import { layerAt, clipAt } from './kf.js';
 import { gradeParams, gradeSource } from './gl.js';
@@ -167,8 +168,13 @@ function rememberFrame(el) {
 
 export function drawClip(ctx, clip, el, localT, len, env) {
   const { W, H, S } = env;
-  const orig = el;
-  el = stableSource(el);
+  let orig = el;
+  // v1.7: kaydırırken asıl kare gelene kadar küçük önizleme karesi anında gösterilir
+  if (orig && orig.tagName === 'VIDEO' && !env.exporting && orig._tgt != null && (orig.seeking || orig.readyState < 2 || Math.abs(orig.currentTime - orig._tgt) > 0.06)) {
+    const fr = scrubFrame(orig._mid, orig._tgt);
+    if (fr) { el = fr; orig = null; }
+  }
+  if (orig) el = stableSource(el);
   // v1.5: duraklatılmışken de son hazır kare saklanır — zaman çizelgesinde kaydırırken önizleme kararmaz
   if (el !== orig) { /* son kare kullanılıyor */ } else if (!isReady(el)) return; else rememberFrame(el);
   const raw = el;

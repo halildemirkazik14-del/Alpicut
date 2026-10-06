@@ -165,14 +165,21 @@ function bindGestures(p) {
     if (!d.moved && Math.hypot(dx, dy) < 6) return;
     d.moved = true;
     p.el.classList.add('dragging');
-    if (d.anchored && d.g0.w >= vw() - 2) {
-      // alta yapışık panel: başlığı sürükleyince yüksekliği değişir
-      const y = clamp(d.g0.y + dy, 60, vh() - 120);
-      p.g = { ...d.g0, y, h: vh() - y };
-    } else {
-      p.g = { ...d.g0, x: d.g0.x + dx, y: d.g0.y + dy };
+    if (d.anchored && d.g0.w >= vw() - 2 && !d.float) {
+      // v1.7: alta yapışık panel sürüklenince serbest pencereye dönüşür — ekranın istediğin yerine taşı, bırak
+      const fh = Math.min(d.g0.h, Math.round(vh() * 0.55));
+      d.float = true;
+      d.g0 = { x: 8, y: clamp(e.clientY - 24, 40, vh() - 140), w: vw() - 16, h: fh };
+      d.x0 = e.clientX; d.y0 = e.clientY;
+      p.el.classList.add('floating');
     }
+    // ekran dışına taşmasın
+    const nx = clamp(d.g0.x + (e.clientX - d.x0), -p.g.w + 90, vw() - 90);
+    const ny = clamp(d.g0.y + (e.clientY - d.y0), 30, vh() - 60);
+    p.g = { ...d.g0, x: nx, y: ny };
     apply(p);
+    // alt kenara yaklaşınca yerleşme ipucu
+    p.el.classList.toggle('dock-hint', ny + p.g.h > vh() - 24);
   });
   const up = (e) => {
     if (!d) return;
@@ -184,7 +191,10 @@ function bindGestures(p) {
       return;
     }
     const dy = e.clientY - D.y0, dt = performance.now() - D.t0;
-    if (dy > 90 && dt < 260) { p.g = D.g0; apply(p); minimize(p); return; }
+    p.el.classList.remove('dock-hint');
+    if (dy > 90 && dt < 260 && !D.float) { p.g = D.g0; apply(p); minimize(p); return; }
+    // alt kenara bırakılırsa yeniden alta yapışır
+    if (p.g.y + p.g.h > vh() - 24) { const hh = Math.min(p.g.h, Math.round(vh() * 0.6)); p.g = { x: 0, y: vh() - hh, w: vw(), h: hh }; p.el.classList.remove('floating'); apply(p); }
     p.rel = { x: p.g.x / vw(), y: p.g.y / vh(), w: p.g.w / vw(), h: p.g.h / vh() };
     p.slot = 'custom';
     saveGeom(p);

@@ -32,6 +32,8 @@ import {
 import { store, lsGet, lsSet, isNative } from './storage.js';
 import { parseSRT } from './srt.js';
 import { queueProxy, onProxyChange } from './proxy.js';
+import { queueScrub } from './scrubcache.js';
+import { enterFull, exitFull, isFull } from './fullscreen.js';
 import { openPop, closePop, isPopOpen } from './popover.js';
 import { openCaptionStyles } from './captions.js';
 import { renderKfBar, updateKfBar } from './kfbar.js';
@@ -50,6 +52,8 @@ function init() {
   $('btnUndo').innerHTML = I.undo;
   $('btnRedo').innerHTML = I.redo;
   $('btnZoomIn').innerHTML = I.zoomIn;
+  $('btnFull').innerHTML = I.expand;
+  $('btnFull').addEventListener('click', () => enterFull());
   $('btnFirst').innerHTML = I.first;
   $('btnPrevF').innerHTML = I.prevF;
   $('btnNextF').innerHTML = I.nextF;
@@ -96,12 +100,30 @@ function init() {
 
   window.addEventListener('popstate', () => {
     if (window.__skipPop > 0) { window.__skipPop--; return; }
+    if (isFull()) { exitFull(true); return; }
     if (isPopOpen()) { closePop(); try { history.pushState(history.state || { v: 'editor' }, ''); } catch (_) { /* yoksay */ } return; }
     if (isSheetOpen()) { closeSheet(true); if (isSheetOpen()) { try { history.pushState({ v: 'sheet' }, ''); } catch (_) { /* yoksay */ } } return; }
     if (!$('exportModal').classList.contains('hidden')) { try { history.pushState({ v: 'editor' }, ''); } catch (_) { /* yoksay */ } return; }
     if (!$('editor').classList.contains('hidden')) goHome(true);
   });
   window.addEventListener('resize', () => { if (app.P) { fitStage(); renderTimeline(); } });
+  // v1.7: Android geri hareketi — ana ekranda yanlışlıkla çıkılmasın, önce sorulsun
+  const CapApp = window.Capacitor?.Plugins?.App;
+  if (CapApp && isNative()) {
+    try {
+      CapApp.addListener('backButton', ({ canGoBack }) => {
+        if (document.querySelector('.exit-confirm')) { closeExitConfirm(); return; }
+        if (isFull()) { exitFull(); return; }
+        const onHome = !$('home').classList.contains('hidden');
+        if (onHome && !isSheetOpen() && !isPopOpen()) { showExitConfirm(() => CapApp.exitApp()); return; }
+        if (canGoBack) history.back();
+        else if (isPopOpen()) closePop();
+        else if (isSheetOpen()) closeSheet(true);
+        else if (!onHome) goHome(true);
+        else showExitConfirm(() => CapApp.exitApp());
+      });
+    } catch (e) { console.warn('geri tuşu dinlenemedi', e); }
+  }
   document.addEventListener('visibilitychange', () => { if (document.hidden && app.P) { app.pause(); saveNow(); } });
   if (document.fonts) document.fonts.addEventListener('loadingdone', () => app.engine.requestDraw());
   loadFonts();
@@ -347,6 +369,27 @@ function openThemePicker() {
   openSheet({ id: 'theme', title: 'Tema ve renkler', render: (body) => themePickerBody(body, () => refreshSheet()) });
 }
 
+// ---------- v1.7: çıkış onayı ----------
+function closeExitConfirm() {
+  const d = document.querySelector('.exit-confirm');
+  if (!d) return;
+  d.classList.add('out');
+  setTimeout(() => d.remove(), 220);
+}
+function showExitConfirm(onExit) {
+  if (document.querySelector('.exit-confirm')) return;
+  const d = h('div', { class: 'exit-confirm', role: 'dialog', 'aria-modal': 'true' },
+    h('div', { class: 'ec-card' },
+      h('span', { class: 'ec-logo', html: LOGO }),
+      h('b', {}, 'Alpicut\'tan çıkılsın mı?'),
+      h('small', {}, 'Projelerin otomatik kaydedildi.'),
+      h('div', { class: 'ec-row' },
+        h('button', { class: 'btn', onclick: closeExitConfirm }, 'Kal'),
+        h('button', { class: 'btn primary', onclick: () => { closeExitConfirm(); setTimeout(onExit, 150); } }, 'Çık'))));
+  d.addEventListener('click', (e) => { if (e.target === d) closeExitConfirm(); });
+  document.body.append(d);
+}
+
 // ---------- ana ekran ----------
 function renderRatioPick() {
   const box = $('ratioPick');
@@ -359,7 +402,7 @@ function renderRatioPick() {
   const q = $('quickTpl');
   if (q && !q.childElementCount) {
     const pick = ['aitool', 'devlog', 'vlog', 'product', 'recipe', 'travel', 'aicompare', 'paperstory', 'podcast', 'edu', 'wedding', 'fitness', 'hotel', 'gaming', 'motivation', 'football'];
-    pick.map((id) => PROJECT_TEMPLATES.find((t) => t.id === id)).filter(Boolean).forEach((t) => q.append(h('button', { class: 'qt', onclick: () => newProject(t) }, h('span', { class: 'qt-ic' }, t.icon), h('b', {}, t.name))));
+    pick.map((id) => PROJECT_TEMPLATES.find((t) => t.id === id)).filter(Boolean).forEach((t, i) => q.append(h('button', { class: 'qt', style: { '--i': String(i) }, onclick: () => newProject(t) }, h('span', { class: 'qt-ic' }, t.icon), h('b', {}, t.name))));
     q.append(h('button', { class: 'qt more', onclick: openProjectTemplates }, h('span', { class: 'qt-ic', html: I.template }), h('b', {}, `Tümü · ${PROJECT_TEMPLATES.length}`)));
   }
 }
@@ -374,9 +417,9 @@ async function renderHome() {
     list.append(h('div', { class: 'empty-projects' }, 'Henüz proje yok. İlk videonu oluşturmak için “Yeni Proje”ye dokun.'));
     return;
   }
-  projects.forEach((p) => {
+  projects.forEach((p, idx) => {
     const d = new Date(p.updated);
-    const card = h('div', { class: 'pcard' },
+    const card = h('div', { class: 'pcard', style: { '--i': String(Math.min(idx, 12)) } },
       h('button', { class: 'thumb', style: { backgroundImage: p.thumb ? `url(${p.thumb})` : '', width: '100%' }, onclick: () => openProject(p.id), html: p.thumb ? '' : I.media }),
       h('span', { class: 'dur' }, fmt(p.duration || 0, false)),
       h('button', { class: 'pmenu', html: I.more, onclick: () => projectMenu(p) }),
@@ -536,7 +579,10 @@ async function saveNow() {
   const P = app.P;
   if (!P) return;
   const first = P.clips[0];
-  const thumb = first ? app.engine.media.get(first.mediaId)?.thumb : null;
+  // v1.7: kapak = kullanıcının kapağı, yoksa oynatıcıdaki gerçek kare (yazı/motion dahil, yüksek çözünürlük)
+  let thumb = P.coverThumb || null;
+  if (!thumb && !$('editor').classList.contains('hidden') && (P.clips.length || P.layers.length)) thumb = app.engine.snapshot(540);
+  if (!thumb) thumb = first ? app.engine.media.get(first.mediaId)?.thumb : null;
   try {
     const prev = await store.getProject(P.id).catch(() => null);
     let versions = prev?.versions || [];
@@ -599,14 +645,18 @@ function fitStage() {
   if (!app.P) return;
   const wrap = $('previewWrap').getBoundingClientRect();
   const [W, H] = RATIOS[app.P.ratio];
-  const aw = Math.max(50, wrap.width - 16), ah = Math.max(50, wrap.height - 16);
+  const fs = isFull();
+  const pad = fs ? 0 : 16;
+  // tam ekranda yan çevrilmiş görünüm: genişlik/yükseklik yer değiştirir
+  const rw = app.fsRot ? wrap.height : wrap.width, rh = app.fsRot ? wrap.width : wrap.height;
+  const aw = Math.max(50, rw - pad), ah = Math.max(50, rh - pad);
   const cw = Math.min(aw, (ah * W) / H);
   const ch = (cw * H) / W;
   const cv = $('preview');
   cv.style.width = `${cw}px`;
   cv.style.height = `${ch}px`;
   const dpr = window.devicePixelRatio || 1;
-  if (!app.engine.exporting) app.engine.resize(Math.max(0.3, Math.min(0.6, (cw * dpr) / W)));
+  if (!app.engine.exporting) app.engine.resize(Math.max(0.3, Math.min(fs ? 0.9 : 0.6, (cw * dpr) / W)));
 }
 
 function updateTime() {
@@ -1027,13 +1077,13 @@ async function probe(blob, kind) {
 
 function thumbOf(src, w, h) {
   if (!w || !h) return null;
-  const th = 112, tw = Math.round((th * w) / h);
+  const th = 200, tw = Math.round((th * w) / h);
   const c = document.createElement('canvas');
-  c.width = Math.min(tw, 220); c.height = th;
+  c.width = Math.min(tw, 360); c.height = th;
   const ctx = c.getContext('2d');
   const k = Math.max(c.width / w, c.height / h);
   ctx.drawImage(src, (c.width - w * k) / 2, (c.height - h * k) / 2, w * k, h * k);
-  return c.toDataURL('image/jpeg', 0.6);
+  return c.toDataURL('image/jpeg', 0.8);
 }
 
 function registerMedia(rec) {
@@ -1043,6 +1093,7 @@ function registerMedia(rec) {
   app.engine.media.set(rec.id, { ...rec, url, purl });
   const m = app.engine.media.get(rec.id);
   if (!purl) setTimeout(() => queueProxy(m), 1500); // v1.6: ağır videoya hafif önizleme kopyası
+  queueScrub(m); // v1.7: anlık kaydırma önizlemesi
   return m;
 }
 
@@ -1543,7 +1594,7 @@ Object.assign(app, {
   registerMedia, cutTimelineRanges, studioClean, toggleMulti, ungroup, reverseClip, openSilenceFor: (o) => openSilence(o, app.sel?.type === 'clip' ? 'clip' : 'audio'),
   getStyles, saveStyle, deleteStyle, exportStyles, importStyles,
   layout: () => layoutClips(app.P.clips),
-  fitStage,
+  fitStage, openCover, renderTimeline, ratioWH: () => RATIOS[app.P?.ratio || "9:16"],
 });
 
 init();

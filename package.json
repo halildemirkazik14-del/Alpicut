@@ -1,6 +1,6 @@
 {
   "name": "alpicut",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "description": "Alpicut — dikey kısa video editörü",
   "scripts": {
@@ -39,7 +39,8 @@
     "@huggingface/transformers": "^4.0.0",
     "@shiguredo/rnnoise-wasm": "*",
     "@mintplex-labs/piper-tts-web": "*",
-    "onnxruntime-web": "1.18.0"
+    "onnxruntime-web": "1.18.0",
+    "@capacitor/app": "^7.0.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

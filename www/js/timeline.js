@@ -83,6 +83,8 @@ export function renderTimeline() {
     }
   });
   const lastEnd = lay.length ? lay[lay.length - 1].end : 0;
+  // v1.7: kapak — ana izin başında (CapCut gibi)
+  vrow.append(h('button', { class: `cover-tile${P.coverThumb ? ' has' : ''}`, style: { left: `${H - 66}px`, backgroundImage: P.coverThumb ? `url(${P.coverThumb})` : '' }, 'aria-label': 'Kapak', onclick: (e) => { e.stopPropagation(); app.openCover?.(); } }, h('span', {}, P.coverThumb ? 'Kapak' : '+ Kapak')));
   vrow.append(h('button', { class: 'add-clip', 'data-add': 'clip', style: { left: `${H + lastEnd * pps + 8}px` }, html: I.plus, 'aria-label': 'Medya ekle' }));
   inner.append(vrow);
 

@@ -28,6 +28,8 @@ export const I = {
   plus: s('<path d="M12 5v14M5 12h14"/>'),
   check: s('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
   close: s('<path d="M6 6l12 12M18 6 6 18"/>'),
+  expand: s('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
+  rotate: s('<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 12a9 9 0 0 0 4 7M21 12a9 9 0 0 0-4-7"/>'),
   zoomIn: s('<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M11 8v6M8 11h6"/>'),
   zoomOut: s('<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M8 11h6"/>'),
   more: s('<circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/>'),

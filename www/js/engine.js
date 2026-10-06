@@ -381,6 +381,7 @@ export class Engine {
     if (this.bufMode && this.playing) { if (!el.muted) el.muted = true; }
     else { if (el.muted) el.muted = false; this.setChain(el, vol, o, defRole); }
     if (Math.abs(el.playbackRate - rate) > 0.01) el.playbackRate = rate;
+    el._tgt = this.playing ? null : srcT; // v1.7: kaydırma önizlemesi için hedef zaman
     if (this.playing) {
       if (Math.abs(el.currentTime - srcT) > 0.3) el.currentTime = srcT;
       if (el.paused) { const p = el.play(); if (p && p.catch) p.catch(() => {}); }
@@ -503,7 +504,21 @@ export class Engine {
     if (!this.exporting || P.subs?.burn !== false) drawSubtitles(ctx, P.subs, t, env);
     drawFx(ctx, P.fx, t, this.duration(), env);
 
-    if (!this.exporting) this._drawSelection(ctx, t);
+    if (!this.exporting && !this._noSel) this._drawSelection(ctx, t);
+  }
+
+  // v1.7: proje kapağı için yüksek kaliteli anlık görüntü (seçim çerçevesi olmadan, katmanlarla birlikte)
+  snapshot(maxW = 540) {
+    if (!this.P || !this.canvas.width) return null;
+    try {
+      this._noSel = true; this.draw(this.t);
+      const k = Math.min(1, maxW / this.canvas.width);
+      const c = document.createElement('canvas');
+      c.width = Math.round(this.canvas.width * k); c.height = Math.round(this.canvas.height * k);
+      const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
+      x.drawImage(this.canvas, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.86);
+    } catch (_) { return null; } finally { this._noSel = false; this.requestDraw(); }
   }
 
   // v1.6: stop-motion — kağıt efektleri aktifken kareler tutulur (varsayılan 8 kare/sn)

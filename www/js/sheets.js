@@ -19,7 +19,7 @@ import { transBody, TR_CATS } from './transitions.js';
 import { GL_LIST, transGL } from './gltrans.js';
 import { SOCIAL_TEMPLATES, drawSocial, SOCIAL_FIELDS, SOCIAL_TEMPLATES3, FIELD_META3 } from './social.js';
 import { fontPickerBody, isBundled, fontWeights, ensureProjectFonts } from './fonts.js';
-import { colorTab, chromaTab, audioFxTab, audioToolsTab, slipControl, fxLayerInspector, openStickers } from './ui3.js';
+import { colorTab, chromaTab, audioFxTab, audioToolsTab, slipControl, fxLayerInspector, openStickers, renderCover } from './ui3.js';
 
 // ---------- panel altyapısı (yüzen pencereler: wm.js) ----------
 import * as WM from './wm.js';
@@ -1108,7 +1108,10 @@ export function openExport() {
       out = null;
       try {
         const t0 = performance.now();
-        out = await app.engine.export({ res, fps: opt.fps, bitrate: br, abr, onStage: (s) => { stageEl.textContent = s; },
+        // v1.7: kapak videonun ilk karesine eklenecekse önceden hazırla
+        let coverCanvas = null;
+        if (app.P.cover?.inVideo) { try { coverCanvas = await renderCover(document.createElement('canvas'), true); } catch (_) { coverCanvas = null; } }
+        out = await app.engine.export({ res, fps: opt.fps, bitrate: br, abr, coverCanvas, onStage: (s) => { stageEl.textContent = s; },
           onProgress: (p) => {
             bar.style.width = `${p * 100}%`; pctEl.textContent = `${Math.round(p * 100)}%`;
             const el = (performance.now() - t0) / 1000;

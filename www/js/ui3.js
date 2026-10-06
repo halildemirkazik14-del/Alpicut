@@ -668,50 +668,133 @@ function applyKit(k) {
 }
 
 // ================= KAPAK EDİTÖRÜ =================
-export function openCover() {
-  const P = app.P;
-  if (!P.cover) P.cover = { t: app.engine.t, ratio: P.ratio, darken: 0.25, title: { ...clone(TEXT_BASE), ...clone(TEXT_TEMPLATES[0].p), y: 0.5 } };
-  const C = P.cover;
-  let chain = Promise.resolve();
-  const render = (cv, full = false) => (chain = chain.then(() => renderNow(cv, full)).catch(() => {}));
-  const renderNow = async (cv, full = false) => {
-    const E = app.engine;
-    const [W, H] = RATIOS[C.ratio];
-    const k = full ? 1 : 300 / W;
-    cv.width = Math.round(W * k); cv.height = Math.round(H * k);
-    const ctx = cv.getContext('2d');
-    // video karesini kare ortası kırparak yerleştir
+// ================= KAPAK (v1.7: hazır şablonlar, fotoğraftan kapak, videonun ilk karesine ekleme) =================
+const CT = (id, name, title, o = {}) => ({ id, name, title, ...o });
+// başlık stilleri TEXT_BASE üzerine eklenir; grad: alttan renk geçişi, badge: köşe rozeti, frame: kenarlık, glow: vurgu çemberi
+export const COVER_TEMPLATES = [
+  CT('cv_bold', 'Kalın başlık', { text: 'BUNU *KİMSE* BİLMİYOR', font: 'Bricolage Grotesque', weight: 800, size: 150, color: '#FFFFFF', accent: '#FDE047', strokeW: 14, strokeColor: '#000000', y: 0.72 }, { darken: 0.15, grad: '#000000' }),
+  CT('cv_ai', 'Yapay zekâ', { text: 'YAPAY ZEKÂ\n*BUNU YAPTI*', font: 'Bricolage Grotesque', weight: 800, size: 140, color: '#FFFFFF', accent: '#B9ACF7', strokeW: 0, shadowOn: true, y: 0.7 }, { darken: 0.25, grad: '#16112B', badge: { text: '✨ AI', bg: '#9D8CF2', fg: '#16112B' } }),
+  CT('cv_part', 'Bölüm / seri', { text: 'İSTANBUL\n*GÜNLÜĞÜ*', font: 'Bricolage Grotesque', weight: 800, size: 140, color: '#FFFFFF', accent: '#E9C7A1', strokeW: 0, shadowOn: true, y: 0.74 }, { darken: 0.2, grad: '#000000', badge: { text: 'BÖLÜM 1', bg: '#FFFFFF', fg: '#111111' } }),
+  CT('cv_question', 'Soru sorar', { text: 'BU *DOĞRU* MU?', font: 'Bricolage Grotesque', weight: 800, size: 160, color: '#FFFFFF', accent: '#EF4444', strokeW: 14, strokeColor: '#000000', y: 0.2 }, { darken: 0.1, glow: { x: 0.62, y: 0.52, r: 0.2, color: '#EF4444' } }),
+  CT('cv_recipe', 'Tarif', { text: '10 DAKİKADA\n*MENEMEN*', font: 'Bricolage Grotesque', weight: 800, size: 130, color: '#2B1E17', accent: '#C2603D', strokeW: 0, bgOn: true, bgColor: '#EFE4D6', bgOpacity: 0.95, bgRadius: 26, bgPad: 30, y: 0.78 }, { darken: 0 }),
+  CT('cv_minimal', 'Sade serif', { text: 'Sessiz bir sabah', font: 'Source Serif 4', weight: 600, italic: true, size: 120, color: '#FFFFFF', accent: '#FFFFFF', strokeW: 0, shadowOn: true, y: 0.5 }, { darken: 0.35 }),
+  CT('cv_news', 'Son dakika', { text: 'SON DAKİKA\n*BÜYÜK GELİŞME*', font: 'Bricolage Grotesque', weight: 800, size: 120, color: '#FFFFFF', accent: '#FFFFFF', strokeW: 0, bgOn: true, bgColor: '#DC2626', bgOpacity: 1, bgRadius: 8, bgPad: 26, y: 0.8 }, { darken: 0.1, frame: '#DC2626' }),
+  CT('cv_vs', 'Karşılaştırma', { text: 'A *VS* B', font: 'Bricolage Grotesque', weight: 800, size: 200, color: '#FFFFFF', accent: '#FACC15', strokeW: 16, strokeColor: '#000000', y: 0.5 }, { darken: 0.3, split: true }),
+  CT('cv_money', 'Para / iş', { text: '₺0 → *₺100.000*', font: 'Bricolage Grotesque', weight: 800, size: 130, color: '#FFFFFF', accent: '#22C55E', strokeW: 12, strokeColor: '#000000', y: 0.22 }, { darken: 0.15, grad: '#052E16' }),
+  CT('cv_travel', 'Seyahat', { text: 'KAPADOKYA', font: 'Bricolage Grotesque', weight: 800, size: 190, spacing: 10, color: '#FFFFFF', accent: '#FFFFFF', strokeW: 0, shadowOn: true, y: 0.42 }, { darken: 0.2, badge: { text: '📍 Türkiye', bg: 'rgba(255,255,255,.9)', fg: '#111' } }),
+  CT('cv_top5', 'İlk 5', { text: 'EN İYİ\n*5 UYGULAMA*', font: 'Bricolage Grotesque', weight: 800, size: 140, color: '#FFFFFF', accent: '#FDE047', strokeW: 12, strokeColor: '#000000', y: 0.24 }, { darken: 0.15, badge: { text: 'TOP 5', bg: '#FDE047', fg: '#111' } }),
+  CT('cv_latte', 'Latte saha', { text: 'MAÇIN\n*KIRILMA ANI*', font: 'Bricolage Grotesque', weight: 800, size: 140, color: '#EFE4D6', accent: '#C2603D', strokeW: 0, shadowOn: true, y: 0.74 }, { darken: 0.15, grad: '#2B1E17', frame: '#8B5E3C' }),
+  CT('cv_neon', 'Neon', { text: 'GECE *MODU*', font: 'Bricolage Grotesque', weight: 800, size: 160, color: '#FFFFFF', accent: '#22D3EE', strokeW: 0, glowOn: true, y: 0.5 }, { darken: 0.45, frame: '#22D3EE' }),
+  CT('cv_wedding', 'Düğün / nişan', { text: 'Ayşe & Mert', font: 'Source Serif 4', weight: 600, italic: true, size: 130, color: '#FFFFFF', accent: '#FFFFFF', strokeW: 0, shadowOn: true, y: 0.78 }, { darken: 0.2, grad: '#3B2A20', badge: { text: '12.10.2026', bg: 'rgba(255,255,255,.88)', fg: '#3B2A20' } }),
+  CT('cv_code', 'Kod / teknoloji', { text: 'BUNU\n*KODLADIM*', font: 'Roboto Mono', weight: 700, size: 120, color: '#E9E6EF', accent: '#A5E3B5', strokeW: 0, bgOn: true, bgColor: '#15141B', bgOpacity: 0.92, bgRadius: 20, bgPad: 30, y: 0.72 }, { darken: 0.2, badge: { text: '</>', bg: '#9D8CF2', fg: '#16112B' } }),
+  CT('cv_reaction', 'Tepki', { text: '😱 İNANILMAZ', font: 'Bricolage Grotesque', weight: 800, size: 140, color: '#FFFFFF', accent: '#FFFFFF', strokeW: 14, strokeColor: '#000000', y: 0.82 }, { darken: 0.05, glow: { x: 0.5, y: 0.42, r: 0.26, color: '#FDE047' } }),
+];
+
+function coverDefaults(P) {
+  return { t: app.engine.t, ratio: P.ratio, darken: 0.25, src: 'frame', img: null, inVideo: false, grad: null, badge: null, frame: null, glow: null, split: false, title: { ...clone(TEXT_BASE), ...clone(TEXT_TEMPLATES[0].p), y: 0.5 } };
+}
+
+// kapak tuvalini çiz (full=true: tam çözünürlük)
+export async function renderCover(cv, full = false) {
+  const P = app.P, C = P.cover;
+  const E = app.engine;
+  const [W, H] = RATIOS[C.ratio];
+  const k = full ? 1 : 300 / W;
+  cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const img = C.src === 'photo' && C.img ? E.imgForMedia(C.img) : null;
+  if (img) {
+    if (!img.complete) await new Promise((r) => { img.onload = r; img.onerror = r; setTimeout(r, 3000); });
+    const s = Math.max(cv.width / img.naturalWidth, cv.height / img.naturalHeight);
+    ctx.drawImage(img, (cv.width - img.naturalWidth * s) / 2, (cv.height - img.naturalHeight * s) / 2, img.naturalWidth * s, img.naturalHeight * s);
+  } else if (P.clips.length || P.layers.length) {
     const old = E.scale, oldT = E.t;
-    E.exporting = true; E.resize(full ? 1 : 0.5);
+    E._noSel = true; E.resize(full ? 1 : 0.5);
     E.seek(C.t);
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 300));
     E.draw(C.t);
     const src = E.canvas;
     const sr = src.width / src.height, dr = cv.width / cv.height;
     let sw = src.width, sh = src.height;
     if (sr > dr) sw = sh * dr; else sh = sw / dr;
     ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, cv.width, cv.height);
-    E.exporting = false; E.resize(old); E.seek(oldT); app.fitStage();
-    ctx.fillStyle = `rgba(0,0,0,${C.darken})`; ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.save();
-    ctx.scale(k, k);
-    ctx.translate(C.title.x * W, C.title.y * H);
-    drawText(ctx, C.title, { alpha: 1, reveal: 1, glow: 0, sc: 1 }, { W, H, S: k });
-    ctx.restore();
-  };
+    E._noSel = false; E.resize(old); E.seek(oldT); app.fitStage();
+  }
+  if (C.split) { ctx.fillStyle = 'rgba(239,68,68,.35)'; ctx.fillRect(0, 0, cv.width / 2, cv.height); ctx.fillStyle = 'rgba(37,99,235,.35)'; ctx.fillRect(cv.width / 2, 0, cv.width / 2, cv.height); }
+  ctx.fillStyle = `rgba(0,0,0,${C.darken})`; ctx.fillRect(0, 0, cv.width, cv.height);
+  if (C.grad) {
+    const g = ctx.createLinearGradient(0, cv.height * 0.35, 0, cv.height);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, C.grad);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+  }
+  ctx.save(); ctx.scale(k, k);
+  if (C.glow) {
+    ctx.strokeStyle = C.glow.color; ctx.lineWidth = 18; ctx.shadowColor = C.glow.color; ctx.shadowBlur = 40;
+    ctx.beginPath(); ctx.arc(C.glow.x * W, C.glow.y * H, C.glow.r * W, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
+  }
+  if (C.frame) { ctx.strokeStyle = C.frame; ctx.lineWidth = 28; ctx.strokeRect(14, 14, W - 28, H - 28); }
+  if (C.badge?.text) {
+    ctx.font = '800 54px "Bricolage Grotesque", sans-serif';
+    const bw = ctx.measureText(C.badge.text).width + 60;
+    ctx.fillStyle = C.badge.bg || '#fff';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(60, 90, bw, 96, 48) : ctx.rect(60, 90, bw, 96); ctx.fill();
+    ctx.fillStyle = C.badge.fg || '#111'; ctx.textBaseline = 'middle'; ctx.fillText(C.badge.text, 90, 140); ctx.textBaseline = 'alphabetic';
+  }
+  ctx.translate(C.title.x * W, C.title.y * H);
+  drawText(ctx, C.title, { alpha: 1, reveal: 1, glow: 0, sc: 1 }, { W, H, S: k });
+  ctx.restore();
+  return cv;
+}
+
+// proje kartındaki küçük kapak
+async function updateCoverThumb() {
+  try { const c = document.createElement('canvas'); await renderCover(c, false); app.P.coverThumb = c.toDataURL('image/jpeg', 0.86); app.renderTimeline?.(); } catch (_) { /* yoksay */ }
+}
+
+export function openCover(tab) {
+  const P = app.P;
+  if (!P.cover) P.cover = coverDefaults(P);
+  const C = P.cover;
+  let chain = Promise.resolve();
+  const render = (cv, full = false) => (chain = chain.then(() => renderCover(cv, full)).then(() => { if (!full) updateCoverThumb(); }).catch(() => {}));
   openSheet({
-    title: 'Kapak (thumbnail)', tall: true, tabs: ['Kapak', 'Yazı'],
-    render: (body, tab) => {
+    id: 'cover', title: 'Kapak', tall: true, tabs: ['Şablonlar', 'Kapak', 'Yazı'], tab: tab || 'Şablonlar',
+    render: (body, tb) => {
       const cv = h('canvas', { class: 'cover-cv' });
       body.append(cv);
-      if (tab === 'Kapak') {
+      if (tb === 'Şablonlar') {
+        body.append(h('p', { class: 'hint' }, 'Bir şablona dokun; yazıyı ve renkleri sonra değiştirebilirsin.'));
+        const g = h('div', { class: 'cover-grid' });
+        COVER_TEMPLATES.forEach((tp) => {
+          g.append(h('button', { class: `cover-tpl${C.tpl === tp.id ? ' on' : ''}`, onclick: () => {
+            C.tpl = tp.id;
+            C.title = { ...clone(TEXT_BASE), ...clone(tp.title), x: 0.5 };
+            ['darken', 'grad', 'badge', 'frame', 'glow', 'split'].forEach((key) => { C[key] = key in tp ? clone(tp[key]) : (key === 'darken' ? 0.2 : key === 'split' ? false : null); });
+            app.change(true); refreshSheet();
+          } }, h('span', { class: 'ct-prev', style: { background: tp.grad ? `linear-gradient(transparent, ${tp.grad})` : '#2A2833' } }, h('i', { style: { color: tp.title.color, fontFamily: `"${tp.title.font}"`, fontStyle: tp.title.italic ? 'italic' : 'normal' } }, (tp.title.text || '').replace(/\*/g, '').split('\n')[0].slice(0, 12))), h('b', {}, tp.name)));
+        });
+        body.append(g);
+      } else if (tb === 'Kapak') {
         body.append(fields(C, [
+          { label: 'Arka plan', path: 'src', type: 'chips', options: [['frame', 'Videodan kare'], ['photo', 'Fotoğraf']], post: () => refreshSheet() },
           { label: 'Oran', path: 'ratio', type: 'chips', options: Object.keys(RATIOS).map((r) => [r, r]), post: () => render(cv) },
           { label: 'Karartma', path: 'darken', type: 'range', min: 0, max: 0.8, fmt: pct, post: () => render(cv) },
+          { label: 'Videonun ilk karesine ekle', path: 'inVideo', type: 'toggle' },
         ]));
+        if (C.src === 'photo') {
+          body.append(h('div', { class: 'btn-row' }, h('button', { class: 'btn', html: `${I.media} Fotoğraf seç`, onclick: async () => {
+            const files = await app.pickFiles('image/*', false);
+            if (!files.length) return;
+            const recs = await app.importFiles(files);
+            if (recs[0]) { C.img = recs[0].id; app.change(true); refreshSheet(); }
+          } }, C.img ? 'Fotoğrafı değiştir' : 'Fotoğraf seç')));
+        } else {
+          body.append(h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { C.t = app.engine.t; render(cv); app.change(true); } }, 'Oynatıcıdaki kareyi kullan')));
+          body.append(h('p', { class: 'hint' }, `Kare: ${fmt(C.t)}. Zaman çizelgesini kaydırıp istediğin kareye gel, sonra dokun.`));
+        }
         body.append(h('div', { class: 'btn-row' },
-          h('button', { class: 'btn', onclick: () => { C.t = app.engine.t; render(cv); app.change(true); } }, 'Oynatıcıdaki kareyi kullan'),
-          h('button', { class: 'btn primary', html: `${I.export} PNG kaydet`, onclick: async () => {
+          h('button', { class: 'btn primary', html: `${I.export} Kapağı PNG kaydet`, onclick: async () => {
             const b = busy('Kapak hazırlanıyor…');
             try {
               const big = document.createElement('canvas');
@@ -720,14 +803,14 @@ export function openCover() {
               const r = await saveVideo(blob, `Alpicut_kapak_${C.ratio.replace(':', 'x')}.png`, { share: true });
               toast(r.where ? `${r.where} klasörüne kaydedildi` : 'Kapak kaydedildi');
             } finally { b.close(); }
-          } })));
-        body.append(h('p', { class: 'hint' }, `Kare: ${fmt(C.t)}. Kapak videodan ayrı saklanır; kurguyu değiştirmez.`));
+          } }),
+          h('button', { class: 'btn danger', onclick: () => { delete P.cover; delete P.coverThumb; app.change(true); closeSheet(); app.renderTimeline?.(); toast('Kapak kaldırıldı'); } }, 'Kaldır')));
       } else {
-        const tc = h('div', { class: 'chips' });
-        TEXT_TEMPLATES.forEach((tp) => tc.append(h('button', { onclick: () => { const keepText = C.title.text; C.title = { ...clone(TEXT_BASE), ...clone(tp.p), text: keepText, y: C.title.y }; app.change(true); refreshSheet(); } }, tp.name)));
-        body.append(h('div', { class: 'field full' }, h('label', {}, 'Stil'), tc));
+        const tc = h('div', { class: 'chips scroll' });
+        TEXT_TEMPLATES.slice(0, 40).forEach((tp) => tc.append(h('button', { onclick: () => { const keepText = C.title.text; C.title = { ...clone(TEXT_BASE), ...clone(tp.p), text: keepText, y: C.title.y, x: 0.5 }; app.change(true); refreshSheet(); } }, tp.name)));
+        body.append(h('div', { class: 'field full' }, h('label', {}, 'Yazı stili'), tc));
         body.append(fields(C.title, [
-          { label: 'Başlık', path: 'text', type: 'textarea', post: () => render(cv) },
+          { label: 'Başlık (*kelime* = vurgu)', path: 'text', type: 'textarea', post: () => render(cv) },
           { label: 'Boyut', path: 'size', type: 'range', min: 40, max: 300, step: 1, post: () => render(cv) },
           { label: 'Dikey konum', path: 'y', type: 'range', min: 0.05, max: 0.95, fmt: pct, post: () => render(cv) },
           { label: 'Renk', path: 'color', type: 'color', post: () => render(cv) },

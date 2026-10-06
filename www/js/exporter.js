@@ -61,6 +61,7 @@ class FrameFeed {
       const ts = [];
       for (let f = v.f0; f <= v.f1; f++) ts.push(Math.max(0, Math.min(v.max - 0.001, v.at(f / this.fps))) + first);
       this.it = sink.canvasesAtTimestamps(ts);
+      this.sink = sink; this.first = first;
       this.mode = 'codec';
       return;
     } catch (_) {
@@ -79,6 +80,10 @@ class FrameFeed {
     if (this.mode === 'codec') {
       const r = await this.it.next();
       if (r.value && r.value.canvas) this.canvas = r.value.canvas;
+      // v1.7: istenen zamanda kare yoksa (ilk kare zaman damgası > 0) baş/son siyah kare yerine en yakın kare
+      if (!this.canvas && this.sink) {
+        try { const w = await this.sink.getCanvas(this.first); if (w?.canvas) { const c = document.createElement('canvas'); c.width = w.canvas.width; c.height = w.canvas.height; c.getContext('2d').drawImage(w.canvas, 0, 0); this.canvas = c; } } catch (_) { /* yoksay */ }
+      }
       return this.canvas;
     }
     const el = this.el;
@@ -125,7 +130,7 @@ export async function canOffline(w, h, bitrate) {
   return !!(await pickVideoCodec(w, h, bitrate));
 }
 
-export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6, abr = 192000, onProgress, onStage, shouldCancel } = {}) {
+export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6, abr = 192000, onProgress, onStage, shouldCancel, coverCanvas = null } = {}) {
   const P = engine.P;
   const dur = projectDuration(P);
   const N = Math.max(1, Math.round(dur * fps));
@@ -201,6 +206,8 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
       engine.offAnalyser?.setTime(t);
       if (f === 0) engine._smK = null;
       if (!engine.holdSkip(t)) engine.draw(t);
+      // v1.7: kapak ilk 2 karede (platformlar ilk kareyi kapak gösterir)
+      if (coverCanvas && f < 2) { const x = engine.ctx; x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(coverCanvas, 0, 0, engine.canvas.width, engine.canvas.height); x.restore(); }
       await vsrc.add(t, 1 / fps);
       onProgress?.(0.12 + 0.86 * ((f + 1) / N));
     }
