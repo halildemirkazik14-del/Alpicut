@@ -1,0 +1,20 @@
+newProject "ok"
+REQFAIL blob:http://localhost:8091/26f2cc60-69cf-4bef-b5d4-cd9d93dcfcd0 net::ERR_ABORTED [media]
+media {"n":2,"dur":17}
+tapHold {"afterTap":{"pop":false,"quick":6,"hasSel":true},"afterHold":true,"viaMore":true}
+toolCats {"Alpi-co":{"sub":11,"panels":["Alpi-co"],"err":0},"Yapay zekâ":{"sub":11,"panels":[],"err":0},"Motion":{"sub":11,"panels":[],"err":0},"Metin":{"sub":11,"panels":[],"err":0},"Ses":{"sub":11,"panels":[],"err":0},"Efekt":{"sub":11,"panels":[],"err":0},"Sosyal":{"sub":11,"panels":["Sosyal medya · 104"]
+threePanels {"open":3,"afterPreviewTap":3,"minimizedAfterTimeline":3,"dock":["Tümü","Sosyal medya şablonları","Filtreler · 190","Alpi-co"],"restored":2}
+keyframes {"curves":12}
+slider {"before":"100%","after":"138%"}
+socialRender {"n":48,"bad":[]}
+motion4 {"n":266,"bad":[],"hub":12,"cd":88}
+socialShots "ok"
+effects {"n":82,"bad":[],"glBroken":[],"glProgs":32}
+sfx {"n":42,"bad":[]}
+themes "ok"
+alpico {"issues":["İlk 2 saniyede dikkat çeken bir başlık (hook) yok — izleyici kaydırıp geçebilir.","Konuşma var ama altyazı yok — sessiz izleyenler için altyazı önerilir."],"z":"Darbe zoom eklendi (1.0 sn)","t":"“TEST HOOK” yazısı eklendi (0.0 sn)","tr":"1 kesime “flash” geçişi eklendi"}
+timelineEnd {"dur":37.5,"t":37.5,"maxScroll":2625,"expected":2625}
+export {"size":2622851,"ext":"mp4","ms":3772,"dur":16.6}
+exportRange {"frames":45,"size":287674}
+detachAudio {"added":1,"muted":true,"len":13,"clipLen":13,"toast":"Ses ayrıldı — artık ayrı bir iz: kes, kaydır, temizle"}
+HATALAR 0 
