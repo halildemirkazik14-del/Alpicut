@@ -7,7 +7,7 @@ import { openSheet, refreshSheet } from './sheets.js';
 import { drawSubtitles } from './render.js';
 import { SUB_BASE } from './presets.js';
 import { star, favIds, registerFav } from './favs.js';
-import { ensureProjectFonts } from './fonts.js';
+import { ensureProjectFonts, ensureFont, isBundled } from './fonts.js';
 
 // s: stil (render.js capStyle alanları)
 export const CAPTION_TEMPLATES = [
@@ -52,10 +52,34 @@ export const CAPTION_TEMPLATES = [
   { id: 'c_silver', name: 'Gümüş ince', cat: 'Lüks', s: { font: 'Barlow', weight: 600, size: 58, color: '#E5E7EB', accent: '#FFFFFF', strokeW: 0, shadow: 0.8, mode: 'line', hl: 'scale', anim: 'fade', upper: true, spacing: 6 } },
 ];
 
-export const CAP_CATS = ['Popüler', 'Kutulu', 'Sade', 'Enerjik', 'Lüks'];
+// v1.10: Şiir & Edebiyat — şiir, edebiyat, alıntı ve sesli kitap kanalları için yavaş, zarif kinetik tipografi.
+// Google fontları ilk seçimde indirilir; internet yoksa "fallback" paketli fonta düşer.
+const PS = { strokeW: 0, mode: 'line', maxLines: 3, maxW: 0.86, upper: false, lineH: 1.3 };
+CAPTION_TEMPLATES.push(
+  { id: 'p_blur', name: 'Bulanıktan netleşen', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Cormorant Garamond', fallback: 'Playfair Display', weight: 600, italic: true, size: 80, color: '#F5EFE6', accent: '#E8C27A', shadow: 0.7, hl: 'none', anim: 'blurin' } },
+  { id: 'p_ink', name: 'Mürekkep el yazısı', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Caveat', weight: 700, size: 92, color: '#FFFFFF', accent: '#F3DFA2', shadow: 0.6, hl: 'none', anim: 'ink' } },
+  { id: 'p_script', name: 'Zarif el yazısı', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Dancing Script', fallback: 'Caveat', weight: 600, size: 86, color: '#FDF6E3', accent: '#F3DFA2', glow: 10, glowColor: '#8A6A2A', hl: 'none', anim: 'ink' } },
+  { id: 'p_gold', name: 'Altın tozu', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Playfair Display', weight: 600, italic: true, size: 72, color: '#F3DFA2', accent: '#FFF7D6', glow: 10, glowColor: '#B8860B', hl: 'none', anim: 'letters', spacing: 0.5 } },
+  { id: 'p_type', name: 'İmleçli daktilo', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Courier Prime', fallback: 'Roboto Mono', weight: 700, size: 58, color: '#EDE6D6', accent: '#EDE6D6', shadow: 0.6, hl: 'none', anim: 'typecursor' } },
+  { id: 'p_breathe', name: 'Nefes alan dize', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'EB Garamond', fallback: 'Playfair Display', weight: 500, size: 74, color: '#FFFFFF', accent: '#FFFFFF', shadow: 0.7, hl: 'soft', anim: 'breathe' } },
+  { id: 'p_paper', name: 'Eski defter', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Lora', fallback: 'Merriweather', weight: 600, size: 58, color: '#2B1E17', accent: '#8B5E3C', shadow: 0, box: 'paper', boxColor: '#F3EAD8', boxOpacity: 0.96, boxPad: 26, boxRadius: 6, hl: 'italic', anim: 'rise' } },
+  { id: 'p_latte', name: 'Latte dize', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Cormorant Garamond', fallback: 'Playfair Display', weight: 700, size: 78, color: '#EFE4D6', accent: '#C2603D', shadow: 0.8, hl: 'italic', anim: 'rise' } },
+  { id: 'p_night', name: 'Gece mavisi', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Cormorant Garamond', fallback: 'Playfair Display', weight: 500, italic: true, size: 80, color: '#DCE6F5', accent: '#FFFFFF', glow: 18, glowColor: '#5B7DB8', hl: 'none', anim: 'blurin' } },
+  { id: 'p_sign', name: 'Dize + şair imzası', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Playfair Display', weight: 700, italic: true, size: 70, color: '#FFFFFF', accent: '#E8C27A', shadow: 0.8, hl: 'soft', anim: 'breathe', sign: 'Şair adı' } },
+  { id: 'p_minimal', name: 'Minimal edebiyat', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Lora', fallback: 'Merriweather', weight: 400, size: 56, color: '#FFFFFF', accent: '#FFFFFF', shadow: 0.6, spacing: 1, hl: 'soft', anim: 'rise' } },
+  { id: 'p_divan', name: 'Divan altını', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'EB Garamond', fallback: 'Playfair Display', weight: 600, size: 76, color: '#F7EBD0', accent: '#E3B341', glowColor: '#E3B341', shadow: 0.7, hl: 'italic', anim: 'letters' } },
+  { id: 'p_letter', name: 'Sepya mektup', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Merriweather', weight: 400, italic: true, size: 56, color: '#E9D8B4', accent: '#FFF3D6', shadow: 0.8, hl: 'soft', anim: 'ink' } },
+  { id: 'p_whisper', name: 'Fısıltı', cat: 'Şiir & Edebiyat', s: { ...PS, font: 'Source Serif 4', weight: 300, italic: true, size: 54, color: '#F1EDE6', accent: '#FFFFFF', shadow: 0.7, spacing: 2, hl: 'none', anim: 'blurin' } },
+);
+
+export const CAP_CATS = ['Popüler', 'Şiir & Edebiyat', 'Kutulu', 'Sade', 'Enerjik', 'Lüks'];
 
 const SAMPLE = { start: 0, end: 3, text: 'Bu an her şeyi değiştirdi', words: [
   { t: 'Bu', s: 0, e: 0.4 }, { t: 'an', s: 0.4, e: 0.8 }, { t: 'her', s: 0.8, e: 1.1 }, { t: 'şeyi', s: 1.1, e: 1.7 }, { t: 'değiştirdi', s: 1.7, e: 2.6 },
+] };
+// şiir şablonlarının önizlemesi için özgün bir dize
+const VERSE = { start: 0, end: 3, text: 'Gece uzun, kalbim yine sende kaldı', words: [
+  { t: 'Gece', s: 0, e: 0.4 }, { t: 'uzun,', s: 0.4, e: 0.9 }, { t: 'kalbim', s: 0.9, e: 1.4 }, { t: 'yine', s: 1.4, e: 1.7 }, { t: 'sende', s: 1.7, e: 2.1 }, { t: 'kaldı', s: 2.1, e: 2.7 },
 ] };
 
 function preview(tpl, w = 300) {
@@ -71,10 +95,14 @@ function preview(tpl, w = 300) {
     x.setTransform(S, 0, 0, S, 0, 0);
     // önizlemede tüm grup görünsün (kelime kelime belirme animasyonu durağan karede boş görünür)
     const style = { ...clone(SUB_BASE.style), ...tpl.s, y: 0.5, maxW: 0.92, anim: 'none' };
-    drawSubtitles(x, { cues: [SAMPLE], style, offset: 0 }, 1.0, { W, H, S, exporting: true });
+    const poem = tpl.cat === 'Şiir & Edebiyat';
+    if (poem) { style.maxLines = 2; style.size = Math.min(style.size, 66); }
+    drawSubtitles(x, { cues: [poem ? VERSE : SAMPLE], style, offset: 0 }, poem ? 1.2 : 1.0, { W, H, S, exporting: true });
   };
   draw();
-  if (document.fonts) document.fonts.load(`${tpl.s.weight || 700} 40px "${tpl.s.font}"`).then(draw).catch(() => {});
+  const it = tpl.s.italic || tpl.s.hl === 'italic';
+  if (!isBundled(tpl.s.font)) ensureFont(tpl.s.font, null, it).then(draw).catch(() => {});
+  else if (document.fonts) document.fonts.load(`${it ? 'italic ' : ''}${tpl.s.weight || 700} 40px "${tpl.s.font}"`).then(draw).catch(() => {});
   return cv;
 }
 

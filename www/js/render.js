@@ -1051,7 +1051,9 @@ export function drawSubtitles(ctx, subs, t, env) {
   if (st.mode === 'single') show = [words[cur]];
   let size = st.size * (st.mode === 'single' ? (st.scale || 1.5) : (st.scale || 1));
   ctx.save();
-  const font = (sz) => `${st.italic ? 'italic ' : ''}${st.weight} ${sz}px "${st.font}", "Barlow", sans-serif`;
+  const font = (sz, it = st.italic) => `${it ? 'italic ' : ''}${st.weight} ${sz}px "${st.font}", ${st.fallback ? `"${st.fallback}", ` : ''}"Barlow", sans-serif`;
+  // v1.10: şiir & edebiyat animasyonları (yavaş, zarif; dize sonunda yumuşak kararma)
+  const poet = POET_ANIMS.has(st.anim);
   try { ctx.letterSpacing = `${st.spacing || 0}px`; } catch (_) { /* yoksay */ }
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
   const maxW = (st.maxW || 0.84) * W;
@@ -1083,16 +1085,35 @@ export function drawSubtitles(ctx, subs, t, env) {
   ctx.translate(cx, cy);
   if (st.rot) ctx.rotate((st.rot * Math.PI) / 180);
   if (st.anim === 'pop') { const k = 0.82 + 0.18 * easeOutBack(clamp(age / 0.2)); ctx.scale(k, k); }
+  if (st.anim === 'breathe') { const k = 1.05 - 0.05 * easeOutCubic(clamp(age / 1.4)) + 0.006 * Math.sin(age * 1.8); ctx.scale(k, k); }
   if (st.anim === 'slide') ctx.translate(0, (1 - easeOutCubic(pin)) * size * 0.5);
   ctx.translate(-cx, -cy);
-  ctx.globalAlpha = st.anim === 'none' ? 1 : pin;
+  ctx.globalAlpha = st.anim === 'none' ? 1 : poet
+    ? easeOutCubic(clamp(age / (st.anim === 'breathe' ? 0.9 : 0.35))) * clamp((cue.end - tt) / 0.45)
+    : pin;
+  const baseA = ctx.globalAlpha;
   const pad = (st.boxPad ?? 18);
   if (st.box === 'block') {
     const bw = Math.max(...lines.map((l) => l.w)) + pad * 2;
     ctx.fillStyle = hexA(st.boxColor || '#000', st.boxOpacity ?? 0.72);
     roundRect(ctx, cx - bw / 2, top - pad * 0.5, bw, lines.length * lh + pad, st.boxRadius ?? 14); ctx.fill();
   }
-  const reveal = st.anim === 'typewriter' || st.anim === 'pop' || st.anim === 'words';
+  if (st.box === 'paper') { // eski defter kâğıdı: sıcak krem kart, ince doku, yumuşak gölge
+    const bw = Math.max(...lines.map((l) => l.w)) + pad * 3, bh = lines.length * lh + pad * 2 + (st.sign ? size * 0.9 : 0);
+    const bx = cx - bw / 2, by = top - pad;
+    ctx.save();
+    ctx.shadowColor = 'rgba(30,18,10,.35)'; ctx.shadowBlur = 24 * S; ctx.shadowOffsetY = 8 * S;
+    ctx.fillStyle = hexA(st.boxColor || '#F3EAD8', st.boxOpacity ?? 0.96);
+    roundRect(ctx, bx, by, bw, bh, st.boxRadius ?? 6); ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.clip();
+    ctx.globalAlpha = baseA * 0.07; const gc = getGrain();
+    for (let gx = bx; gx < bx + bw; gx += 256) for (let gy = by; gy < by + bh; gy += 256) ctx.drawImage(gc, gx, gy);
+    ctx.globalAlpha = baseA * 0.18; ctx.strokeStyle = '#7A5A3A'; ctx.lineWidth = Math.max(1, 1.5 * S);
+    for (let i = 1; i <= lines.length; i++) { const ly = top + i * lh - lh * 0.12; ctx.beginPath(); ctx.moveTo(bx + pad, ly); ctx.lineTo(bx + bw - pad, ly); ctx.stroke(); }
+    ctx.restore();
+  }
+  const reveal = st.anim === 'typewriter' || st.anim === 'pop' || st.anim === 'words' || (poet && st.anim !== 'breathe');
   lines.forEach((ln, li) => {
     let x = cx - ln.w / 2;
     const y = top + li * lh + lh / 2;
@@ -1107,8 +1128,17 @@ export function drawSubtitles(ctx, subs, t, env) {
       if (reveal && !spoken && st.mode !== 'single') { x += w.w + spaceW; return; }
       let sc = 1;
       if (st.anim === 'pop' || st.anim === 'words') { const wp = clamp((tt - w.s) / 0.12); sc = 0.65 + 0.35 * easeOutBack(wp); }
+      // şiir animasyonlarında kelimenin kendi ilerlemesi
+      const wd = Math.max(0.05, (w.e || w.s + 0.4) - w.s);
+      const pd = { blurin: 0.55, rise: 0.6, ink: Math.min(0.7, Math.max(0.3, wd)), letters: Math.min(0.9, Math.max(0.25, wd)), typecursor: Math.min(0.8, Math.max(0.15, wd * 0.9)) }[st.anim] || 0.3;
+      const wp = poet ? clamp((tt - w.s) / pd) : 1, we = easeOutCubic(wp);
       if (active && st.hl === 'scale') sc *= 1.16;
       ctx.save();
+      if (st.anim === 'rise') ctx.translate(0, (1 - we) * size * 0.35);
+      if (st.anim === 'blurin' || st.anim === 'rise') ctx.globalAlpha = baseA * we;
+      if (st.anim === 'blurin' && we < 1) { try { ctx.filter = `blur(${((1 - we) * 12 * S).toFixed(2)}px)`; } catch (_) { /* yoksay */ } }
+      if (st.hl === 'soft' && !spoken) ctx.globalAlpha = baseA * 0.32;
+      if (st.anim === 'ink' && wp < 1) { ctx.beginPath(); ctx.rect(x - size * 0.2, y - size, (w.w + size * 0.3) * we + size * 0.05, size * 2); ctx.clip(); }
       ctx.translate(x + w.w / 2, y); ctx.scale(sc, sc); ctx.translate(-w.w / 2, 0);
       // etkin kelime vurgusu (kutu / alt çizgi)
       if (active && st.hl === 'box') {
@@ -1121,17 +1151,66 @@ export function drawSubtitles(ctx, subs, t, env) {
       else if (active && (st.hl === 'color' || st.hl === 'scale' || st.hl === 'glow')) fill = st.accent;
       else if (active && st.hl === 'box') fill = st.hlText || '#111';
       else if (past && st.pastColor) fill = st.pastColor;
-      if (st.strokeW > 0 && !(active && st.hl === 'box')) { ctx.strokeStyle = st.strokeColor; ctx.lineWidth = st.strokeW; ctx.strokeText(w.t, 0, 0); }
-      if (st.glow > 0 || (active && st.hl === 'glow')) { ctx.shadowColor = st.glowColor || st.accent; ctx.shadowBlur = (st.glow > 0 ? st.glow : 30) * S * 1.4; }
-      else if (st.shadow > 0) { ctx.shadowColor = `rgba(0,0,0,${0.35 + st.shadow * 0.4})`; ctx.shadowBlur = 14 * st.shadow * S; ctx.shadowOffsetY = 3 * st.shadow * S; }
+      else if (active && st.hl === 'italic') { fill = st.accent; ctx.font = font(size, true); }
+      const doStroke = st.strokeW > 0 && !(active && st.hl === 'box');
+      const setShadow = () => {
+        if (st.glow > 0 || (active && st.hl === 'glow')) { ctx.shadowColor = st.glowColor || st.accent; ctx.shadowBlur = (st.glow > 0 ? st.glow : 30) * S * 1.4; }
+        else if (st.shadow > 0) { ctx.shadowColor = `rgba(0,0,0,${0.35 + st.shadow * 0.4})`; ctx.shadowBlur = 14 * st.shadow * S; ctx.shadowOffsetY = 3 * st.shadow * S; }
+      };
       ctx.fillStyle = fill;
-      ctx.fillText(w.t, 0, 0);
+      if (st.anim === 'letters' || st.anim === 'typecursor') {
+        // harf harf: her harf kendi zamanında belirir; altın tozu ya da yanıp sönen imleç
+        const chars = [...w.t], n = chars.length, k = wp * n, a0 = ctx.globalAlpha;
+        let px = 0, lead = null;
+        for (let i = 0; i < n; i++) {
+          const ci = st.anim === 'typecursor' ? (k >= i + 1 ? 1 : 0) : clamp(k - i);
+          const cw = ctx.measureText(chars[i]).width;
+          if (ci > 0) {
+            ctx.save();
+            ctx.globalAlpha = a0 * ci;
+            if (st.anim === 'letters') ctx.translate(0, (1 - easeOutCubic(ci)) * size * 0.18);
+            if (doStroke) { ctx.strokeStyle = st.strokeColor; ctx.lineWidth = st.strokeW; ctx.strokeText(chars[i], px, 0); }
+            setShadow(); ctx.fillText(chars[i], px, 0);
+            ctx.restore();
+            if (ci < 1 || i === n - 1 || (st.anim === 'typecursor' && k < i + 2)) lead = { x: px + cw, p: ci };
+          }
+          px += cw;
+        }
+        if (st.anim === 'letters' && st.dust !== false && wp < 1 && lead) {
+          ctx.save(); ctx.fillStyle = st.glowColor || st.accent || '#F3DFA2'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 8 * S;
+          for (let j = 0; j < 7; j++) {
+            const r = Math.sin((w.s * 97 + j * 13.7) * 12.9898) * 43758.5453, fr = r - Math.floor(r);
+            const life = clamp(wp * 3 - j * 0.12);
+            ctx.globalAlpha = a0 * (1 - wp) * (0.4 + 0.6 * fr);
+            ctx.beginPath(); ctx.arc(lead.x - fr * size * 0.6 * life, -size * 0.1 - (fr - 0.3) * size * 0.9 * life, (1.2 + fr * 2.2) * S, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+        }
+        if (st.anim === 'typecursor' && (active || (idx === words.length - 1 && wp >= 1)) && Math.sin(tt * 9) > -0.2) {
+          ctx.fillRect((lead ? lead.x : 0) + size * 0.04, -size * 0.42, Math.max(2, size * 0.06), size * 0.84);
+        }
+      } else {
+        if (doStroke) { ctx.strokeStyle = st.strokeColor; ctx.lineWidth = st.strokeW; ctx.strokeText(w.t, 0, 0); }
+        setShadow();
+        ctx.fillText(w.t, 0, 0);
+      }
       ctx.restore();
+      if (active && st.hl === 'italic') ctx.font = font(size);
       x += w.w + spaceW;
     });
   });
+  // şair adı / imza
+  if (st.sign) {
+    const ss = Math.max(size * 0.5, 22 * S);
+    ctx.globalAlpha = baseA * 0.9;
+    ctx.font = `italic ${Math.min(600, st.weight)} ${ss}px "${st.font}", ${st.fallback ? `"${st.fallback}", ` : ''}serif`;
+    ctx.textAlign = 'center'; ctx.fillStyle = st.signColor || st.accent || st.color;
+    if (st.shadow > 0 && st.box !== 'paper') { ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 10 * S; }
+    ctx.fillText(`— ${st.sign}`, cx, top + lines.length * lh + ss * 1.1);
+  }
   ctx.restore();
 }
+const POET_ANIMS = new Set(['blurin', 'ink', 'letters', 'breathe', 'rise', 'typecursor']);
 
 // ---------- Genel efektler ----------
 let grainCanvas = null;

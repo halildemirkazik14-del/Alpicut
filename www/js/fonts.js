@@ -32,24 +32,28 @@ const loaded = new Map(); // family -> Promise
 export function isBundled(f) { return bundledSet.has(f); }
 
 // Google Fonts'tan aileyi yükle (paketliyse hiçbir şey yapma)
-export function ensureFont(family, weights) {
+export function ensureFont(family, weights, italic = false) {
   if (!family || bundledSet.has(family)) return Promise.resolve(true);
-  if (loaded.has(family)) return loaded.get(family);
+  const key = italic ? `${family}|i` : family;
+  if (loaded.has(key)) return loaded.get(key);
   const meta = catalog?.find((x) => x.f === family);
   const ws = (weights || meta?.w || [400, 700]).filter((w) => w >= 100 && w <= 900);
   const list = [...new Set(ws.length ? ws : [400])].sort((a, b) => a - b);
-  const url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}:wght@${list.join(';')}&display=swap`;
+  const fam = encodeURIComponent(family).replace(/%20/g, '+');
+  // v1.10: italik isteniyorsa gerçek italik kesimleri de indir (yoksa düz kesime düş)
+  const axis = italic ? `ital,wght@${[...list.map((w) => `0,${w}`), ...list.map((w) => `1,${w}`)].join(';')}` : `wght@${list.join(';')}`;
+  const url = `https://fonts.googleapis.com/css2?family=${fam}:${axis}&display=swap`;
   const p = new Promise((resolve) => {
     const link = document.createElement('link');
     link.rel = 'stylesheet'; link.href = url;
     link.onload = async () => {
-      try { await Promise.all(list.map((w) => document.fonts.load(`${w} 40px "${family}"`, 'AğŞİçö'))); } catch (_) { /* yoksay */ }
+      try { await Promise.all(list.map((w) => document.fonts.load(`${italic ? 'italic ' : ''}${w} 40px "${family}"`, 'AğŞİçö'))); } catch (_) { /* yoksay */ }
       resolve(true);
     };
-    link.onerror = () => { loaded.delete(family); resolve(false); };
+    link.onerror = () => { loaded.delete(key); link.remove(); resolve(italic ? ensureFont(family, weights, false) : false); };
     document.head.appendChild(link);
   });
-  loaded.set(family, p);
+  loaded.set(key, p);
   return p;
 }
 
@@ -67,9 +71,11 @@ function previewFont(family) {
 export async function ensureProjectFonts(P) {
   const fams = new Set();
   P.layers.forEach((l) => { if (l.font) fams.add(l.font); if (l.title?.font) fams.add(l.title.font); });
-  if (P.subs?.style?.font) fams.add(P.subs.style.font);
   if (P.cover?.title?.font) fams.add(P.cover.title.font);
-  const res = await Promise.all([...fams].map((f) => ensureFont(f)));
+  const jobs = [...fams].map((f) => ensureFont(f));
+  const ss = P.subs?.style;
+  if (ss?.font) jobs.push(ensureFont(ss.font, null, !!ss.italic || ss.hl === 'italic'));
+  const res = await Promise.all(jobs);
   return res.every(Boolean);
 }
 

@@ -646,9 +646,10 @@ function subsInspector(extra = {}) {
         body.append(fields(S.style, [
           { label: 'Gösterim', path: 'mode', type: 'chips', options: [['line', 'Tüm satır'], ['group', 'Kelime grubu'], ['single', 'Tek kelime']], rerender: true },
           { label: 'Grupta kelime', path: 'group', type: 'chips', options: [[2, '2'], [3, '3'], [4, '4'], [5, '5']], hide: S.style.mode !== 'group' },
-          { label: 'Konuşulan kelime', path: 'hl', type: 'chips', options: [['color', 'Renk'], ['box', 'Kutu'], ['underline', 'Alt çizgi'], ['scale', 'Büyüt'], ['glow', 'Parlama'], ['karaoke', 'Karaoke dolum'], ['none', 'Yok']], rerender: true },
-          { label: 'Animasyon', path: 'anim', type: 'chips', options: [['fade', 'Belir'], ['pop', 'Pop'], ['words', 'Kelime kelime'], ['slide', 'Kay'], ['typewriter', 'Daktilo'], ['none', 'Yok']] },
-          { label: 'Arka plan', path: 'box', type: 'chips', options: [['none', 'Yok'], ['line', 'Satır kutusu'], ['block', 'Tek kart']], rerender: true },
+          { label: 'Konuşulan kelime', path: 'hl', type: 'chips', options: [['color', 'Renk'], ['box', 'Kutu'], ['underline', 'Alt çizgi'], ['scale', 'Büyüt'], ['glow', 'Parlama'], ['karaoke', 'Karaoke dolum'], ['italic', 'İtalik vurgu'], ['soft', 'Okunan parlak'], ['none', 'Yok']], rerender: true },
+          { label: 'Animasyon', path: 'anim', type: 'chips', options: [['fade', 'Belir'], ['pop', 'Pop'], ['words', 'Kelime kelime'], ['slide', 'Kay'], ['typewriter', 'Daktilo'], ['blurin', 'Bulanıktan'], ['ink', 'Mürekkep'], ['letters', 'Harf harf'], ['rise', 'Yükselen'], ['breathe', 'Nefes'], ['typecursor', 'İmleçli daktilo'], ['none', 'Yok']] },
+          { label: 'Arka plan', path: 'box', type: 'chips', options: [['none', 'Yok'], ['line', 'Satır kutusu'], ['block', 'Tek kart'], ['paper', 'Eski kâğıt']], rerender: true },
+          { label: 'Şair / imza (boş bırakılabilir)', path: 'sign', type: 'text' },
         ]));
         body.append(h('div', { class: 'sub-title' }, 'Yazı'));
         body.append(fields(S.style, [
