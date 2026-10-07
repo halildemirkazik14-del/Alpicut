@@ -820,33 +820,10 @@ export function openSocial(tab) {
 // ---------- v1.6 Motion stüdyosu (HyperFrames'ten esinlenen, hareketli önizlemeli) ----------
 const MOTION_TYPES = new Set(SOCIAL_TEMPLATES3.map((t) => t.p.type));
 // v1.8: sosyal medya alt kategorileri Motion'da tek sekmede, ayrıntısı Sosyal medya stüdyosunda
-const SOCIAL_SUB = () => [...new Set(SOCIAL_TEMPLATES3.filter((t) => t.cat.startsWith('Sosyal · ')).map((t) => t.cat.slice(9)))];
-const MOTION_CATS = () => ['★', 'Sosyal medya', 'Geri sayım', 'Nostalji', 'Düğün & nişan', ...new Set(SOCIAL_TEMPLATES3.map((t) => t.cat).filter((c) => !c.startsWith('Sosyal · ') && !['Geri sayım', 'Nostalji', 'Düğün & nişan'].includes(c)))];
-const motionList = (tb) => (tb === '★' ? SOCIAL_TEMPLATES3.filter((t) => favIds('motion').includes(t.id)) : tb === 'Sosyal medya' ? SOCIAL_TEMPLATES3.filter((t) => t.cat.startsWith('Sosyal · ')) : SOCIAL_TEMPLATES3.filter((t) => t.cat === tb || t.cat === `Sosyal · ${tb}`));
-// küçük canlı önizleme: kartlar ekranda kaldıkça döngüde oynar
-function motionPreview(L, dur) {
-  const c = h('canvas', { width: 360, height: 300 });
-  const ctx = c.getContext('2d');
-  const env0 = { W: 1080, H: 1920, S: 0.3, img: (id) => app.engine.imgForMedia(id) };
-  const m = document.createElement('canvas').getContext('2d');
-  const box = drawSocial(m, L, Math.min(dur * 0.7, dur - 0.3), env0) || { w: 600, h: 200 };
-  const full = /^(tunnel|starfield)$/.test(L.type) || FULL4.has(L.type);
-  const k = full ? 300 / 1920 : Math.min(0.5, 330 / box.w, 270 / box.h);
-  let t0 = performance.now(), last = 0;
-  const frame = (now) => {
-    if (!c.isConnected && now - t0 > 500) return;
-    requestAnimationFrame(frame);
-    if (now - last < 66) return; // ~15 fps yeter
-    last = now;
-    const t = ((now - t0) / 1000) % (dur + 0.6);
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, 360, 300);
-    ctx.fillStyle = '#0E0D11'; ctx.fillRect(0, 0, 360, 300);
-    ctx.translate(180, 150); ctx.scale(k, k);
-    try { drawSocial(ctx, L, Math.min(t, dur - 0.05), { ...env0, S: k }); } catch (_) { /* yoksay */ }
-  };
-  requestAnimationFrame(frame);
-  return c;
-}
+const SOCIAL_TABS = ['YouTube', 'Instagram', 'TikTok', 'X', 'Genel'];
+const HIDDEN_MOTION = ['Abone & etkileşim', 'Geri sayım', 'Nostalji', 'Düğün & nişan'];
+const MOTION_CATS = () => ['★', 'Geri sayım', 'Nostalji', 'Düğün & nişan', ...new Set(SOCIAL_TEMPLATES3.map((t) => t.cat).filter((c) => !c.startsWith('Sosyal · ') && !HIDDEN_MOTION.includes(c)))];
+const motionList = (tb) => (tb === '★' ? SOCIAL_TEMPLATES3.filter((t) => favIds('motion').includes(t.id) && !t.cat.startsWith('Sosyal · ')) : SOCIAL_TEMPLATES3.filter((t) => t.cat === tb));
 
 function motionGrid(body, list) {
   const grid = h('div', { class: 'grid-tpl motion-grid' });
@@ -866,22 +843,26 @@ export function openMotion(tab) {
     id: 'motion', title: `Motion stüdyosu · ${SOCIAL_TEMPLATES3.length}`, tabs: cats, tab: tab && cats.includes(tab) ? tab : cats[1], tall: true,
     render: (body, tb) => {
       body.append(h('p', { class: 'hint', html: 'Hepsi canlı önizlemeli ve <b>tamamen düzenlenebilir</b>: metin, renk, hız, süre, görsel. Dokun: ekle. ☆ ile favorile.' }));
-      if (tb === 'Sosyal medya') body.append(h('button', { class: 'btn block', style: { marginBottom: '10px' }, onclick: () => openSocialHub() }, 'Sosyal medya stüdyosunu aç →'));
       motionGrid(body, motionList(tb));
     },
   });
 }
 
-// v1.8: ayrı Sosyal medya stüdyosu — abone ol, takip, beğeni, yorum, paylaş, bitiş ekranı… (yüzlerce)
+// v1.9: tek Sosyal medya stüdyosu — platforma göre sekmeler + klasik kartlar (tekrar yok)
 export function openSocialHub(tab) {
-  const subs = SOCIAL_SUB();
-  const n = SOCIAL_TEMPLATES3.filter((t) => t.cat.startsWith('Sosyal · ')).length;
-  const tabs = [...subs, 'Klasik'];
+  const n = SOCIAL_TEMPLATES3.filter((t) => t.cat.startsWith('Sosyal · ')).length + SOCIAL_TEMPLATES.filter((t) => t.cat !== 'Abone & beğen').length;
+  const tabs = ['★', ...SOCIAL_TABS, 'Kartlar'];
   openSheet({
-    id: 'socialhub', title: `Sosyal medya stüdyosu · ${n}`, tabs, tab: tab && tabs.includes(tab) ? tab : tabs[0], tall: true,
+    id: 'socialhub', title: `Sosyal medya · ${n}`, tabs, tab: tab && tabs.includes(tab) ? tab : 'YouTube', tall: true,
     render: (body, tb) => {
-      if (tb === 'Klasik') { body.append(h('p', { class: 'hint' }, 'Yorum, bildirim, sohbet ve profil kartları.')); body.append(h('button', { class: 'btn block', onclick: () => { closeSheet(); setTimeout(() => openSocial(), 60); } }, 'Klasik sosyal şablonları aç')); return; }
-      body.append(h('p', { class: 'hint', html: 'Platform renklerinde ama logosuz, <b>tamamen düzenlenebilir</b>: kanal adı, sayı, yazı, görünüm. Dokun: ekle.' }));
+      if (tb === 'Kartlar') {
+        body.append(h('p', { class: 'hint' }, 'Yorum, mesaj, bildirim, profil ve gönderi kartları — hepsi düzenlenebilir.'));
+        const groups = [...new Set(SOCIAL_TEMPLATES.filter((t) => t.cat !== 'Abone & beğen').map((t) => t.cat))];
+        groups.forEach((g) => { body.append(h('h4', { class: 'grid-head' }, g)); motionGrid(body, SOCIAL_TEMPLATES.filter((t) => t.cat === g)); });
+        return;
+      }
+      if (tb === '★') { motionGrid(body, [...SOCIAL_TEMPLATES3.filter((t) => t.cat.startsWith('Sosyal · ')), ...SOCIAL_TEMPLATES].filter((t) => favIds('motion').includes(t.id) || favIds('social').includes(t.id))); return; }
+      body.append(h('p', { class: 'hint', html: `${tb === 'Genel' ? 'Platformdan bağımsız' : `${tb} renklerinde ve buton dilinde`}, logosuz ve <b>tamamen düzenlenebilir</b>. Dokun: ekle.` }));
       motionGrid(body, SOCIAL_TEMPLATES3.filter((t) => t.cat === `Sosyal · ${tb}`));
     },
   });

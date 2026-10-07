@@ -3,7 +3,7 @@
 // kullanıcı adı, yan eylem çubuğu, yeni video bildirimi. Platform renklerinde ama logo/marka kopyalanmadan (genel ikonlar).
 import {
   F, UI, MONO, clamp, roundRect, easeOut, easeOut5, easeIO, back, spring, lerp, hash, seg, hexA, mixHex,
-  spaced, wrap, glow, twinkle, fitFont, icon, tapRing, cursorTap, fmtK, num,
+  spaced, wrap, glow, twinkle, fitFont, icon, tapRing, cursorTap, fmtK, num, lines, pairs,
 } from './motionkit.js';
 
 export const SM_FULL = [];
@@ -15,6 +15,14 @@ const STYLES = {
   dark: { name: 'Minimal koyu', bg: '#141416', fg: '#FAFAFA', sub: '#9CA3AF', btn: ['#FAFAFA'], btnFg: '#111111', done: '#27272A', doneFg: '#FAFAFA', acc: '#FAFAFA', acc2: '#9CA3AF' },
   glass: { name: 'Cam', bg: 'rgba(255,255,255,.16)', fg: '#FFFFFF', sub: 'rgba(255,255,255,.75)', btn: ['rgba(255,255,255,.95)'], btnFg: '#111111', done: 'rgba(255,255,255,.22)', doneFg: '#FFFFFF', acc: '#FFFFFF', acc2: '#FFFFFF', glass: true },
   latte: { name: 'Latte', bg: '#EFE4D6', fg: '#2B1E17', sub: '#7A6352', btn: ['#8B5E3C'], btnFg: '#FFF8F0', done: '#E2D2BE', doneFg: '#2B1E17', acc: '#C2603D', acc2: '#C9A27E' },
+  // v1.9: platformlara özel görünümler (logo yok; renk ve buton dili)
+  yt: { name: 'YouTube tarzı', bg: '#FFFFFF', fg: '#0F0F0F', sub: '#606060', btn: ['#FF0033'], btnFg: '#FFFFFF', done: '#F2F2F2', doneFg: '#0F0F0F', acc: '#FF0033', acc2: '#FF4E45', like: 'thumb', likeC: '#0F0F0F', r: 999 },
+  ytd: { name: 'YouTube tarzı (koyu)', bg: '#0F0F0F', fg: '#F1F1F1', sub: '#AAAAAA', btn: ['#F1F1F1'], btnFg: '#0F0F0F', done: '#272727', doneFg: '#F1F1F1', acc: '#FF0033', acc2: '#FF4E45', like: 'thumb', likeC: '#F1F1F1', r: 999 },
+  ig: { name: 'Instagram tarzı', bg: '#FFFFFF', fg: '#000000', sub: '#737373', btn: ['#0095F6'], btnFg: '#FFFFFF', done: '#EFEFEF', doneFg: '#000000', acc: '#DD2A7B', acc2: '#F58529', ring: ['#FEDA75', '#FA7E1E', '#D62976', '#962FBF', '#4F5BD5'], likeC: '#FF3040', r: 16 },
+  igd: { name: 'Instagram tarzı (koyu)', bg: '#000000', fg: '#F5F5F5', sub: '#A8A8A8', btn: ['#0095F6'], btnFg: '#FFFFFF', done: '#262626', doneFg: '#F5F5F5', acc: '#DD2A7B', acc2: '#F58529', ring: ['#FEDA75', '#FA7E1E', '#D62976', '#962FBF', '#4F5BD5'], likeC: '#FF3040', r: 16 },
+  tt: { name: 'TikTok tarzı', bg: '#121212', fg: '#FFFFFF', sub: '#A1A1A1', btn: ['#FE2C55'], btnFg: '#FFFFFF', done: '#2F2F2F', doneFg: '#FFFFFF', acc: '#FE2C55', acc2: '#25F4EE', dual: true, plus: true, likeC: '#FE2C55', r: 8 },
+  x: { name: 'X tarzı', bg: '#FFFFFF', fg: '#0F1419', sub: '#536471', btn: ['#0F1419'], btnFg: '#FFFFFF', done: '#FFFFFF', doneFg: '#0F1419', doneLine: '#CFD9DE', acc: '#1D9BF0', acc2: '#1D9BF0', likeC: '#F91880', rpC: '#00BA7C', line: '#EFF3F4', r: 999 },
+  xd: { name: 'X tarzı (koyu)', bg: '#000000', fg: '#E7E9EA', sub: '#71767B', btn: ['#EFF3F4'], btnFg: '#0F1419', done: '#000000', doneFg: '#EFF3F4', doneLine: '#536471', acc: '#1D9BF0', acc2: '#1D9BF0', likeC: '#F91880', rpC: '#00BA7C', line: '#2F3336', r: 999 },
   purple: { name: 'Mor', bg: '#17131F', fg: '#F5F3FF', sub: '#A7A0B8', btn: ['#7C5CFF', '#B794FF'], btnFg: '#FFFFFF', done: '#2A2438', doneFg: '#F5F3FF', acc: '#9D8CF2', acc2: '#E9C7A1' },
 };
 const st = (L) => {
@@ -36,6 +44,12 @@ const avatar = (ctx, L, x, y, r, s, env) => {
   else { const g = ctx.createLinearGradient(x - r, y - r, x + r, y + r); g.addColorStop(0, s.acc2 || s.acc); g.addColorStop(1, s.acc); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); ctx.fillStyle = '#FFFFFF'; ctx.font = F(800, r * 0.95); ctx.textAlign = 'center'; ctx.fillText(String(L.name || 'K').trim()[0]?.toLocaleUpperCase('tr-TR') || 'K', x, y + r * 0.34); ctx.textAlign = 'left'; }
   ctx.restore();
 };
+const ringAvatar = (ctx, L, x, y, r, s, env, lt = 0) => {
+  if (s.ring) { const g = ctx.createLinearGradient(x - r, y + r, x + r, y - r); s.ring.forEach((c, i) => g.addColorStop(i / (s.ring.length - 1), c)); ctx.save(); ctx.lineWidth = r * 0.12; ctx.strokeStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 1.14, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+  avatar(ctx, L, x, y, r, s, env);
+  void lt;
+};
+const btnShape = (ctx, s, x, y, w, h) => roundRect(ctx, x, y, w, h, Math.min(h / 2, s.r ?? h / 2));
 const intro = (ctx, lt, d = 0.45) => { const p = easeOut5(seg(lt, 0, d)); ctx.translate(0, (1 - p) * 60); ctx.globalAlpha *= p; return p; };
 const outro = (ctx, lt, life) => { const p = seg(lt, life - 0.35, life); ctx.globalAlpha *= 1 - p; };
 
@@ -77,7 +91,7 @@ export const SM_DRAW = {
     const S = env.S, s = st(L), W = 900, H = 200, tapAt = +L.tapAt || 1.3, life = (L.end ?? 9) - (L.start ?? 0);
     ctx.save(); intro(ctx, lt); outro(ctx, lt, life);
     panel(ctx, s, -W / 2, -H / 2, W, H, 100, S);
-    avatar(ctx, L, -W / 2 + 100, 0, 64, s, env);
+    ringAvatar(ctx, L, -W / 2 + 100, 0, 64, s, env);
     ctx.fillStyle = s.fg; ctx.font = F(700, 44); ctx.fillText(L.name || 'Kanal Adı', -W / 2 + 190, -10);
     const subs = num(L.subs, 128000) + (lt > tapAt ? 1 : 0);
     ctx.fillStyle = s.sub; ctx.font = F(500, 30); ctx.fillText(`${fmtK(subs)} abone`, -W / 2 + 190, 34);
@@ -101,16 +115,16 @@ export const SM_DRAW = {
     const S = env.S, s = st(L), W = 760, H = 150, tapAt = +L.tapAt || 1.2, life = (L.end ?? 9) - (L.start ?? 0);
     ctx.save(); intro(ctx, lt); outro(ctx, lt, life);
     panel(ctx, s, -W / 2, -H / 2, W, H, 75, S);
-    avatar(ctx, L, -W / 2 + 76, 0, 50, s, env);
-    if (s.btn.length > 1) { ctx.save(); ctx.lineWidth = 6; ctx.strokeStyle = fillBtn(ctx, s, -W / 2 + 20, -60, 120, 120); ctx.beginPath(); ctx.arc(-W / 2 + 76, 0, 58, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+    ringAvatar(ctx, L, -W / 2 + 76, 0, 50, s, env);
+    if (s.plus) { const pd = lt >= tapAt; ctx.save(); ctx.translate(-W / 2 + 76, 46); ctx.scale(pd ? spring(seg(lt, tapAt, tapAt + 0.6)) : 1, pd ? spring(seg(lt, tapAt, tapAt + 0.6)) : 1); ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fillStyle = pd ? '#FFFFFF' : s.acc; ctx.fill(); icon(ctx, pd ? 'check' : 'plus', 0, 0, 20, pd ? s.acc : '#FFFFFF', 0.16); ctx.restore(); }
     ctx.fillStyle = s.fg; ctx.font = F(700, 38); ctx.fillText(L.name || 'Kanal Adı', -W / 2 + 150, -6);
     ctx.fillStyle = s.sub; ctx.font = F(500, 28); ctx.fillText(L.handle || '@kanaladi', -W / 2 + 150, 34);
-    const done = lt >= tapAt, bw = 230, bx = W / 2 - 30 - bw;
+    const done = lt >= tapAt; ctx.font = F(700, 30); const bw = Math.max(230, ctx.measureText(done ? (L.doneText || 'Takiptesin') : (L.btn || 'Takip et')).width + (done ? 110 : 70)), bx = W / 2 - 30 - bw;
     const press = seg(lt, tapAt - 0.05, tapAt + 0.08) * (1 - seg(lt, tapAt + 0.08, tapAt + 0.25));
     ctx.save(); ctx.translate(bx + bw / 2, 0); ctx.scale(1 - press * 0.07, 1 - press * 0.07); ctx.translate(-(bx + bw / 2), 0);
-    roundRect(ctx, bx, -36, bw, 72, 20); ctx.fillStyle = done ? s.done : fillBtn(ctx, s, bx, -36, bw, 72); ctx.fill();
+    btnShape(ctx, s, bx, -36, bw, 72); ctx.fillStyle = done ? s.done : fillBtn(ctx, s, bx, -36, bw, 72); ctx.fill(); if (done && s.doneLine) { ctx.strokeStyle = s.doneLine; ctx.lineWidth = 2; ctx.stroke(); }
     ctx.textAlign = 'center'; ctx.fillStyle = done ? s.doneFg : s.btnFg; ctx.font = F(700, 30);
-    if (done) { icon(ctx, 'check', bx + 40, 0, 34, s.doneFg, 0.14); ctx.fillText(L.doneText || 'Takiptesin', bx + bw / 2 + 16, 10); } else ctx.fillText(L.btn || 'Takip et', bx + bw / 2, 10);
+    if (done) { icon(ctx, 'check', bx + 42, 0, 30, s.doneFg, 0.14); ctx.fillText(L.doneText || 'Takiptesin', bx + bw / 2 + 20, 10); } else ctx.fillText(L.btn || 'Takip et', bx + bw / 2, 10);
     ctx.textAlign = 'left'; ctx.restore();
     cursorTap(ctx, bx + bw / 2 - 10, -10, lt, tapAt, S);
     ctx.restore();
@@ -122,7 +136,8 @@ export const SM_DRAW = {
     const S = env.S, s = st(L), c = s.dual ? '#FE2C55' : (L.accent || (L.style === 'grad' ? '#FF3040' : s.acc === '#111111' || s.acc === '#FAFAFA' ? '#FF3B5C' : s.acc));
     const p = spring(seg(lt, 0.15, 1.1)), bp = seg(lt, 0.15, 0.8);
     ctx.save(); ctx.scale(p, p);
-    glow(ctx, hexA(c, 0.6), 40, S, () => icon(ctx, 'heart', 0, -40, 300, c));
+    const lc = s.likeC && !L.accent ? (s.like === 'thumb' ? '#FFFFFF' : s.likeC) : c;
+    glow(ctx, hexA(s.like === 'thumb' ? '#FF0033' : lc, 0.6), 40, S, () => icon(ctx, s.like || 'heart', 0, -40, 300, lc));
     ctx.restore();
     if (bp > 0 && bp < 1) for (let i = 0; i < 16; i++) { const an = (i / 16) * Math.PI * 2; const r = 150 + easeOut(bp) * 160; ctx.fillStyle = hexA(i % 3 ? c : '#FFD166', 1 - bp); ctx.beginPath(); ctx.arc(Math.cos(an) * r, -40 + Math.sin(an) * r, 12 * (1 - bp) + 3, 0, Math.PI * 2); ctx.fill(); }
     const cp = easeOut(seg(lt, 0.6, 1.4));
@@ -460,35 +475,225 @@ export const SM_DRAW = {
   },
 };
 
-// ---------- hazır şablonlar: her tasarım platform renklerinde ----------
+// ---------- v1.9: X (eski adıyla Twitter) seti — gönderi, flood, alıntı, gündem, sesli oda, yeniden gönderme ----------
+const xs = (L) => { const s = st({ ...L, style: L.style && STYLES[L.style] ? L.style : 'x' }); return s; };
+const xHead = (ctx, L, s, env, x, y, r = 42) => {
+  avatar(ctx, L, x + r, y + r, r, s, env);
+  ctx.fillStyle = s.fg; ctx.font = F(800, 34); const nm = L.name || 'Kanal Adı'; ctx.fillText(nm, x + r * 2 + 22, y + 34); const nw = ctx.measureText(nm).width;
+  if (L.verified !== false) icon(ctx, 'verified', x + r * 2 + 22 + nw + 22, y + 22, 30, s.acc);
+  ctx.fillStyle = s.sub; ctx.font = F(500, 30); ctx.fillText(`${L.handle || '@kanaladi'} · ${L.time || '2s'}`, x + r * 2 + 22 + nw + (L.verified !== false ? 46 : 12), y + 34);
+};
+const xActions = (ctx, s, x, y, w, vals, lt, likeAt, rpAt) => {
+  const items = [['comment', vals[0], s.sub], ['repost', vals[1] + (lt >= rpAt ? 1 : 0), lt >= rpAt ? s.rpC : s.sub], ['heart', vals[2] + (lt >= likeAt ? 1 : 0), lt >= likeAt ? s.likeC : s.sub], ['views', vals[3], s.sub]];
+  items.forEach(([ic, n, c], i) => {
+    const ix = x + i * (w / 4);
+    const pop = ic === 'heart' && lt >= likeAt ? spring(seg(lt, likeAt, likeAt + 0.6)) : ic === 'repost' && lt >= rpAt ? spring(seg(lt, rpAt, rpAt + 0.6)) : 1;
+    ctx.save(); ctx.translate(ix + 18, y); ctx.scale(pop, pop);
+    if (ic === 'heart') icon(ctx, lt >= likeAt ? 'heart' : 'heartO', 0, 0, 34, c, 0.12); else icon(ctx, ic, 0, 0, 34, c, 0.12);
+    ctx.restore();
+    if (ic === 'heart' && lt >= likeAt) { const bp = seg(lt, likeAt, likeAt + 0.5); if (bp < 1) for (let k = 0; k < 8; k++) { const an = k * 0.785; ctx.fillStyle = hexA(s.likeC, 1 - bp); ctx.beginPath(); ctx.arc(ix + 18 + Math.cos(an) * (20 + bp * 30), y + Math.sin(an) * (20 + bp * 30), 4, 0, Math.PI * 2); ctx.fill(); } }
+    ctx.fillStyle = c; ctx.font = F(500, 28); ctx.fillText(fmtK(n), ix + 48, y + 10);
+  });
+};
+Object.assign(SM_DRAW, {
+  // Gönderi kartı: yazı akar, beğeni ve yeniden gönderme sayıları canlı artar
+  x_post(ctx, L, lt, env) {
+    const S = env.S, s = xs(L), W = 940, pad = 40, life = (L.end ?? 9) - (L.start ?? 0);
+    ctx.font = F(500, 40); const ls = wrap(ctx, L.text || 'Telefondan profesyonel video kurgusu artık mümkün. Denediniz mi? 🎬', W - pad * 2);
+    const img = L.v1 && env.img ? env.img(L.v1) : null; const ih = img ? 420 : 0;
+    const H = 150 + ls.length * 54 + (ih ? ih + 30 : 0) + 120;
+    ctx.save(); intro(ctx, lt); outro(ctx, lt, life);
+    panel(ctx, s, -W / 2, -H / 2, W, H, 32, S);
+    xHead(ctx, L, s, env, -W / 2 + pad, -H / 2 + 34);
+    ctx.fillStyle = s.fg; ctx.font = F(500, 40);
+    const shown = Math.ceil(ls.length * easeOut(seg(lt, 0.3, 1.2)));
+    ls.slice(0, shown).forEach((l, i) => ctx.fillText(l, -W / 2 + pad, -H / 2 + 170 + i * 54));
+    let y = -H / 2 + 150 + ls.length * 54;
+    if (img) { ctx.save(); roundRect(ctx, -W / 2 + pad, y, W - pad * 2, ih, 24); ctx.clip(); const iw = img.width || img.videoWidth || 1, h0 = img.height || img.videoHeight || 1, k = Math.max((W - pad * 2) / iw, ih / h0); ctx.drawImage(img, -iw * k / 2, y + ih / 2 - h0 * k / 2, iw * k, h0 * k); ctx.restore(); y += ih + 30; }
+    ctx.fillStyle = s.line || hexA(s.fg, 0.1); ctx.fillRect(-W / 2 + pad, y + 10, W - pad * 2, 2);
+    xActions(ctx, s, -W / 2 + pad, y + 64, W - pad * 2, [num(L.comments, 128), num(L.shares, 940), num(L.likes, 12400), num(L.views, 284000)], lt, +L.tapAt || 1.8, (+L.tapAt || 1.8) + 0.7);
+    ctx.restore();
+    return { w: W, h: H + 80 };
+  },
+  // Flood: 3 gönderi alt alta, bağlayan çizgiyle sırayla açılır
+  x_thread(ctx, L, lt, env) {
+    const S = env.S, s = xs(L), W = 940, pad = 36;
+    const posts = lines(L.lines || 'Telefondan video kurgularken 5 hata yapıyorsun 🧵\n1) Müziği en son eklemek. Kurguyu ritme göre kur.\n2) Altyazıyı unutmak. İzleyenlerin çoğu sesi kapalı izliyor.');
+    ctx.font = F(500, 36);
+    const blocks = posts.map((t) => wrap(ctx, t, W - pad * 2 - 110));
+    const H = blocks.reduce((a, b) => a + 110 + b.length * 48, 0) + 40;
+    panel(ctx, s, -W / 2, -H / 2, W, H, 32, S);
+    let y = -H / 2 + 30;
+    blocks.forEach((b, i) => {
+      const p = easeOut5(seg(lt, 0.2 + i * 0.7, 0.7 + i * 0.7)); const bh = 110 + b.length * 48;
+      if (i < blocks.length - 1) { ctx.fillStyle = s.line || hexA(s.fg, 0.15); ctx.fillRect(-W / 2 + pad + 40, y + 90, 4, (bh - 70) * easeOut(seg(lt, 0.5 + i * 0.7, 1.1 + i * 0.7))); }
+      ctx.save(); ctx.globalAlpha *= p; ctx.translate(0, (1 - p) * 20);
+      avatar(ctx, L, -W / 2 + pad + 42, y + 42, 38, s, env);
+      ctx.fillStyle = s.fg; ctx.font = F(800, 32); ctx.fillText(L.name || 'Kanal Adı', -W / 2 + pad + 100, y + 32); const nw = ctx.measureText(L.name || 'Kanal Adı').width;
+      ctx.fillStyle = s.sub; ctx.font = F(500, 28); ctx.fillText(L.handle || '@kanaladi', -W / 2 + pad + 112 + nw, y + 32);
+      ctx.fillStyle = s.fg; ctx.font = F(500, 36); b.forEach((l, k) => ctx.fillText(l, -W / 2 + pad + 100, y + 84 + k * 48));
+      ctx.restore();
+      y += bh;
+    });
+    return { w: W, h: H + 60 };
+  },
+  // Alıntı: kullanıcının yorumu + içinde alıntılanan gönderi
+  x_quote(ctx, L, lt, env) {
+    const S = env.S, s = xs(L), W = 940, pad = 40, life = (L.end ?? 9) - (L.start ?? 0);
+    ctx.font = F(500, 38); const cm = wrap(ctx, L.text || 'Bu tam olarak benim yaşadığım şey 😂', W - pad * 2);
+    ctx.font = F(500, 32); const qt = wrap(ctx, L.quote || 'Kurguya başlarken 10 dakika sürer dediğin şey 4 saat sürüyor.', W - pad * 2 - 60);
+    const qh = 110 + qt.length * 44; const H = 140 + cm.length * 52 + qh + 60;
+    ctx.save(); intro(ctx, lt); outro(ctx, lt, life);
+    panel(ctx, s, -W / 2, -H / 2, W, H, 32, S);
+    xHead(ctx, L, s, env, -W / 2 + pad, -H / 2 + 30);
+    ctx.fillStyle = s.fg; ctx.font = F(500, 38); cm.forEach((l, i) => ctx.fillText(l, -W / 2 + pad, -H / 2 + 162 + i * 52));
+    const qy = -H / 2 + 140 + cm.length * 52 + 10; const qp = easeOut5(seg(lt, 0.5, 1.1));
+    ctx.save(); ctx.globalAlpha *= qp; ctx.translate(0, (1 - qp) * 30);
+    roundRect(ctx, -W / 2 + pad, qy, W - pad * 2, qh, 24); ctx.strokeStyle = s.line || hexA(s.fg, 0.15); ctx.lineWidth = 3; ctx.stroke();
+    avatar(ctx, { name: L.qname || 'Başka Hesap' }, -W / 2 + pad + 50, qy + 50, 24, { ...s, acc: '#8B5CF6', acc2: '#22D3EE' }, env);
+    ctx.fillStyle = s.fg; ctx.font = F(800, 30); ctx.fillText(L.qname || 'Başka Hesap', -W / 2 + pad + 86, qy + 60);
+    ctx.fillStyle = s.fg; ctx.font = F(500, 32); qt.forEach((l, i) => ctx.fillText(l, -W / 2 + pad + 30, qy + 112 + i * 44));
+    ctx.restore(); ctx.restore();
+    return { w: W, h: H + 80 };
+  },
+  // Gündem kartı: "Türkiye gündeminde" listesi, seçilen konu yükselir
+  x_trend(ctx, L, lt, env) {
+    const S = env.S, s = xs(L), W = 880, pad = 40;
+    const rows = pairs(L.stats || '#AlpicutİleKurgu|24,1 B gönderi\nTelefonda video|12,8 B gönderi\nYapay zekâ|98,3 B gönderi\nKurgu ipuçları|6.412 gönderi');
+    const H = 120 + rows.length * 130;
+    ctx.save(); intro(ctx, lt);
+    panel(ctx, s, -W / 2, -H / 2, W, H, 32, S);
+    ctx.fillStyle = s.fg; ctx.font = F(800, 44); ctx.fillText(L.title || 'Gündemdekiler', -W / 2 + pad, -H / 2 + 76);
+    const hi = Math.min(rows.length - 1, Math.max(0, Math.round(num(L.value, 1)) - 1));
+    rows.forEach(([t, n], i) => {
+      const y = -H / 2 + 120 + i * 130, p = easeOut5(seg(lt, 0.2 + i * 0.15, 0.6 + i * 0.15));
+      ctx.save(); ctx.globalAlpha *= p; ctx.translate((1 - p) * 40, 0);
+      if (i === hi && lt > 1.4) { const hp = easeOut(seg(lt, 1.4, 1.8)); ctx.fillStyle = hexA(s.acc, 0.1 * hp); ctx.fillRect(-W / 2, y, W, 130); }
+      ctx.fillStyle = s.sub; ctx.font = F(500, 26); ctx.fillText(`${i + 1} · ${L.sub || 'Türkiye gündeminde'}`, -W / 2 + pad, y + 40);
+      ctx.fillStyle = s.fg; ctx.font = F(800, 38); ctx.fillText(t, -W / 2 + pad, y + 86);
+      ctx.fillStyle = s.sub; ctx.font = F(500, 26); ctx.fillText(n, -W / 2 + pad, y + 118);
+      ctx.restore();
+    });
+    ctx.restore();
+    return { w: W, h: H + 80 };
+  },
+  // Sesli oda (Space): konuşanların halkası nabız gibi atar
+  x_space(ctx, L, lt, env) {
+    const S = env.S, s = st({ ...L, style: L.style || 'x' }), W = 900, H = 520, a = L.accent || '#7856FF';
+    ctx.save(); intro(ctx, lt);
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 40 * S; roundRect(ctx, -W / 2, -H / 2, W, H, 36); const g = ctx.createLinearGradient(-W / 2, -H / 2, W / 2, H / 2); g.addColorStop(0, a); g.addColorStop(1, mixHex(a, '#000000', 0.35)); ctx.fillStyle = g; ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#FFFFFF'; ctx.font = F(700, 28); icon(ctx, 'views', -W / 2 + 60, -H / 2 + 56, 30, '#FFFFFF', 0.12); ctx.fillText('CANLI', -W / 2 + 92, -H / 2 + 66);
+    ctx.font = F(800, 46); wrap(ctx, L.title || 'Telefondan kurgu: soru-cevap', W - 100).slice(0, 2).forEach((l, i) => ctx.fillText(l, -W / 2 + 50, -H / 2 + 140 + i * 56));
+    const names = lines(L.lines || 'Kanal Adı\nAyşe\nCan\nElif');
+    names.slice(0, 4).forEach((n, i) => {
+      const x = -W / 2 + 130 + i * 210, y = H / 2 - 170, talk = Math.floor(lt * 0.8) % names.length === i;
+      if (talk) { const pl = 0.5 + 0.5 * Math.sin(lt * 10); ctx.strokeStyle = hexA('#FFFFFF', 0.4 + 0.4 * pl); ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(x, y, 58 + pl * 6, 0, Math.PI * 2); ctx.stroke(); }
+      avatar(ctx, { name: n }, x, y, 50, { ...s, acc: ['#F59E0B', '#10B981', '#3B82F6', '#EC4899'][i], acc2: '#FFFFFF' }, env);
+      ctx.fillStyle = '#FFFFFF'; ctx.font = F(600, 26); ctx.textAlign = 'center'; ctx.fillText(n, x, y + 92); ctx.textAlign = 'left';
+    });
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = F(600, 28); ctx.fillText(`${fmtK(num(L.to, 1340))} dinleyici`, W / 2 - 290, -H / 2 + 66);
+    ctx.restore();
+    return { w: W, h: H + 80 };
+  },
+  // Yeniden gönder menüsü: dokun → "Yeniden gönder / Alıntıla" → yeşil
+  x_repost(ctx, L, lt, env) {
+    const S = env.S, s = xs(L), W = 720, tapAt = +L.tapAt || 0.9, pickAt = tapAt + 0.9;
+    ctx.save(); intro(ctx, lt);
+    const done = lt >= pickAt;
+    const pop = done ? spring(seg(lt, pickAt, pickAt + 0.6)) : 1;
+    ctx.save(); ctx.translate(-160, 140); ctx.scale(pop * 1.6, pop * 1.6); icon(ctx, 'repost', 0, 0, 80, done ? s.rpC : '#FFFFFF', 0.11); ctx.restore();
+    ctx.fillStyle = done ? s.rpC : '#FFFFFF'; ctx.font = F(800, 64); ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 12 * S; ctx.fillText(fmtK(num(L.shares, 940) + (done ? 1 : 0)), -60, 162); ctx.restore();
+    tapRing(ctx, -160, 140, seg(lt, tapAt, tapAt + 0.5), '#FFFFFF');
+    const mp = easeOut5(seg(lt, tapAt + 0.1, tapAt + 0.4)) * (1 - seg(lt, pickAt + 0.1, pickAt + 0.35));
+    if (mp > 0) {
+      ctx.save(); ctx.globalAlpha *= mp; ctx.translate(0, (1 - mp) * 40 - 120);
+      panel(ctx, s, -W / 2, -150, W, 230, 28, S);
+      icon(ctx, 'repost', -W / 2 + 70, -80, 40, s.fg, 0.11); ctx.fillStyle = s.fg; ctx.font = F(800, 38); ctx.fillText(L.btn || 'Yeniden gönder', -W / 2 + 120, -66);
+      icon(ctx, 'edit', -W / 2 + 70, 10, 40, s.fg, 0.11); ctx.fillText(L.btn2 || 'Alıntıla', -W / 2 + 120, 24);
+      if (lt > pickAt - 0.25) { ctx.fillStyle = hexA(s.fg, 0.08); roundRect(ctx, -W / 2 + 10, -130, W - 20, 90, 18); ctx.fill(); }
+      ctx.restore();
+    }
+    ctx.restore();
+    return { w: W + 60, h: 560 };
+  },
+});
+Object.assign(SM_FIELDS, {
+  x_post: ['style', 'name', 'handle', 'verified', 'time', 'text', 'v1', 'avatar', 'comments', 'shares', 'likes', 'views', 'tapAt'],
+  x_thread: ['style', 'name', 'handle', 'lines', 'avatar'],
+  x_quote: ['style', 'name', 'handle', 'verified', 'text', 'qname', 'quote', 'avatar'],
+  x_trend: ['style', 'title', 'sub', 'stats', 'value', 'accent'],
+  x_space: ['style', 'title', 'lines', 'to', 'accent'],
+  x_repost: ['style', 'shares', 'btn', 'btn2', 'tapAt'],
+});
+Object.assign(SM_META, {
+  verified: { label: 'Onaylı rozet', type: 'toggle' }, time: { label: 'Zaman', type: 'text' }, views: { label: 'Görüntülenme', type: 'number' },
+  quote: { label: 'Alıntılanan gönderi', type: 'textarea' }, qname: { label: 'Alıntılanan hesap', type: 'text' },
+});
+
+// ---------- hazır şablonlar: platforma göre, her biri farklı (tekrar yok) ----------
 const A = (i = 'none', o = 'fade') => ({ in: i, out: o, inDur: 0.3, outDur: 0.3 });
 const T = [];
-const ST_ALL = ['red', 'grad', 'neon', 'light', 'dark', 'glass', 'latte', 'purple'];
-const ST_MAIN = ['red', 'grad', 'neon', 'light', 'dark', 'glass'];
-const SN = (k) => STYLES[k].name.split(' (')[0];
-const add = (sub, id, name, p, dur = 5) => T.push({ id, name, cat: `Sosyal · ${sub}`, p: { y: 0.5, anim: A(), ...p }, dur });
-ST_ALL.forEach((k) => add('Abone & takip', `sm_sub_${k}`, `Abone ol · ${SN(k)}`, { type: 'sm_subscribe', style: k, name: 'Kanal Adı', subs: 128000, tapAt: 1.3, y: 0.78 }, 5));
-['red', 'neon', 'dark', 'latte'].forEach((k) => add('Abone & takip', `sm_sub2_${k}`, `Abone ol (büyük kanal) · ${SN(k)}`, { type: 'sm_subscribe', style: k, name: 'Teknoloji Notları', subs: 2400000, tapAt: 1.6, y: 0.5 }, 5));
-ST_ALL.forEach((k) => add('Abone & takip', `sm_fol_${k}`, `Takip et · ${SN(k)}`, { type: 'sm_follow', style: k, name: 'Kanal Adı', handle: '@kanaladi', tapAt: 1.2, y: 0.8 }, 4.5));
-ST_MAIN.forEach((k) => add('Abone & takip', `sm_bell_${k}`, `Bildirimleri aç · ${SN(k)}`, { type: 'sm_bell', style: k, y: 0.8 }, 4));
-ST_ALL.forEach((k) => add('Abone & takip', `sm_handle_${k}`, `Kullanıcı adı · ${SN(k)}`, { type: 'sm_handle', style: k, handle: '@kanaladi', text: 'beni takip et', y: 0.85 }, 4));
-['red', 'grad', 'neon', 'purple'].forEach((k) => add('Abone & takip', `sm_cnt_${k}`, `Takipçi sayacı · ${SN(k)}`, { type: 'sm_counter', style: k, from: 9800, to: 10000, text: 'Takipçi' }, 4.5));
-['light', 'dark'].forEach((k) => add('Abone & takip', `sm_cnt2_${k}`, `Abone sayacı (1 Mn) · ${SN(k)}`, { type: 'sm_counter', style: k, from: 998500, to: 1000000, text: 'Abone' }, 4.5));
-ST_MAIN.forEach((k) => add('Beğeni & yorum', `sm_like_${k}`, `Beğeni patlaması · ${SN(k)}`, { type: 'sm_like', style: k, from: 12400 }, 3));
-ST_ALL.forEach((k) => add('Beğeni & yorum', `sm_com_${k}`, `Yorum yaz · ${SN(k)}`, { type: 'sm_comment', style: k, name: 'Sen', text: 'Bu video harika olmuş! 🔥' }, 5));
-['light', 'dark', 'grad'].forEach((k) => add('Beğeni & yorum', `sm_com2_${k}`, `Yorum yaz (soru) · ${SN(k)}`, { type: 'sm_comment', style: k, name: 'Sen', text: 'Hangi uygulamayı kullanıyorsun? 🤔' }, 5));
-['neon', 'dark', 'glass'].forEach((k) => add('Beğeni & yorum', `sm_combo_${k}`, `Yan eylem çubuğu · ${SN(k)}`, { type: 'sm_combo', style: k, x: 0.9, y: 0.6 }, 4));
-ST_MAIN.forEach((k) => add('Beğeni & yorum', `sm_poll_${k}`, `Anket · ${SN(k)}`, { type: 'sm_poll', style: k, value: 68 }, 4.5));
-['grad', 'neon', 'purple', 'latte'].forEach((k) => add('Beğeni & yorum', `sm_q_${k}`, `Soru kutusu · ${SN(k)}`, { type: 'sm_question', style: k }, 4.5));
-ST_MAIN.forEach((k) => add('Paylaş & kaydet', `sm_share_${k}`, `Paylaş menüsü · ${SN(k)}`, { type: 'sm_share', style: k, y: 0.75 }, 5));
-ST_MAIN.forEach((k) => add('Paylaş & kaydet', `sm_save_${k}`, `Kaydet · ${SN(k)}`, { type: 'sm_save', style: k }, 3.5));
-ST_ALL.forEach((k) => add('Link & kaydırma', `sm_link_${k}`, `Link bio'da · ${SN(k)}`, { type: 'sm_linkbio', style: k, y: 0.75 }, 4));
-['red', 'grad', 'neon', 'light'].forEach((k) => add('Link & kaydırma', `sm_swipe_${k}`, `Yukarı kaydır · ${SN(k)}`, { type: 'sm_swipe', style: k, y: 0.8 }, 4));
-ST_MAIN.forEach((k) => add('Link & kaydırma', `sm_sound_${k}`, `Sesi aç · ${SN(k)}`, { type: 'sm_sound', style: k, y: 0.2 }, 3.5));
-ST_MAIN.forEach((k) => add('Link & kaydırma', `sm_watch_${k}`, `Sonuna kadar izle · ${SN(k)}`, { type: 'sm_watch', style: k, y: 0.15 }, 6));
-ST_ALL.forEach((k) => add('Bölüm & bitiş', `sm_part_${k}`, `Bölüm 2 · ${SN(k)}`, { type: 'sm_part', style: k, num: '2', text: 'Bölüm' }, 3));
-['red', 'neon', 'grad'].forEach((k) => add('Bölüm & bitiş', `sm_part3_${k}`, `Bölüm 3 · ${SN(k)}`, { type: 'sm_part', style: k, num: '3', text: 'Bölüm' }, 3));
-['red', 'grad', 'neon', 'dark', 'purple', 'latte'].forEach((k) => add('Bölüm & bitiş', `sm_end_${k}`, `Bitiş ekranı · ${SN(k)}`, { type: 'sm_endscreen', style: k, name: 'Kanal Adı' }, 8));
-ST_MAIN.forEach((k) => add('Bölüm & bitiş', `sm_new_${k}`, `Yeni video bildirimi · ${SN(k)}`, { type: 'sm_newvideo', style: k, y: 0.15 }, 5));
-['red', 'grad', 'neon', 'dark'].forEach((k) => add('Canlı & duyuru', `sm_live_${k}`, `Canlı rozeti · ${SN(k)}`, { type: 'sm_live', style: k, to: 1250, x: 0.3, y: 0.1 }, 6));
+const add = (tab, id, name, p, dur = 5) => T.push({ id, name, cat: `Sosyal · ${tab}`, p: { y: 0.5, anim: A(), ...p }, dur });
+// YouTube: kırmızı "Abone ol", zil, başparmak beğeni, bitiş ekranı
+add('YouTube', 'yt_sub', 'Abone ol', { type: 'sm_subscribe', style: 'yt', name: 'Kanal Adı', subs: 128000, tapAt: 1.3, y: 0.78 }, 5);
+add('YouTube', 'yt_sub_d', 'Abone ol · koyu', { type: 'sm_subscribe', style: 'ytd', name: 'Kanal Adı', subs: 128000, tapAt: 1.3, y: 0.78 }, 5);
+add('YouTube', 'yt_sub_big', 'Abone ol · büyük kanal', { type: 'sm_subscribe', style: 'yt', name: 'Teknoloji Notları', subs: 2400000, tapAt: 1.6 }, 5);
+add('YouTube', 'yt_bell', 'Bildirimleri aç', { type: 'sm_bell', style: 'yt', text: 'Zile bas', sub: 'Yeni videodan ilk sen haberdar ol', y: 0.8 }, 4);
+add('YouTube', 'yt_like', 'Beğen (başparmak)', { type: 'sm_like', style: 'yt', from: 12400, text: 'Beğenmeyi unutma' }, 3);
+add('YouTube', 'yt_com', 'Yorum yaz', { type: 'sm_comment', style: 'ytd', name: 'Sen', text: 'Bu video çok işime yaradı, teşekkürler! 🙏' }, 5);
+add('YouTube', 'yt_cnt', 'Abone sayacı · 1 Mn', { type: 'sm_counter', style: 'yt', from: 998500, to: 1000000, text: 'Abone' }, 4.5);
+add('YouTube', 'yt_end', 'Bitiş ekranı', { type: 'sm_endscreen', style: 'yt', name: 'Kanal Adı' }, 8);
+add('YouTube', 'yt_end_d', 'Bitiş ekranı · koyu', { type: 'sm_endscreen', style: 'ytd', name: 'Kanal Adı', title: 'Bunu da izle 👇' }, 8);
+add('YouTube', 'yt_new', 'Yeni video bildirimi', { type: 'sm_newvideo', style: 'ytd', y: 0.15 }, 5);
+add('YouTube', 'yt_live', 'Canlı yayın rozeti', { type: 'sm_live', style: 'yt', to: 1250, x: 0.3, y: 0.1 }, 6);
+add('YouTube', 'yt_watch', 'Sonuna kadar izle', { type: 'sm_watch', style: 'yt', y: 0.15 }, 6);
+// Instagram: mavi "Takip et", gradyan halka, kalp, kaydet, paylaş, hikâye çıkartmaları
+add('Instagram', 'ig_fol', 'Takip et', { type: 'sm_follow', style: 'ig', name: 'Kanal Adı', handle: '@kanaladi', tapAt: 1.2, y: 0.8 }, 4.5);
+add('Instagram', 'ig_fol_d', 'Takip et · koyu', { type: 'sm_follow', style: 'igd', name: 'Kanal Adı', handle: '@kanaladi', tapAt: 1.2, y: 0.8 }, 4.5);
+add('Instagram', 'ig_like', 'Kalp patlaması', { type: 'sm_like', style: 'ig', from: 8420 }, 3);
+add('Instagram', 'ig_com', 'Yorum yaz', { type: 'sm_comment', style: 'ig', name: 'sen', text: 'Bu filtre hangisi? 😍' }, 5);
+add('Instagram', 'ig_save', 'Kaydet', { type: 'sm_save', style: 'igd', text: 'Sonra denemek için kaydet' }, 3.5);
+add('Instagram', 'ig_share', 'Gönder / paylaş', { type: 'sm_share', style: 'ig', title: 'Gönder', y: 0.75 }, 5);
+add('Instagram', 'ig_link', "Link bio'da", { type: 'sm_linkbio', style: 'ig', y: 0.75 }, 4);
+add('Instagram', 'ig_poll', 'Hikâye anketi', { type: 'sm_poll', style: 'ig', value: 68 }, 4.5);
+add('Instagram', 'ig_q', 'Soru çıkartması', { type: 'sm_question', style: 'ig', title: 'Bana bir şey sor' }, 4.5);
+add('Instagram', 'ig_handle', 'Kullanıcı adı', { type: 'sm_handle', style: 'igd', handle: '@kanaladi', text: 'beni takip et', y: 0.85 }, 4);
+add('Instagram', 'ig_cnt', 'Takipçi sayacı · 10 B', { type: 'sm_counter', style: 'ig', from: 9800, to: 10000, text: 'Takipçi' }, 4.5);
+add('Instagram', 'ig_live', 'Canlı rozeti', { type: 'sm_live', style: 'ig', to: 640, x: 0.25, y: 0.1 }, 6);
+// TikTok: siyah, pembe/turkuaz, artı rozetli takip, yan eylem çubuğu
+add('TikTok', 'tt_fol', 'Takip et (artı rozet)', { type: 'sm_follow', style: 'tt', name: 'Kanal Adı', handle: '@kanaladi', tapAt: 1.2, y: 0.8 }, 4.5);
+add('TikTok', 'tt_combo', 'Yan eylem çubuğu', { type: 'sm_combo', style: 'tt', x: 0.9, y: 0.6 }, 4);
+add('TikTok', 'tt_like', 'Kalp patlaması', { type: 'sm_like', style: 'tt', from: 24800 }, 3);
+add('TikTok', 'tt_com', 'Yorum yaz', { type: 'sm_comment', style: 'tt', name: 'sen', text: 'Bölüm 2 ne zaman?? 🔥' }, 5);
+add('TikTok', 'tt_part', 'Bölüm 2', { type: 'sm_part', style: 'tt', num: '2', text: 'Bölüm' }, 3);
+add('TikTok', 'tt_part3', 'Bölüm 3', { type: 'sm_part', style: 'tt', num: '3', text: 'Bölüm' }, 3);
+add('TikTok', 'tt_sound', 'Sesi aç', { type: 'sm_sound', style: 'tt', y: 0.2 }, 3.5);
+add('TikTok', 'tt_swipe', 'Devamı için kaydır', { type: 'sm_swipe', style: 'tt', y: 0.8 }, 4);
+add('TikTok', 'tt_cnt', 'Takipçi sayacı', { type: 'sm_counter', style: 'tt', from: 99200, to: 100000, text: 'Takipçi' }, 4.5);
+add('TikTok', 'tt_live', 'Canlı rozeti', { type: 'sm_live', style: 'tt', to: 3200, x: 0.3, y: 0.1 }, 6);
+add('TikTok', 'tt_handle', 'Kullanıcı adı', { type: 'sm_handle', style: 'tt', handle: '@kanaladi', text: 'daha fazlası profilde', y: 0.85 }, 4);
+// X: gönderi, flood, alıntı, gündem, sesli oda, yeniden gönder, takip et, anket
+add('X', 'x_post', 'Gönderi kartı', { type: 'x_post', style: 'x', name: 'Kanal Adı', handle: '@kanaladi' }, 5);
+add('X', 'x_post_d', 'Gönderi kartı · koyu', { type: 'x_post', style: 'xd', name: 'Kanal Adı', handle: '@kanaladi', text: 'Yapay zekâ ile kurgu yapmayı denedim. Sonuç beklediğimden çok daha iyi 👇' }, 5);
+add('X', 'x_thread', 'Flood (zincir gönderi)', { type: 'x_thread', style: 'xd', name: 'Kanal Adı', handle: '@kanaladi' }, 5);
+add('X', 'x_quote', 'Alıntılı gönderi', { type: 'x_quote', style: 'x', name: 'Kanal Adı', handle: '@kanaladi' }, 5);
+add('X', 'x_trend', 'Gündem listesi', { type: 'x_trend', style: 'xd', value: 1 }, 5);
+add('X', 'x_space', 'Sesli oda (canlı)', { type: 'x_space', style: 'xd' }, 6);
+add('X', 'x_repost', 'Yeniden gönder', { type: 'x_repost', style: 'xd', shares: 940 }, 4);
+add('X', 'x_fol', 'Takip et', { type: 'sm_follow', style: 'x', name: 'Kanal Adı', handle: '@kanaladi', tapAt: 1.2, y: 0.8, doneText: 'Takip ediliyor' }, 4.5);
+add('X', 'x_fol_d', 'Takip et · koyu', { type: 'sm_follow', style: 'xd', name: 'Kanal Adı', handle: '@kanaladi', tapAt: 1.2, y: 0.8, doneText: 'Takip ediliyor' }, 4.5);
+add('X', 'x_poll', 'Anket', { type: 'sm_poll', style: 'xd', title: 'Hangisini daha çok kullanıyorsun?', optA: 'Telefon', optB: 'Bilgisayar', value: 72 }, 4.5);
+add('X', 'x_like', 'Beğeni', { type: 'sm_like', style: 'x', from: 12400 }, 3);
+// Genel: platformdan bağımsız sade çağrılar
+add('Genel', 'g_link', "Link bio'da", { type: 'sm_linkbio', style: 'purple', y: 0.75 }, 4);
+add('Genel', 'g_link_l', 'Link açıklamada · latte', { type: 'sm_linkbio', style: 'latte', text: 'Link açıklamada', y: 0.75 }, 4);
+add('Genel', 'g_sound', 'Sesi aç · cam', { type: 'sm_sound', style: 'glass', y: 0.2 }, 3.5);
+add('Genel', 'g_watch', 'Sonuna kadar izle · sade', { type: 'sm_watch', style: 'light', y: 0.15 }, 6);
+add('Genel', 'g_swipe', 'Yukarı kaydır', { type: 'sm_swipe', style: 'light', y: 0.8 }, 4);
+add('Genel', 'g_part', 'Bölüm 2 · mor', { type: 'sm_part', style: 'purple', num: '2', text: 'Bölüm' }, 3);
+add('Genel', 'g_handle', 'Kullanıcı adı · cam', { type: 'sm_handle', style: 'glass', handle: '@kanaladi', text: 'tüm platformlarda', y: 0.85 }, 4);
+add('Genel', 'g_bell', 'Bildirimleri aç · latte', { type: 'sm_bell', style: 'latte', y: 0.8 }, 4);
+add('Genel', 'g_q', 'Soru kutusu · mor', { type: 'sm_question', style: 'purple' }, 4.5);
+add('Genel', 'g_end', 'Bitiş ekranı · latte', { type: 'sm_endscreen', style: 'latte', name: 'Kanal Adı' }, 8);
+add('Genel', 'g_cnt', 'Hedef sayacı · koyu', { type: 'sm_counter', style: 'dark', from: 4800, to: 5000, text: 'Takipçi' }, 4.5);
 export const SM_TEMPLATES = T;

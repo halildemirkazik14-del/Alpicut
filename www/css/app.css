@@ -935,3 +935,4 @@ html[data-scheme=light] .play-btn { background: var(--primary); color: var(--on-
 .sel-bar.on .sb-btn:nth-child(2) { animation-delay: .03s; } .sel-bar.on .sb-btn:nth-child(3) { animation-delay: .06s; } .sel-bar.on .sb-btn:nth-child(4) { animation-delay: .09s; }
 @keyframes sbIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .sel-bar, .sel-bar.on .sb-btn { transition: none; animation: none; } }
+.grid-head { margin: 14px 2px 8px; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
