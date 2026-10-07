@@ -1092,6 +1092,7 @@ function withTimeout(p, ms) { return Promise.race([p, new Promise((_, rej) => se
 
 async function probe(blob, kind) {
   const url = URL.createObjectURL(blob);
+  let probeEl = null;
   try {
     if (kind === 'image') {
       const img = new Image();
@@ -1099,6 +1100,7 @@ async function probe(blob, kind) {
       return { w: img.naturalWidth, h: img.naturalHeight, duration: 0, thumb: thumbOf(img, img.naturalWidth, img.naturalHeight) };
     }
     const el = document.createElement(kind === 'audio' ? 'audio' : 'video');
+    probeEl = el;
     el.preload = 'auto'; el.muted = true; el.playsInline = true; el.src = url;
     await withTimeout(new Promise((res, rej) => { el.onloadedmetadata = res; el.onerror = () => rej(new Error('dosya açılamadı')); }), 20000);
     let duration = el.duration;
@@ -1113,7 +1115,11 @@ async function probe(blob, kind) {
     let thumb = null;
     try { thumb = thumbOf(el, el.videoWidth, el.videoHeight); } catch (_) { /* yoksay */ }
     return { duration, w: el.videoWidth, h: el.videoHeight, thumb };
-  } finally { URL.revokeObjectURL(url); }
+  } finally {
+    // önce okuyucuyu durdur, sonra adresi bırak (yoksa yarım kalan okuma ERR_FILE_NOT_FOUND verir)
+    if (probeEl) { probeEl.onerror = null; try { probeEl.pause(); probeEl.removeAttribute('src'); probeEl.load(); } catch (_) { /* yoksay */ } }
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
 }
 
 function thumbOf(src, w, h) {
