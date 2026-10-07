@@ -64,7 +64,8 @@ await step('tapHold', async () => {
   const b = await it.boundingBox();
   const x = b.x + Math.min(40, b.width / 2), y = b.y + b.height / 2;
   await pg.mouse.click(x, y); await pg.waitForTimeout(400);
-  const afterTap = { pop: await pg.isVisible('.pop'), quick: await pg.$$eval('#trQuick .trq', (q) => q.length), hasSel: await pg.$eval('#transportBar', (t) => t.classList.contains('has-sel')) };
+  const afterTap = { pop: await pg.isVisible('.pop'), quick: await pg.$$eval('#selBar .sb-btn', (q) => q.length), hasSel: await pg.$eval('#selBar', (t) => t.classList.contains('on')) };
+  await shot('02a-selected');
   if (afterTap.pop) throw new Error('dokununca menü açıldı');
   if (!afterTap.hasSel || afterTap.quick < 2) throw new Error(`hızlı araçlar yok ${JSON.stringify(afterTap)}`);
   await pg.mouse.move(x, y); await pg.mouse.down(); await pg.waitForTimeout(800); await pg.mouse.up(); await pg.waitForTimeout(300);
@@ -72,7 +73,7 @@ await step('tapHold', async () => {
   if (!afterHold) throw new Error('basılı tutunca menü açılmadı');
   await shot('02b-hold-menu');
   await pg.evaluate(async () => { try { (await import('./js/popover.js')).closePop?.(); } catch (_) { /* yok */ } });
-  await pg.click('#btnItemMore'); await pg.waitForTimeout(300);
+  await pg.waitForTimeout(350); await pg.click('#selBar .sb-btn.ghost'); await pg.waitForTimeout(300);
   const viaMore = await pg.isVisible('.pop');
   await pg.evaluate(async () => { try { (await import('./js/popover.js')).closePop?.(); } catch (_) { /* yok */ } window.__alpicut.deselect(); });
   if (!viaMore) throw new Error('⋯ menüyü açmadı');

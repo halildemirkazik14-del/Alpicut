@@ -921,23 +921,17 @@ html[data-scheme=light] .play-btn { background: var(--primary); color: var(--on-
 .mus-by { background: color-mix(in srgb, #F59E0B 22%, transparent); color: #F59E0B; }
 .mus-free { background: color-mix(in srgb, #22C55E 20%, transparent); color: #22C55E; }
 
-/* v1.8 — oynatıcı altı hızlı araçlar: seçim varken zaman kodunun yerine yumuşak kayarak gelir */
-.tr-left { position: relative; height: 40px; display: flex; align-items: center; min-width: 0; }
-.tr-left .tc { transition: opacity .22s ease, transform .28s cubic-bezier(.2,.8,.2,1); }
-.tr-quick { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 4px; opacity: 0; transform: translateY(6px); pointer-events: none; transition: opacity .22s ease, transform .3s cubic-bezier(.2,.8,.2,1); }
-.transport.has-sel .tc { opacity: 0; transform: translateY(-6px); pointer-events: none; }
-.transport.has-sel .tr-quick { opacity: 1; transform: none; pointer-events: auto; }
-.trq { height: 38px; min-width: 38px; padding: 0 6px; border-radius: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--text-2); background: transparent; border: 1px solid transparent; transition: background .15s ease, transform .12s ease; }
-.trq span { display: grid; place-items: center; }
-.trq svg { width: 17px; height: 17px; }
-.trq small { font-size: 9.5px; line-height: 1; letter-spacing: .2px; color: var(--muted); }
-.trq:active { background: var(--surface-3); transform: scale(.94); }
-.trq.danger svg { color: #F87171; }
-.tr-quick .trq { animation: trqIn .32s cubic-bezier(.2,.8,.2,1) both; }
-.tr-quick .trq:nth-child(2) { animation-delay: .04s; }
-.tr-quick .trq:nth-child(3) { animation-delay: .08s; }
-@keyframes trqIn { from { opacity: 0; transform: translateY(8px) scale(.92); } to { opacity: 1; transform: none; } }
-.tr-more { display: none; }
-.transport.has-sel .tr-more { display: grid; }
-.transport.has-sel #btnZoomOut, .transport.has-sel #btnZoomIn { display: none; }
-@media (prefers-reduced-motion: reduce) { .tr-quick .trq { animation: none; } .tr-left .tc, .tr-quick { transition: none; } }
+/* v1.9 — seçim çubuğu: oynatıcı altında ayrı satır, yumuşak açılır */
+.sel-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 0; overflow: hidden; opacity: 0; background: var(--bg); border-bottom: 1px solid transparent;
+  transition: height .28s cubic-bezier(.2,.8,.2,1), opacity .2s ease, border-color .2s ease; }
+.sel-bar.on { height: 52px; opacity: 1; border-bottom-color: var(--line-2); }
+.sb-btn { flex: 1 1 0; min-width: 0; height: 38px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-2); color: var(--text); font-size: 13.5px; font-weight: 600; transition: transform .12s ease, background .15s ease; }
+.sb-btn .sb-ic { display: grid; place-items: center; }
+.sb-btn svg { width: 17px; height: 17px; }
+.sb-btn:active { transform: scale(.95); background: var(--surface-3); }
+.sb-btn.danger { color: #F87171; }
+.sb-btn.ghost { flex: 0 0 auto; padding: 0 14px; background: transparent; }
+.sel-bar.on .sb-btn { animation: sbIn .3s cubic-bezier(.2,.8,.2,1) both; }
+.sel-bar.on .sb-btn:nth-child(2) { animation-delay: .03s; } .sel-bar.on .sb-btn:nth-child(3) { animation-delay: .06s; } .sel-bar.on .sb-btn:nth-child(4) { animation-delay: .09s; }
+@keyframes sbIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sel-bar, .sel-bar.on .sb-btn { transition: none; animation: none; } }

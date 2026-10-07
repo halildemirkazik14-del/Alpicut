@@ -288,25 +288,23 @@ function targetClip() {
 function aiTarget(tab) { const o = targetClip(); if (!o) { toast('Önce Medya ile bir video ekle'); return; } openInspector(tab); }
 function aiReframe() { const o = targetClip(); if (!o || app.sel.type !== 'clip') { toast('Önce Medya ile bir video ekle'); return; } smartReframe(o); }
 
-// v1.8: oynatıcının altındaki hızlı araçlar — bir öğe seçilince zaman kodu yerine yumuşakça belirir
+// v1.9: seçim çubuğu — bir öğe seçilince oynatıcının altında ayrı bir satır olarak kayarak açılır (Böl, Kopyala, Sil, Tümü)
 function updateQuick() {
-  const q = $('trQuick'), tr = $('transportBar'), more = $('btnItemMore');
-  if (!q || !tr) return;
+  const bar = $('selBar');
+  if (!bar) return;
   const s = app.sel, o = selected();
   const on = !!(s && o && !app.multi && !o.locked);
-  tr.classList.toggle('has-sel', on);
-  q.textContent = '';
+  bar.classList.toggle('on', on);
+  const sig = on ? `${s.type}:${s.id}` : '';
+  if (bar.dataset.sig === sig) return;
+  bar.dataset.sig = sig;
+  bar.textContent = '';
   if (!on) return;
-  const canSplit = s.type !== 'subs';
-  const btn = (ic, label, fn, cls = '') => h('button', { class: `trq ${cls}`, 'aria-label': label, title: label, onclick: () => { app.pause(); fn(); } }, h('span', { html: I[ic] || I.edit }), h('small', {}, label));
-  if (canSplit) q.append(btn('split', 'Böl', () => splitSel()));
-  if (s.type !== 'subs') q.append(btn('copy', 'Kopya', dupSel));
-  q.append(btn('trash', 'Sil', delSel, 'danger'));
-  if (more && !more._wired) {
-    more._wired = true;
-    more.innerHTML = I.more;
-    more.addEventListener('click', () => { app.pause(); const r = more.getBoundingClientRect(); itemMenu({ x: r.left + r.width / 2, y: $('transportBar').getBoundingClientRect().top }); });
-  }
+  const btn = (ic, label, fn, cls = '') => h('button', { class: `sb-btn ${cls}`, onclick: () => { app.pause(); fn(); } }, h('span', { class: 'sb-ic', html: I[ic] || I.edit }), h('span', { class: 'sb-lb' }, label));
+  if (s.type !== 'subs') bar.append(btn('split', 'Böl', () => splitSel()), btn('copy', 'Kopyala', dupSel));
+  bar.append(btn('trash', 'Sil', delSel, 'danger'));
+  const more = btn('more', 'Tümü', () => { const r = more.getBoundingClientRect(); itemMenu({ x: r.left + r.width / 2, y: bar.getBoundingClientRect().top }); }, 'ghost');
+  bar.append(more);
 }
 
 function renderToolbar() {
@@ -350,7 +348,6 @@ function renderToolbar() {
   if (s.type === 'clip') {
     const isV = o.type === 'video' && !o.freeze;
     tool('edit', 'Düzen', insp('Düzen'));
-    tool('split', 'Böl', splitSel);
     tool('color', 'Renk', insp('Renk'));
     tool('adjust', 'Arka plan sil', insp('Arka plan'));
     tool('shape', 'Maske', insp('Maske'));
@@ -365,29 +362,21 @@ function renderToolbar() {
     if (isV) tool('freeze', 'Dondur', freezeFrame);
     if (isV) tool('silence', 'Sessizlik', () => openSilence(o, 'clip'));
     tool('beat', 'Ritimde böl', splitOnBeats);
-    tool('copy', 'Kopyala', dupSel);
-    tool('trash', 'Sil', delSel, 'danger');
   } else if (s.type === 'layer') {
     const tabs = LAYER_TABS[o.kind] || [];
     tabs.forEach((t) => tool(TAB_ICON[t], t, insp(t)));
-    tool('split', 'Böl', splitSel);
     tool(o.hidden ? 'eyeOff' : 'eye', o.hidden ? 'Göster' : 'Gizle', () => { o.hidden = !o.hidden; commit(); renderToolbar(); });
     tool('lock', 'Kilitle', () => { o.locked = true; commit(); renderToolbar(); refreshLive(); });
-    tool('copy', 'Kopyala', dupSel);
-    tool('trash', 'Sil', delSel, 'danger');
   } else if (s.type === 'audio') {
     tool('sfx', 'Ses', insp('Ses'));
     tool('mixer', 'EQ / grup', insp('Efekt'));
     tool('diamond', 'Keyframe', insp('Keyframe'));
-    tool('split', 'Böl', splitSel);
     tool('silence', 'Sessizlik', () => openSilence(o, 'audio'));
     tool('beat', 'Ritim bul', () => findBeats(o));
     tool('adjust', 'Seviye eşitle', () => normalizeItem(o));
     tool('mic', 'Stüdyo ses', () => studioClean(o));
     tool(o.mute ? 'mute' : 'sfx', o.mute ? 'Sesi aç' : 'Sessiz', () => { o.mute = !o.mute; commit(); renderToolbar(); });
     tool('lock', 'Kilitle', () => { o.locked = true; commit(); renderToolbar(); });
-    tool('copy', 'Kopyala', dupSel);
-    tool('trash', 'Sil', delSel, 'danger');
   } else if (s.type === 'subs') {
     tool('brand', 'Stil', insp('Stil'));
     tool('text', 'Satırlar', insp('Satırlar'));
