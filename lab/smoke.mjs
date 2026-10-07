@@ -282,6 +282,24 @@ await step('exportRange', async () => {
   return r;
 });
 
+await step('detachAudio', async () => {
+  const r = await pg.evaluate(async () => {
+    const app = window.__alpicut; const P = app.P;
+    const c = P.clips.find((x) => x.type === 'video');
+    if (!c) return 'klip yok';
+    const n0 = P.audio.length;
+    const m = await import('./js/audiostudio.js');
+    await m.detachAudio(c);
+    const a = P.audio.find((x) => x.linked === c.id && x.detached);
+    const ret = { added: P.audio.length - n0, muted: !!c.mute, len: a ? +(a.out - a.in).toFixed(2) : null, clipLen: +((c.out - c.in) / (c.speed || 1)).toFixed(2), toast: document.getElementById('toast')?.textContent || '' };
+    if (a) document.getElementById('btnUndo')?.click();
+    return ret;
+  });
+  if (r.added === 1 && (!r.muted || Math.abs(r.len - r.clipLen) > 0.1)) throw new Error(`ses ayırma yanlış: ${JSON.stringify(r)}`);
+  if (r.added !== 1 && !/okunamadı|ses yok/.test(r.toast)) throw new Error(`ses ayrılamadı: ${JSON.stringify(r)}`);
+  return r;
+});
+
 R.errors = errs.slice(0, 50);
 fs.writeFileSync(`${OUT}/smoke.json`, JSON.stringify(R, null, 1));
 console.log('HATALAR', errs.length, errs.slice(0, 15).join('\n'));

@@ -115,6 +115,40 @@ function subtractAligned(x, v) {
   return out;
 }
 
+// v1.10: Sesi videodan ayır — klibin sesi (aynı bölüm, aynı hız) ayrı bir ses izine çıkarılır, video susturulur.
+// Ses ayrıca kesilebilir, kaydırılabilir, temizlenebilir. Geri al ile tek adımda eski hâline döner.
+export async function detachAudio(o) {
+  const t = target(o);
+  if (!t.m || t.m.kind !== 'video') { toast('Önce zaman çizelgesinden bir video klibi seç'); return; }
+  if (o.mute && app.P.audio.some((a) => a.linked === o.id && a.detached)) { toast('Bu klibin sesi zaten ayrılmış'); return; }
+  const b = busy('Ses videodan ayrılıyor…');
+  try {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    let ab2;
+    try { ab2 = await new OAC(2, SR, SR).decodeAudioData(await t.m.blob.arrayBuffer()); } catch (_) { throw new Error('Bu videonun sesi okunamadı'); }
+    const speed = o.speed || 1;
+    const a0 = Math.max(0, t.inn), a1 = Math.min(ab2.duration, t.out ?? ab2.duration);
+    if (a1 - a0 < 0.05) throw new Error('Bu klipte ses yok');
+    const outLen = Math.max(1, Math.round(((a1 - a0) / speed) * SR));
+    const ctx = new OAC(Math.min(2, ab2.numberOfChannels), outLen, SR);
+    const src = ctx.createBufferSource(); src.buffer = ab2; src.playbackRate.value = speed;
+    src.connect(ctx.destination); src.start(0, a0, a1 - a0);
+    const r = await ctx.startRendering();
+    // mono karışım (konuşma için yeterli, dosya yarı boyut)
+    const x = new Float32Array(r.length);
+    for (let c = 0; c < r.numberOfChannels; c++) { const d = r.getChannelData(c); for (let i = 0; i < x.length; i++) x[i] += d[i] / r.numberOfChannels; }
+    let peak = 0; for (let i = 0; i < x.length; i += 32) peak = Math.max(peak, Math.abs(x[i]));
+    if (peak < 1e-4) throw new Error('Bu klipte duyulur bir ses yok');
+    const file = new File([toWav(x)], `${(t.m.name || 'video').replace(/\.\w+$/, '')}_ses.wav`, { type: 'audio/wav' });
+    const recs = await app.importFiles([file], true);
+    if (!recs[0]) throw new Error('Kaydedilemedi');
+    app.P.audio.push({ id: uid(), mediaId: recs[0].id, start: t.start, in: 0, out: x.length / SR, volume: o.volume ?? 1, fadeIn: 0, fadeOut: 0, role: 'voice', linked: o.id, detached: true });
+    o.mute = true;
+    app.commit();
+    toast(speed !== 1 ? 'Ses ayrıldı (klip hızı sese de uygulandı)' : 'Ses ayrıldı — artık ayrı bir iz: kes, kaydır, temizle');
+  } catch (e) { toast(e.message || 'Ses ayrılamadı', 4000); } finally { b.close(); }
+}
+
 async function karaoke(blob) {
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   const ab2 = await new OAC(2, SR, SR).decodeAudioData(await blob.arrayBuffer());
@@ -140,10 +174,10 @@ async function karaoke(blob) {
 export function openAudioStudio(o) {
   if (!o || !o.mediaId) { toast('Önce zaman çizelgesinden bir video ya da ses seç'); return; }
   openSheet({
-    id: 'audiostudio', title: 'Ses stüdyosu', tall: true, tabs: ['Temizle', 'Ayır'], tab: st.tab,
+    id: 'audiostudio', title: 'Ses stüdyosu', tall: true, tabs: ['Temizle', 'Konuşma / müzik'], tab: st.tab,
     onClose: stopAB,
     render: (body, tb) => {
-      st.tab = tb;
+      st.tab = tb === 'Konuşma / müzik' ? 'Konuşma / müzik' : tb;
       const name = app.engine.media.get(o.mediaId)?.name || 'ses';
       body.append(h('div', { class: 'as-head' }, h('span', { class: 'as-ic', html: I.mic }), h('span', {}, h('b', {}, name), h('small', {}, 'Orijinal dosya korunur; sonuç yeni bir iz olarak eklenir ve geri alınabilir.'))));
       if (tb === 'Temizle') {
@@ -161,11 +195,15 @@ export function openAudioStudio(o) {
           h('button', { class: 'btn', html: I.pause || '■', onclick: stopAB })));
         body.append(h('button', { class: 'btn block primary', html: `${I.mic} Temizle ve uygula`, onclick: () => applyClean(o) }));
       } else {
+        if (app.P.clips.includes(o)) body.append(h('div', { class: 'as-detach' },
+          h('p', { class: 'hint', style: { margin: '0 0 8px' } }, 'Sesi videodan ayırıp ayrı bir izde düzenlemek istiyorsan bunu kullan (ses aynen korunur):'),
+          h('button', { class: 'btn block primary', html: `${I.audio || I.mic} Sesi videodan ayır`, onclick: () => { closeSheet(); detachAudio(o); } }),
+          h('div', { class: 'sub-title', style: { marginTop: '14px' } }, 'Konuşmayı müzikten/ortamdan ayır (deneysel)')));
         const opts = [['both', 'Konuşma + arka plan', 'İki ayrı iz: sesini ve müziği/ortamı ayrı ayrı ayarla'], ['voice', 'Sadece konuşma', 'Müziği, kalabalığı, gürültüyü at'], ['bg', 'Sadece arka plan', 'Konuşmayı çıkar, ortam/müzik kalsın'], ['karaoke', 'Vokali azalt (şarkı)', 'Stereo şarkılarda karaoke']];
         const g = h('div', { class: 'as-sep' });
         opts.forEach(([id, n, d], i) => g.append(h('button', { class: `as-opt${st.sep === id ? ' on' : ''}`, style: { '--i': String(i) }, onclick: () => { st.sep = id; refreshSheet(); } }, h('b', {}, n), h('small', {}, d))));
         body.append(g);
-        body.append(h('p', { class: 'hint' }, 'Ayırma telefonda, internetsiz yapılır. Konuşma ayırmada en iyi sonuç tek kişilik kayıtlarda alınır.'));
+        body.append(h('p', { class: 'hint' }, 'Deneysel: telefonda, internetsiz yapılır. Arka planda konuşma izleri kalabilir; temiz bir konuşma için “Sadece konuşma” ya da Temizle sekmesi daha iyi sonuç verir.'));
         body.append(h('button', { class: 'btn block primary', html: `${I.split || I.scissors} Ayır`, onclick: () => applySeparate(o) }));
       }
     },

@@ -323,6 +323,7 @@ function updateQuick() {
   const btn = (ic, label, fn, cls = '') => h('button', { class: `sb-btn ${cls}`, onclick: () => { app.pause(); fn(); } }, h('span', { class: 'sb-ic', html: I[ic] || I.edit }), h('span', { class: 'sb-lb' }, label));
   if (s.type !== 'subs') bar.append(btn('split', 'Böl', () => splitSel()), btn('copy', 'Kopyala', dupSel));
   if (s.type === 'clip') bar.append(btn('layer', 'Bindir', overlaySel));
+  if (s.type === 'clip' && o.type === 'video' && !o.mute) bar.append(btn('audio', 'Sesi ayır', () => import('./audiostudio.js').then((m) => m.detachAudio(o))));
   bar.append(btn('trash', 'Sil', delSel, 'danger'));
   const more = btn('more', 'Tümü', () => { const r = more.getBoundingClientRect(); itemMenu({ x: r.left + r.width / 2, y: bar.getBoundingClientRect().top }); }, 'ghost');
   bar.append(more);
