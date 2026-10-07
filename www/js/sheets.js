@@ -228,13 +228,21 @@ function clipInspector(c) {
   const idx = app.P.clips.indexOf(c);
   return {
     title: c.freeze ? 'Donmuş kare' : isV ? 'Video klip' : 'Fotoğraf',
-    tabs: isV && !c.freeze ? ['Düzen', 'Renk', 'Arka plan', 'Chroma', 'Maske', 'Ses', 'Keyframe', 'Geçiş', 'Filtre'] : ['Düzen', 'Renk', 'Arka plan', 'Chroma', 'Maske', 'Keyframe', 'Geçiş', 'Filtre'],
+    tabs: isV && !c.freeze ? ['Düzen', 'Hız', 'Renk', 'Arka plan', 'Chroma', 'Maske', 'Ses', 'Keyframe', 'Geçiş', 'Filtre'] : ['Düzen', 'Renk', 'Arka plan', 'Chroma', 'Maske', 'Keyframe', 'Geçiş', 'Filtre'],
     actions: [
       { icon: I.left, label: 'Sola taşı', onClick: () => app.moveClip(-1) },
       { icon: I.right, label: 'Sağa taşı', onClick: () => app.moveClip(1) },
       ...(isV && !c.freeze ? [{ icon: I.freeze, label: 'Kareyi dondur', onClick: () => app.freezeFrame() }, { icon: I.reverse, label: 'Ters çevir', onClick: () => app.reverseClip(c) }] : []),
     ],
     render: (body, tab) => {
+      if (tab === 'Hız') {
+        // v1.9: speed ramp ayrı sekmede — hazır eğriler tek dokunuşla
+        body.append(h('p', { class: 'hint', html: 'Reklam filmlerindeki gibi <b>hızlan → ağır çekim → hızlan</b>. Bir eğri seç, sonra oynatıp izle.' }));
+        body.append(fields(c, [{ label: 'Temel hız', path: 'speed', type: 'range', min: 0.25, max: 3, step: 0.05, fmt: (x) => `${(+x).toFixed(2)}x`, post: () => app.refreshTimeline() }]));
+        body.append(speedCurveEl(c));
+        body.append(h('button', { class: 'btn block', html: `${I.play} Önizle`, onclick: () => { const L = app.layout().find((x) => x.clip === c); if (L) app.previewRange(L.start, L.end); } }));
+        return;
+      }
       if (tab === 'Düzen') {
         body.append(fields(c, [
           { label: 'Yerleşim', path: 'fit', type: 'chips', options: [['cover', 'Ekranı doldur'], ['contain', 'Sığdır']], rerender: true },
@@ -1086,7 +1094,7 @@ export function openExport() {
   modal.classList.remove('hidden');
   const [W, H] = RATIOS[app.P.ratio];
   const short = Math.min(W, H);
-  const opt = { q: 1080, fps: 30, limit: 0 };
+  const opt = { q: 1080, fps: 30, limit: 0, range: false, r0: 0, r1: 0 };
   const mime = Engine.pickMime();
   const offline = typeof window.VideoEncoder === 'function' && typeof window.AudioEncoder === 'function';
   const fmtName = offline ? 'MP4' : mime == null ? 'Desteklenmiyor' : (mime.includes('mp4') ? 'MP4' : 'WebM');
@@ -1107,6 +1115,18 @@ export function openExport() {
     card.append(h('div', { class: 'field full' }, h('label', {}, 'Çözünürlük'), chips([[1080, '1080p'], [720, '720p'], [540, '540p (hızlı)']], 'q')));
     card.append(h('div', { class: 'field full' }, h('label', {}, 'Kare hızı'), chips([[30, '30 fps'], [60, '60 fps']], 'fps')));
     card.append(h('div', { class: 'field full' }, h('label', {}, 'Dosya boyutu sınırı'), chips([[0, 'Yok'], [10, '10 MB'], [30, '30 MB'], [50, '50 MB'], [100, '100 MB']], 'limit')));
+    // v1.9: yalnızca bir aralığı dışa aktar (giriş-çıkış)
+    card.append(h('div', { class: 'field full' }, h('label', {}, 'Bölüm'), chips([[false, 'Tüm video'], [true, 'Seçili aralık']], 'range')));
+    if (opt.range) {
+      if (!opt.r1) { opt.r0 = Math.max(0, Math.min(dur - 1, app.engine.t)); opt.r1 = Math.min(dur, opt.r0 + 5); }
+      const setT = (k) => () => { opt[k] = Math.max(0, Math.min(dur, app.engine.t)); if (opt.r1 <= opt.r0) opt.r1 = Math.min(dur, opt.r0 + 1); renderOpts(); };
+      card.append(fields(opt, [
+        { label: 'Giriş', path: 'r0', type: 'range', min: 0, max: dur, step: 0.1, fmt: (x) => fmt(+x), post: (o) => { if (o.r1 <= o.r0) o.r1 = Math.min(dur, o.r0 + 0.5); } },
+        { label: 'Çıkış', path: 'r1', type: 'range', min: 0, max: dur, step: 0.1, fmt: (x) => fmt(+x), post: (o) => { if (o.r1 <= o.r0) o.r0 = Math.max(0, o.r1 - 0.5); } },
+      ]));
+      card.append(h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: setT('r0') }, '⇤ Oynatıcı = giriş'), h('button', { class: 'btn', onclick: setT('r1') }, 'Oynatıcı = çıkış ⇥')));
+      card.append(h('p', { class: 'hint', html: `Dışa aktarılacak: <b>${fmt(opt.r0)} – ${fmt(opt.r1)}</b> (${(opt.r1 - opt.r0).toFixed(1)} sn)` }));
+    }
     if (opt.limit) {
       const vb = targetBitrate(opt.limit, dur);
       const low = vb < 1.2e6;
@@ -1120,6 +1140,7 @@ export function openExport() {
       h('button', { class: 'btn', onclick: close }, 'Vazgeç'),
       h('button', { class: 'btn primary', html: `${I.export} Oluştur`, onclick: start, disabled: mime == null && !offline })));
     card.append(h('button', { class: 'btn block', style: { marginTop: '4px' }, html: `${I.media} Bu kareyi PNG kaydet`, onclick: saveFrame }));
+    if (app.P.subs?.cues?.length) card.append(h('button', { class: 'btn block', html: `${I.subtitle} Altyazıyı SRT olarak indir`, onclick: async () => { const r = await saveVideo(new Blob([toSRT(app.P.subs.cues.map((c) => ({ ...c, start: c.start + (app.P.subs.offset || 0), end: c.end + (app.P.subs.offset || 0) })))], { type: 'text/plain' }), `${app.P.name || 'alpicut'}.srt`, { share: true }); toast(r.where ? `${r.where} klasörüne kaydedildi` : 'SRT kaydedildi'); } }));
   };
 
   const saveFrame = async () => {
@@ -1140,7 +1161,8 @@ export function openExport() {
     try { wake = await navigator.wakeLock?.request('screen'); } catch (_) { /* yoksay */ }
     const res = opt.q / short;
     const qbr = ({ 1080: 12e6, 720: 7e6, 540: 4e6 }[opt.q]) * (opt.fps === 60 ? 1.5 : 1);
-    let br = opt.limit ? Math.min(qbr, targetBitrate(opt.limit, dur)) : qbr;
+    const span = opt.range ? Math.max(0.1, opt.r1 - opt.r0) : dur;
+    let br = opt.limit ? Math.min(qbr, targetBitrate(opt.limit, span)) : qbr;
     const abr = opt.limit ? 128000 : 192000;
     let out = null, attempt = 0, note = '';
     const limitB = opt.limit * 1048576;
@@ -1159,7 +1181,7 @@ export function openExport() {
         // v1.7: kapak videonun ilk karesine eklenecekse önceden hazırla
         let coverCanvas = null;
         if (app.P.cover?.inVideo) { try { coverCanvas = await renderCover(document.createElement('canvas'), true); } catch (_) { coverCanvas = null; } }
-        out = await app.engine.export({ res, fps: opt.fps, bitrate: br, abr, coverCanvas, onStage: (s) => { stageEl.textContent = s; },
+        out = await app.engine.export({ res, fps: opt.fps, bitrate: br, abr, coverCanvas, range: opt.range ? [opt.r0, opt.r1] : null, onStage: (s) => { stageEl.textContent = s; },
           onProgress: (p) => {
             bar.style.width = `${p * 100}%`; pctEl.textContent = `${Math.round(p * 100)}%`;
             const el = (performance.now() - t0) / 1000;

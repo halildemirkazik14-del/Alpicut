@@ -327,6 +327,43 @@ export const BUILTIN_LUTS = [
   ['mono', 'Kontrast S/B', (r, g, b) => { const l = smooth(smooth(lumOf(r, g, b))); return [l, l, l]; }],
 ];
 
+// v1.9: sinema görünümleri — kült filmlerin renk dilinden esinlenen, uygulamanın kendi ürettiği LUT'lar (film adı/görüntüsü içermez)
+const cl = (x) => Math.max(0, Math.min(1, x));
+const sCurve = (x, k = 1) => { const y = smooth(cl(x)); return cl(x + (y - x) * k); };
+const lift = (x, lo, hi = 1) => lo + x * (hi - lo);
+const sat = (r, g, b, s) => { const l = lumOf(r, g, b); return [l + (r - l) * s, l + (g - l) * s, l + (b - l) * s]; };
+const split = (r, g, b, sh, hl, amt = 1) => { const l = lumOf(r, g, b); const w = smooth(l); return [r + (sh[0] * (1 - w) + hl[0] * w) * amt, g + (sh[1] * (1 - w) + hl[1] * w) * amt, b + (sh[2] * (1 - w) + hl[2] * w) * amt]; };
+const fin = (v) => v.map(cl);
+BUILTIN_LUTS.push(
+  ['cn_atomic', 'Atom Çağı', (r, g, b) => { let v = sat(r, g, b, 0.8); v = split(...v, [-0.03, 0.02, 0.05], [0.06, 0.02, -0.06]); return fin(v.map((x) => sCurve(lift(x, 0.03, 0.97), 0.8))); }],
+  ['cn_atomicbw', 'Atom Çağı S/B', (r, g, b) => { const l = sCurve(sCurve(lumOf(r, g, b) * 1.04 - 0.02)); return [l, l, l]; }],
+  ['cn_dune', 'Çöl Gezegeni', (r, g, b) => { let v = sat(r, g, b, 0.72); v = split(...v, [0.02, 0.0, -0.04], [0.09, 0.04, -0.08]); return fin(v.map((x) => lift(sCurve(x, 0.4), 0.05, 0.94))); }],
+  ['cn_neondys', 'Neon Distopya', (r, g, b) => { const l = lumOf(r, g, b); let v = sat(r, g, b, 0.9); v = split(...v, [-0.05, 0.03, 0.08], [0.14, 0.05, -0.1]); return fin(v.map((x) => sCurve(x * 0.95 + l * 0.05, 0.6))); }],
+  ['cn_gotham', 'Karanlık Şehir', (r, g, b) => { let v = sat(r, g, b, 0.6); v = split(...v, [-0.02, 0.0, 0.03], [0.08, -0.02, -0.05]); return fin(v.map((x) => sCurve(x * 0.92, 1.2))); }],
+  ['cn_sim', 'Simülasyon Yeşili', (r, g, b) => { let v = sat(r, g, b, 0.7); v = [v[0] * 0.88, v[1] * 1.04 + 0.02, v[2] * 0.86]; return fin(v.map((x) => sCurve(x, 0.7))); }],
+  ['cn_pastel', 'Pastel Otel', (r, g, b) => { let v = sat(r, g, b, 1.15); v = split(...v, [0.06, 0.02, 0.06], [0.04, 0.0, 0.02]); return fin(v.map((x) => lift(x, 0.08, 0.98))); }],
+  ['cn_lalight', 'Gece Dansı', (r, g, b) => { let v = sat(r, g, b, 1.3); v = split(...v, [0.02, -0.03, 0.12], [0.06, 0.0, 0.04]); return fin(v.map((x) => sCurve(x, 0.5))); }],
+  ['cn_paris', 'Paris Rüyası', (r, g, b) => { let v = sat(r, g, b, 1.25); v = [v[0] * 1.04 + 0.02, v[1] * 1.03 + 0.03, v[2] * 0.8]; return fin(v.map((x) => sCurve(x, 0.5))); }],
+  ['cn_stairs', 'Merdiven', (r, g, b) => { let v = sat(r, g, b, 0.9); v = split(...v, [-0.04, 0.04, 0.02], [0.06, 0.06, -0.05]); return fin(v.map((x) => sCurve(x, 0.7))); }],
+  ['cn_fury', 'Kızgın Çöl', (r, g, b) => { let v = sat(r, g, b, 1.3); v = split(...v, [-0.06, 0.02, 0.1], [0.12, 0.05, -0.12]); return fin(v.map((x) => sCurve(x, 1.1))); }],
+  ['cn_landing', 'Çıkarma Günü', (r, g, b) => { const l = lumOf(r, g, b); let v = sat(r, g, b, 0.35); v = [v[0] * 0.98, v[1], v[2] * 1.03]; return fin(v.map((x, i) => sCurve(mixv(x, l, 0.2) + (i === 2 ? 0.01 : 0), 1.3))); }],
+  ['cn_redonly', 'Kırmızı Seçici', (r, g, b) => { const l = sCurve(lumOf(r, g, b), 1); const red = cl((r - Math.max(g, b)) * 4 - 0.9); return fin([mixv(l, r * 1.05, red), mixv(l, g * 0.8, red), mixv(l, b * 0.8, red)]); }],
+  ['cn_drive', 'Gece Sürücüsü', (r, g, b) => { let v = sat(r, g, b, 1.15); v = split(...v, [-0.03, 0.04, 0.09], [0.1, -0.02, 0.06]); return fin(v.map((x) => sCurve(x, 0.6))); }],
+  ['cn_moon', 'Ay Işığı', (r, g, b) => { let v = sat(r, g, b, 1.1); v = split(...v, [-0.02, 0.05, 0.1], [0.08, -0.01, 0.07]); return fin(v.map((x) => sCurve(lift(x, 0.02), 0.5))); }],
+  ['cn_her', 'Sıcak Yalnızlık', (r, g, b) => { let v = sat(r, g, b, 0.95); v = split(...v, [0.05, 0.0, -0.01], [0.07, 0.02, -0.02]); return fin(v.map((x) => lift(sCurve(x, 0.3), 0.06, 0.99))); }],
+  ['cn_space', 'Yıldızlararası', (r, g, b) => { let v = sat(r, g, b, 0.7); v = split(...v, [-0.02, 0.0, 0.03], [0.05, 0.03, -0.02]); return fin(v.map((x) => sCurve(x, 0.6))); }],
+  ['cn_under', 'Yeraltı Kulübü', (r, g, b) => { let v = sat(r, g, b, 0.75); v = [v[0] * 0.97 + 0.02, v[1] * 1.02 + 0.03, v[2] * 0.82]; return fin(v.map((x) => sCurve(x, 1))); }],
+  ['cl_silent', 'Sessiz Film', (r, g, b) => { const l = lift(sCurve(lumOf(r, g, b), 0.6), 0.08, 0.92); return fin([l * 1.04, l * 0.98, l * 0.86]); }],
+  ['cl_noir', 'Kara Film', (r, g, b) => { const l = sCurve(sCurve(lumOf(r, g, b) * 1.08 - 0.06)); return [l, l, l]; }],
+  ['cl_techni', "Technicolor '50", (r, g, b) => { let v = [r * 1.12 - g * 0.06 - b * 0.06, g * 1.1 - r * 0.05 - b * 0.05, b * 1.14 - r * 0.07 - g * 0.07]; v = sat(...v, 1.25); return fin(v.map((x) => sCurve(x, 0.6))); }],
+  ['cl_koda', "Kodachrome '60", (r, g, b) => { let v = sat(r, g, b, 1.2); v = split(...v, [0.0, 0.0, 0.04], [0.06, 0.03, -0.04]); return fin(v.map((x) => sCurve(x, 0.8))); }],
+  ['cl_70s', "70'ler Film", (r, g, b) => { let v = sat(r, g, b, 0.8); v = split(...v, [0.05, 0.03, -0.02], [0.07, 0.05, -0.06]); return fin(v.map((x) => lift(x, 0.1, 0.92))); }],
+  ['cl_vhs', "VHS '80", (r, g, b) => { let v = sat(r, g, b, 1.2); v = split(...v, [-0.02, 0.0, 0.06], [0.04, 0.01, -0.02]); return fin(v.map((x) => lift(x, 0.09, 0.93))); }],
+  ['cl_polaroid', 'Polaroid', (r, g, b) => { let v = sat(r, g, b, 0.85); v = split(...v, [-0.03, 0.04, 0.06], [0.06, 0.03, -0.03]); return fin(v.map((x) => lift(sCurve(x, 0.3), 0.1, 0.95))); }],
+  ['cl_western', 'Spagetti Western', (r, g, b) => { let v = sat(r, g, b, 0.85); v = split(...v, [0.02, 0.0, -0.04], [0.12, 0.05, -0.1]); return fin(v.map((x) => sCurve(x, 1.1))); }],
+  ['cl_super8', 'Super 8', (r, g, b) => { let v = sat(r, g, b, 1.05); v = split(...v, [0.03, 0.01, -0.03], [0.08, 0.04, -0.06]); return fin(v.map((x) => lift(sCurve(x, 0.6), 0.06, 0.95))); }],
+);
+
 const builtinCache = new Map();
 export function builtinLut(id) {
   if (builtinCache.has(id)) return builtinCache.get(id);

@@ -275,6 +275,12 @@ await step('export', () => pg.evaluate(async () => {
   const r = await app.engine.export({ res: 0.4, fps: 30, bitrate: 3e6 });
   return { size: r?.blob.size, ext: r?.ext, ms: Math.round(performance.now() - t0), dur: app.engine.duration() };
 }));
+// v1.9: aralık dışa aktarma — yalnızca 1.0–2.5 sn (45 kare @30fps)
+await step('exportRange', async () => {
+  const r = await pg.evaluate(async () => { const app = window.__alpicut; const o = await app.engine.export({ res: 0.4, fps: 30, bitrate: 3e6, range: [1, 2.5] }); return { frames: o?.frames, size: o?.blob.size }; });
+  if (r.frames && r.frames !== 45) throw new Error(`aralık kare sayısı yanlış: ${JSON.stringify(r)}`);
+  return r;
+});
 
 R.errors = errs.slice(0, 50);
 fs.writeFileSync(`${OUT}/smoke.json`, JSON.stringify(R, null, 1));

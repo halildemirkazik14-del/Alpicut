@@ -1,7 +1,7 @@
 // Alpicut — filtre kütüphanesi: 160+ hazır görünüm (CSS filtre + renk düzenleme + LUT birleşimi), canlı küçük önizleme, favoriler
 import { app, h, toast, uid } from './state.js';
 import { DEFAULT_FILTERS, filterString, anim } from './presets.js';
-import { COLOR_BASE } from './gl.js';
+import { COLOR_BASE, BUILTIN_LUTS } from './gl.js';
 import { star, favIds, registerFav } from './favs.js';
 
 // [id, ad, kategori, css filtre, renk (gl), lut]
@@ -197,13 +197,43 @@ FILTERS.push(
   X('tc_holo', 'Hologram', 'Teknoloji', { saturate: 1.3, contrast: 1.05, hue: 25 }, { temp: -0.3, tint: 0.2 }),
   X('tc_mono', 'Sade teknoloji', 'Teknoloji', { saturate: 0.6, contrast: 1.12 }, { temp: -0.15, sharp: 0.3 }),
 );
+// v1.9: Sinema — kült filmlerin renk dilinden esinlenen görünümler (isimler özgün; film adı ve görüntüsü kullanılmaz)
+FILTERS.splice(1, 0,
+  X('cn_atomic', 'Atom Çağı · renk', 'Sinema · modern', { contrast: 1.05 }, { temp: 0.06 }, 'b:cn_atomic'),
+  X('cn_atomicbw', 'Atom Çağı · S/B', 'Sinema · modern', { contrast: 1.05 }, { sharp: 0.15 }, 'b:cn_atomicbw'),
+  X('cn_dune', 'Çöl Gezegeni', 'Sinema · modern', {}, { temp: 0.1 }, 'b:cn_dune'),
+  X('cn_neondys', 'Neon Distopya', 'Sinema · modern', {}, {}, 'b:cn_neondys'),
+  X('cn_gotham', 'Karanlık Şehir', 'Sinema · modern', { brightness: 0.96 }, {}, 'b:cn_gotham'),
+  X('cn_sim', 'Simülasyon Yeşili', 'Sinema · modern', {}, { sharp: 0.1 }, 'b:cn_sim'),
+  X('cn_pastel', 'Pastel Otel', 'Sinema · modern', {}, {}, 'b:cn_pastel'),
+  X('cn_lalight', 'Gece Dansı', 'Sinema · modern', {}, {}, 'b:cn_lalight'),
+  X('cn_paris', 'Paris Rüyası', 'Sinema · modern', {}, {}, 'b:cn_paris'),
+  X('cn_stairs', 'Merdiven', 'Sinema · modern', {}, {}, 'b:cn_stairs'),
+  X('cn_fury', 'Kızgın Çöl', 'Sinema · modern', {}, {}, 'b:cn_fury'),
+  X('cn_landing', 'Çıkarma Günü', 'Sinema · modern', {}, { sharp: 0.2 }, 'b:cn_landing'),
+  X('cn_redonly', 'Kırmızı Seçici', 'Sinema · modern', {}, {}, 'b:cn_redonly'),
+  X('cn_drive', 'Gece Sürücüsü', 'Sinema · modern', {}, {}, 'b:cn_drive'),
+  X('cn_moon', 'Ay Işığı', 'Sinema · modern', {}, {}, 'b:cn_moon'),
+  X('cn_her', 'Sıcak Yalnızlık', 'Sinema · modern', {}, { smooth: 0.1 }, 'b:cn_her'),
+  X('cn_space', 'Yıldızlararası', 'Sinema · modern', {}, {}, 'b:cn_space'),
+  X('cn_under', 'Yeraltı Kulübü', 'Sinema · modern', {}, {}, 'b:cn_under'),
+  X('cl_silent', "Sessiz Film · 1920'ler", 'Sinema · klasik', { contrast: 1.05 }, {}, 'b:cl_silent'),
+  X('cl_noir', "Kara Film · 1940'lar", 'Sinema · klasik', {}, {}, 'b:cl_noir'),
+  X('cl_techni', "Technicolor · 1950'ler", 'Sinema · klasik', {}, {}, 'b:cl_techni'),
+  X('cl_koda', "Kodachrome · 1960'lar", 'Sinema · klasik', {}, {}, 'b:cl_koda'),
+  X('cl_70s', "70'ler Film", 'Sinema · klasik', {}, {}, 'b:cl_70s'),
+  X('cl_vhs', "VHS · 1980'ler", 'Sinema · klasik', { blur: 0.3 }, {}, 'b:cl_vhs'),
+  X('cl_polaroid', 'Polaroid', 'Sinema · klasik', {}, {}, 'b:cl_polaroid'),
+  X('cl_western', 'Spagetti Western', 'Sinema · klasik', {}, {}, 'b:cl_western'),
+  X('cl_super8', 'Super 8', 'Sinema · klasik', {}, {}, 'b:cl_super8'),
+);
 export const FILTER_CATS = [...new Set(FILTERS.map((f) => f[2]))];
 
 export function applyFilter(o, f) {
   o.filterPreset = f[0];
   o.filters = { ...DEFAULT_FILTERS, ...f[3] };
   o.color = { ...COLOR_BASE, ...(o.color ? { smooth: o.color.smooth, sharp: o.color.sharp } : {}), ...f[4] };
-  o.lut = f[5] ? { id: f[5], mix: 0.85 } : null;
+  o.lut = f[5] ? { id: f[5], mix: /^b:c[nl]_/.test(f[5]) ? 1 : 0.85 } : null;
 }
 
 // küçük önizleme: o anki karenin üzerine CSS filtreyle (yaklaşık)
@@ -223,6 +253,16 @@ function thumb(src, f) {
   const all = [fs === 'none' ? '' : fs, ...extra].filter(Boolean).join(' ');
   x.filter = all || 'none';
   x.drawImage(src, 0, 0, c.width, c.height);
+  // v1.9: dahili LUT'lu görünümlerde küçük resim gerçek LUT ile boyanır (sinema filtreleri doğru görünsün)
+  const def = f[5] && f[5].startsWith('b:') && BUILTIN_LUTS.find((d) => d[0] === f[5].slice(2));
+  if (def && /^c[nl]_/.test(def[0])) {
+    x.filter = 'none';
+    try {
+      const im = x.getImageData(0, 0, c.width, c.height), d = im.data;
+      for (let i = 0; i < d.length; i += 4) { const v = def[2](d[i] / 255, d[i + 1] / 255, d[i + 2] / 255); d[i] = v[0] * 255; d[i + 1] = v[1] * 255; d[i + 2] = v[2] * 255; }
+      x.putImageData(im, 0, 0);
+    } catch (_) { /* yoksay */ }
+  }
   return c;
 }
 

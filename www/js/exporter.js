@@ -130,10 +130,15 @@ export async function canOffline(w, h, bitrate) {
   return !!(await pickVideoCodec(w, h, bitrate));
 }
 
-export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6, abr = 192000, onProgress, onStage, shouldCancel, coverCanvas = null } = {}) {
+export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6, abr = 192000, onProgress, onStage, shouldCancel, coverCanvas = null, range = null } = {}) {
   const P = engine.P;
   const dur = projectDuration(P);
-  const N = Math.max(1, Math.round(dur * fps));
+  // v1.9: giriş-çıkış aralığı (ör. 10–15. sn) — yalnızca o bölüm dışa aktarılır
+  const r0 = range ? Math.max(0, Math.min(dur, +range[0] || 0)) : 0;
+  const r1 = range ? Math.max(r0 + 1 / fps, Math.min(dur, +range[1] || dur)) : dur;
+  const F0 = Math.round(r0 * fps), F1 = Math.max(F0 + 1, Math.round(r1 * fps));
+  const N = F1 - F0;
+  if (r0 > 0) coverCanvas = null;
   const oldScale = engine.scale;
   const W = Math.round((engine.W * res) / 2) * 2, H = Math.round((engine.H * res) / 2) * 2;
   const vcodec = await pickVideoCodec(W, H, bitrate);
@@ -175,8 +180,9 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
     if (asrc && mix) {
       stage('Ses kodlanıyor…');
       const step = 48000 * 2; // 2 sn'lik parçalar
-      for (let o = 0; o < mix.length; o += step) {
-        const n = Math.min(step, mix.length - o);
+      const a0 = Math.round((F0 / fps) * 48000), a1 = Math.min(mix.length, Math.round((F1 / fps) * 48000));
+      for (let o = a0; o < a1; o += step) {
+        const n = Math.min(step, a1 - o);
         const b = new AudioBuffer({ length: n, numberOfChannels: 2, sampleRate: 48000 });
         b.copyToChannel(mix.getChannelData(0).subarray(o, o + n), 0);
         b.copyToChannel((mix.numberOfChannels > 1 ? mix.getChannelData(1) : mix.getChannelData(0)).subarray(o, o + n), 1);
@@ -189,10 +195,10 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
 
     // 3) kareler
     stage('Kareler oluşturuluyor…');
-    const items = videoItems(engine, P, fps, N);
+    const items = videoItems(engine, P, fps, Math.round(dur * fps)).filter((v) => v.f1 >= F0 && v.f0 < F1).map((v) => ({ ...v, f0: Math.max(v.f0, F0), f1: Math.min(v.f1, F1 - 1) }));
     const cur = new Map(); // öğe id -> tuval
     engine.frameFor = (it) => cur.get(it.id) || null;
-    for (let f = 0; f < N; f++) {
+    for (let f = F0; f < F1; f++) {
       if (shouldCancel?.()) { await output.cancel(); return null; }
       const t = f / fps;
       for (const v of items) {
@@ -204,12 +210,12 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
         if (f === v.f1) { await feed.close(); feeds.delete(v); }
       }
       engine.offAnalyser?.setTime(t);
-      if (f === 0) engine._smK = null;
+      if (f === F0) engine._smK = null;
       if (!engine.holdSkip(t)) engine.draw(t);
       // v1.7: kapak ilk 2 karede (platformlar ilk kareyi kapak gösterir)
-      if (coverCanvas && f < 2) { const x = engine.ctx; x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(coverCanvas, 0, 0, engine.canvas.width, engine.canvas.height); x.restore(); }
-      await vsrc.add(t, 1 / fps);
-      onProgress?.(0.12 + 0.86 * ((f + 1) / N));
+      if (coverCanvas && f - F0 < 2) { const x = engine.ctx; x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(coverCanvas, 0, 0, engine.canvas.width, engine.canvas.height); x.restore(); }
+      await vsrc.add((f - F0) / fps, 1 / fps);
+      onProgress?.(0.12 + 0.86 * ((f - F0 + 1) / N));
     }
     vsrc.close();
     stage('Dosya tamamlanıyor…');

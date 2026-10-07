@@ -925,12 +925,13 @@ html[data-scheme=light] .play-btn { background: var(--primary); color: var(--on-
 .sel-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 0; overflow: hidden; opacity: 0; background: var(--bg); border-bottom: 1px solid transparent;
   transition: opacity .18s ease; }
 .sel-bar.on { height: 52px; opacity: 1; border-bottom-color: var(--line-2); }
-.sb-btn { flex: 1 1 0; min-width: 0; height: 38px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-2); color: var(--text); font-size: 13.5px; font-weight: 600; transition: transform .12s ease, background .15s ease; }
+.sb-btn { flex: 1 1 0; min-width: 0; height: 42px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-2); color: var(--text); font-size: 11.5px; font-weight: 600; transition: transform .12s ease, background .15s ease; }
+.sb-lb { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sb-btn .sb-ic { display: grid; place-items: center; }
 .sb-btn svg { width: 17px; height: 17px; }
 .sb-btn:active { transform: scale(.95); background: var(--surface-3); }
 .sb-btn.danger { color: #F87171; }
-.sb-btn.ghost { flex: 0 0 auto; padding: 0 14px; background: transparent; }
+.sb-btn.ghost { flex: 0 0 auto; padding: 0 12px; background: transparent; }
 .sel-bar.on .sb-btn { animation: sbIn .3s cubic-bezier(.2,.8,.2,1) both; }
 .sel-bar.on .sb-btn:nth-child(2) { animation-delay: .03s; } .sel-bar.on .sb-btn:nth-child(3) { animation-delay: .06s; } .sel-bar.on .sb-btn:nth-child(4) { animation-delay: .09s; }
 @keyframes sbIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

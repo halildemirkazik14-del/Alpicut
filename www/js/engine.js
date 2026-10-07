@@ -16,6 +16,15 @@ export const SPEED_CURVES = {
   flashOut: ['Hızlı çıkış', [1, 1, 1, 1, 1.6, 2.4, 3]],
   slowEnd: ['Sonda yavaşla', [1.5, 1.5, 1.4, 1.2, 0.8, 0.4, 0.3]],
   ramp: ['Yavaştan hızlıya', [0.4, 0.6, 0.9, 1.2, 1.6, 2, 2.4]],
+  // v1.9: reklam filmi tarzı speed ramp'ler
+  carAd: ['Reklam: hızlı → ağır → hızlı', [2.6, 2.2, 0.22, 0.18, 0.22, 2.4, 2.8]],
+  impact: ['Darbe anı', [1.4, 1.4, 1.4, 0.12, 0.6, 1.2, 1.4]],
+  rise: ['Yükselme', [0.3, 0.45, 0.7, 1, 1.5, 2.2, 3]],
+  fall: ['Alçalma', [3, 2.2, 1.5, 1, 0.7, 0.45, 0.3]],
+  breathe: ['Nefes', [1.6, 0.5, 1.6, 0.5, 1.6, 0.5, 1.6]],
+  reveal: ['Sinematik açılış', [0.25, 0.25, 0.3, 0.5, 1, 1.6, 2]],
+  drift: ['Drift', [2.4, 2.4, 0.3, 0.3, 0.3, 0.3, 2.4]],
+  dropBeat: ['Beat drop', [0.6, 0.6, 0.6, 3.2, 3.2, 1, 1]],
 };
 export function curvePts(c) { return Array.isArray(c.curve) ? c.curve : SPEED_CURVES[c.curve]?.[1]; }
 export function curveSpeed(c, u) {
@@ -772,7 +781,7 @@ export class Engine {
         console.warn('Kare kare dışa aktarma olmadı, eski yönteme geçiliyor', e);
         try { (await import('./guard.js')).logError('export-offline', e); } catch (_) { /* yoksay */ }
         if (opts.shouldCancel?.()) return null;
-        opts.onStage?.('Uyumluluk modu: gerçek zamanlı kayıt…');
+        opts.onStage?.(opts.range ? 'Uyumluluk modu: bu cihazda aralık seçilemiyor, tüm video kaydediliyor…' : 'Uyumluluk modu: gerçek zamanlı kayıt…');
       }
     }
     return this.exportRealtime(opts);

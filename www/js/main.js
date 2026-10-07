@@ -231,7 +231,7 @@ function itemMenu(anchor, place = 'above') {
     const isV = o.type === 'video' && !o.freeze;
     items = [
       { icon: 'edit', label: 'Düzenle', fn: insp('Düzen') }, { icon: 'split', label: 'Böl', fn: () => splitSel() },
-      isV && { icon: 'curve', label: 'Hız', fn: insp('Düzen') }, isV && { icon: 'sfx', label: 'Ses', fn: insp('Ses') },
+      isV && { icon: 'curve', label: 'Hız', fn: insp('Hız') }, isV && { icon: 'sfx', label: 'Ses', fn: insp('Ses') },
       { icon: 'diamond', label: 'Keyframe', fn: insp('Keyframe') }, { icon: 'trans', label: 'Geçiş', fn: insp('Geçiş') },
       { icon: 'color', label: 'Renk', fn: insp('Renk') }, { icon: 'filter', label: 'Filtre', fn: () => openFilters(o) },
       { icon: 'fx', label: 'Efekt', fn: () => openEffects() }, { icon: 'shape', label: 'Maske', fn: insp('Maske') },
@@ -287,6 +287,25 @@ function targetClip() {
 function aiTarget(tab) { const o = targetClip(); if (!o) { toast('Önce Medya ile bir video ekle'); return; } openInspector(tab); }
 function aiReframe() { const o = targetClip(); if (!o || app.sel.type !== 'clip') { toast('Önce Medya ile bir video ekle'); return; } smartReframe(o); }
 
+// v1.9: bindirme — seçili klibin aynısını tam ekran üst katman olarak ekler (arka planı silip üstünde çalışmak için)
+function overlaySel() {
+  const s = app.sel, o = selected();
+  if (!s || !o || s.type !== 'clip') return;
+  const L = layoutClips(app.P.clips).find((x) => x.clip === o);
+  if (!L) return;
+  const m = app.engine.media.get(o.mediaId);
+  const len = L.len;
+  const l = {
+    id: uid(), kind: 'media', mediaId: o.mediaId, start: L.start, end: L.end, in: o.in || 0, out: o.type === 'image' ? (m?.duration || len) : Math.min((o.in || 0) + len * (o.speed || 1), o.out ?? 1e9),
+    x: 0.5, y: 0.5, w: 1, rot: 0, opacity: 1, crop: 'none', radius: 0, borderW: 0, borderColor: '#FFFFFF', shadowOn: false, kenburns: false, volume: 0, loop: false,
+    filters: clone(o.filters || DEFAULT_FILTERS), filterPreset: o.filterPreset || 'none', color: o.color ? clone(o.color) : undefined, anim: anim('none', 'none'),
+  };
+  app.P.layers.push(l);
+  commit();
+  select({ type: 'layer', id: l.id }, false);
+  undoToast('Bindirildi — üst katmanda arka planı silebilir, efekt ekleyebilirsin');
+}
+
 // v1.9: seçim çubuğu — bir öğe seçilince oynatıcının altında ayrı bir satır olarak kayarak açılır (Böl, Kopyala, Sil, Tümü)
 function updateQuick() {
   const bar = $('selBar');
@@ -301,6 +320,7 @@ function updateQuick() {
   if (!on) return;
   const btn = (ic, label, fn, cls = '') => h('button', { class: `sb-btn ${cls}`, onclick: () => { app.pause(); fn(); } }, h('span', { class: 'sb-ic', html: I[ic] || I.edit }), h('span', { class: 'sb-lb' }, label));
   if (s.type !== 'subs') bar.append(btn('split', 'Böl', () => splitSel()), btn('copy', 'Kopyala', dupSel));
+  if (s.type === 'clip') bar.append(btn('layer', 'Bindir', overlaySel));
   bar.append(btn('trash', 'Sil', delSel, 'danger'));
   const more = btn('more', 'Tümü', () => { const r = more.getBoundingClientRect(); itemMenu({ x: r.left + r.width / 2, y: bar.getBoundingClientRect().top }); }, 'ghost');
   bar.append(more);
@@ -352,6 +372,7 @@ function renderToolbar() {
     tool('shape', 'Maske', insp('Maske'));
     tool('color', 'Chroma', insp('Chroma'));
     if (isV) tool('ratio', 'Akıllı kadraj', () => smartReframe(o));
+    if (isV) tool('curve', 'Speed ramp', insp('Hız'));
     if (isV) tool('sfx', 'Ses', insp('Ses'));
     if (isV) tool('mic', 'Stüdyo ses', () => studioClean(o));
     tool('diamond', 'Keyframe', insp('Keyframe'));
