@@ -388,6 +388,7 @@ export class Engine {
       return;
     }
     if (this.bufMode && this.playing) { if (!el.muted) el.muted = true; }
+    else if (vol <= 0.001 && !hasKeys(o, 'vol')) { if (!el.muted) el.muted = true; } // v1.10: sessiz öğe (ör. bindirme kopyası) gerçekten sessiz — ses zinciri kurulamazsa çift ses olmasın
     else { if (el.muted) el.muted = false; this.setChain(el, vol, o, defRole); }
     if (!this.playing && Math.abs(el.playbackRate - rate) > 0.01) el.playbackRate = rate;
     el._tgt = this.playing ? null : srcT; // v1.7: kaydırma önizlemesi için hedef zaman
@@ -401,8 +402,8 @@ export class Engine {
       else if (Math.abs(drift) > 0.75 && (!el._seekAt || now - el._seekAt > 1200)) {
         el._seekAt = now;
         el.currentTime = srcT + (drift < 0 ? Math.min(0.25, -drift * 0.15) : 0); // geride ise biraz ileri hedefle
-      } else if (Math.abs(drift) > 0.05) {
-        const adj = Math.max(-0.12, Math.min(0.12, -drift * 0.5));
+      } else if (Math.abs(drift) > 0.08) {
+        const adj = Math.max(-0.05, Math.min(0.05, -drift * 0.3)); // en fazla %5: sesde duyulur bozulma olmasın
         const want = rate * (1 + adj);
         if (Math.abs(el.playbackRate - want) > 0.01) el.playbackRate = want;
       } else if (Math.abs(el.playbackRate - rate) > 0.01) el.playbackRate = rate;

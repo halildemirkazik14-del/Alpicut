@@ -113,7 +113,16 @@ await step('segmenter', async () => pg.evaluate(async () => {
   const x = c.getContext('2d'); x.fillStyle = '#7C3AED'; x.fillRect(0, 0, c.width, c.height);
   x.drawImage(S.removeBackground(img, img.naturalWidth, img.naturalHeight, { threshold: 0.5, edge: 0.15, feather: 2 }), 0, 0, c.width, c.height);
   window.__segPng = c.toDataURL('image/png');
-  return { personCoverage: +(s / (d.length / 4) / 255).toFixed(3), faces: faces.length, face0: faces[0] };
+  // v1.10: oynatma (live) modunda maske seyreltilir: art arda çağrılarda model her karede çalışmaz
+  const cv = document.createElement('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight; cv.getContext('2d').drawImage(img, 0, 0);
+  const tl = performance.now(); let calls = 0;
+  for (let i = 0; i < 30; i++) { if (S.removeBackground(cv, cv.width, cv.height, { threshold: 0.5, edge: 0.15, _t: i / 30, live: true }, 960)) calls++; }
+  const liveMs = +((performance.now() - tl) / 30).toFixed(1);
+  const t1 = performance.now();
+  for (let i = 0; i < 5; i++) S.removeBackground(cv, cv.width, cv.height, { threshold: 0.5, edge: 0.15, _t: 10 + i / 30 }, 960);
+  const fullMs = +((performance.now() - t1) / 5).toFixed(1);
+  if (calls !== 30) throw new Error(`live maske boş döndü (${calls}/30)`);
+  return { personCoverage: +(s / (d.length / 4) / 255).toFixed(3), faces: faces.length, face0: faces[0], liveMs, fullMs };
 }));
 try { const png = await pg.evaluate(() => window.__segPng); if (png) fs.writeFileSync(`${OUT}/seg.png`, Buffer.from(png.split(',')[1], 'base64')); } catch (_) { /* yoksay */ }
 

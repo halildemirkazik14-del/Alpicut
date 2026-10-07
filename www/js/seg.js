@@ -134,12 +134,21 @@ export function nextRoi(bbox, sw, sh, frame, prevRoi) {
 // oturtma ve hareket uyarlamalı titreme önleme — hareketli videoda bozulma ve kenar oynaması büyük ölçüde azalır.
 export function personMask(el, sw, sh, opt = {}) {
   const tgt = opt.target === 'object' ? 'object' : 'person';
-  const model = tgt === 'object' ? objSeg : (opt.quality === 'hq' && hqSeg ? hqSeg : segmenter);
+  // v1.10: oynatma sırasında (live) hızlı kişi modeli kullanılır — HQ model telefonda kare başına ~0,6 sn sürüyordu
+  if (opt.live && tgt === 'person' && !segmenter) loadModel('person').catch(() => {});
+  const model = tgt === 'object' ? objSeg : (opt.quality === 'hq' && hqSeg && !(opt.live && segmenter) ? hqSeg : (segmenter || hqSeg));
   if (!model) return null;
   const tk = opt._t != null ? opt._t.toFixed(3) : (el.currentTime ?? 0);
   const key = `${tk}|${sw}x${sh}|${opt.threshold}|${opt.edge}|${tgt}|${opt.quality}|${opt.point?.x},${opt.point?.y}|${opt.smooth}`;
   let c = cache.get(el);
   if (c && c.key === key) return c.canvas;
+  // v1.10: oynatırken maske her karede hesaplanmaz; hesaplama süresine göre seyreltilir ve arada son maske
+  // yeni kareye uygulanır. Böylece video akıcı oynar, maske kısa süre geriden gelir. Dışa aktarmada her kare hesaplanır.
+  if (opt.live && c && c.at && c.canvas.width > 1) {
+    const since = performance.now() - c.at;
+    if (since < Math.min(450, Math.max(33, (c.cost || 0) * 2.2))) return c.canvas;
+  }
+  const t0 = performance.now();
   if (!c) { c = { canvas: document.createElement('canvas'), key: '', prev: null, pt: null, lastT: null, bbox: null, frame: 0 }; cache.set(el, c); }
   const tnum = +tk;
   const cont = c.lastT != null && Math.abs(tnum - c.lastT) < 0.25 && tnum >= c.lastT - 0.001;
@@ -185,7 +194,8 @@ export function personMask(el, sw, sh, opt = {}) {
   if (guideC.width !== ww || guideC.height !== wh) { guideC.width = ww; guideC.height = wh; }
   const gx = guideC.getContext('2d', { willReadFrequently: true });
   let q = p;
-  try {
+  // oynatırken hesap pahalıysa kenar iyileştirmeyi (kılavuzlu filtre + piksel okuma) atla
+  if (!(opt.live && (c.cost || 0) > 60)) try {
     gx.drawImage(el, 0, 0, ww, wh);
     const gd = gx.getImageData(0, 0, ww, wh).data;
     const I = new Float32Array(ww * wh);
@@ -210,13 +220,15 @@ export function personMask(el, sw, sh, opt = {}) {
   c.bbox = sn > 30 ? { x0: x0 / ww, y0: y0 / wh, x1: (x1 + 1) / ww, y1: (y1 + 1) / wh } : null;
   if (tgt === 'object' && sn > 20) c.pt = { x: sxp / sn / ww, y: syp / sn / wh };
   c.lastT = tnum; c.frame++; c.key = key;
+  const dt = performance.now() - t0;
+  c.cost = c.cost ? c.cost * 0.7 + dt * 0.3 : dt; c.at = performance.now();
   return mc;
 }
 
 // Kaynağı kişiye/nesneye göre kırp: arka planı saydam yapılmış tuval
 const outCache = new WeakMap();
 export function removeBackground(el, sw, sh, opt = {}, maxSide = 1280) {
-  const m = personMask(el, sw, sh, { ...opt, _work: maxSide > 1280 ? WMAX : 320 });
+  const m = personMask(el, sw, sh, { ...opt, _work: maxSide > 1280 ? WMAX : (opt.live ? 256 : 320) });
   if (!m) return null;
   const k = Math.min(1, maxSide / Math.max(sw, sh));
   const w = Math.max(2, Math.round(sw * k)), h = Math.max(2, Math.round(sh * k));

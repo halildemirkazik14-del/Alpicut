@@ -222,7 +222,7 @@ function drawClipComposite(ctx, clip, el, raw, localT, len, env) {
   const b = clip.bgr;
   if (b?.on && env.seg) {
     const [sw, sh] = mediaSize(el);
-    const cut = env.seg.removeBackground(el, sw, sh, { ...b, _t: localT }, env.exporting ? 1920 : 960);
+    const cut = env.seg.removeBackground(el, sw, sh, { ...b, _t: localT, live: env.playing && !env.exporting }, env.exporting ? 1920 : 960);
     if (cut) {
       if (b.mode === 'blur') { o.save(); o.filter = `blur(${(b.blur || 30) * S}px)`; drawFit(o, raw, -40, -40, W + 80, H + 80, 'cover'); o.restore(); }
       else if (b.mode === 'color') { o.fillStyle = b.color || '#00B140'; o.fillRect(0, 0, W, H); }
@@ -936,7 +936,7 @@ function drawMediaLayer(ctx, L, t, env, el, st) {
   const gp = gradeParams(L);
   if (gp) el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280);
   if (L.bgr?.on && env.seg) {
-    const cut = env.seg.removeBackground(el, sw, sh, { ...L.bgr, _t: t - L.start }, env.exporting ? 1920 : 960);
+    const cut = env.seg.removeBackground(el, sw, sh, { ...L.bgr, _t: t - L.start, live: env.playing && !env.exporting }, env.exporting ? 1920 : 960);
     if (cut) {
       if (L.bgr.mode === 'color' || L.bgr.mode === 'blur') {
         const bg = document.createElement('canvas'); bg.width = cut.width; bg.height = cut.height;
