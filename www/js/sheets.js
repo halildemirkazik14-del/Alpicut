@@ -158,11 +158,18 @@ export function openInspector(tab, extra = {}) {
   };
   const cfg = build(o);
   if (!cfg) return;
+  // v1.9: bir araçtan (Renk, Maske, Efekt…) açıldıysa yalnızca o ayar görünür — üstte diğer sekmeler tekrar etmez.
+  // "Tüm ayarlar" ile sekmeli görünüme geçilebilir.
+  const focus = !!(tab && cfg.tabs?.includes(tab) && cfg.tabs.length > 1 && !extra.all);
+  const allAct = { icon: I.more, label: 'Tüm ayarlar', onClick: () => openInspector(tab, { ...extra, all: true }) };
+  if (focus) { cfg.tab = tab; cfg.title = `${cfg.title} · ${tab}`; cfg.tabs = []; cfg.actions = [...(cfg.actions || []), allAct]; }
   cfg.refresh = (p) => {
     const ob = selected();
     if (!ob) return false;
     const n = build(ob);
-    p.cfg.render = n.render; p.cfg.title = n.title; p.cfg.actions = n.actions;
+    p.cfg.render = n.render;
+    if (focus) { p.cfg.title = `${n.title} · ${tab}`; p.cfg.actions = [...(n.actions || []), allAct]; return true; }
+    p.cfg.title = n.title; p.cfg.actions = n.actions;
     if (n.tabs && JSON.stringify(n.tabs) !== JSON.stringify(p.cfg.tabs)) { p.cfg.tabs = n.tabs; if (!n.tabs.includes(p.tab)) p.tab = n.tabs[0]; }
     return true;
   };

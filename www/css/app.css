@@ -936,3 +936,7 @@ html[data-scheme=light] .play-btn { background: var(--primary); color: var(--on-
 @keyframes sbIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .sel-bar, .sel-bar.on .sb-btn { transition: none; animation: none; } }
 .grid-head { margin: 14px 2px 8px; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.fx-cur { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-2); }
+.fx-cur b { flex: 1; font-size: 15px; }
+.fx-cur-ic svg { width: 20px; height: 20px; color: var(--primary-2); }
+.fx-swap.hidden { display: none; }

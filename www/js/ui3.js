@@ -524,6 +524,7 @@ function addFx(id, target) {
 }
 
 // Efekt / ayarlama katmanı denetçisi
+const FX_SWAP = new Set();
 export function fxLayerInspector(L) {
   const isAdj = L.kind === 'adjust';
   return {
@@ -531,9 +532,6 @@ export function fxLayerInspector(L) {
     tabs: isAdj ? ['Renk', 'Zaman'] : ['Efekt', 'Zaman'],
     actions: [
       { icon: L.hidden ? I.eyeOff : I.eye, label: L.hidden ? 'Aç' : 'Kapat', onClick: () => { L.hidden = !L.hidden; app.change(true); refreshSheet(); } },
-      { icon: I.split, label: 'Böl', onClick: () => app.splitSel() },
-      { icon: I.copy, label: 'Kopyala', onClick: () => app.dupSel() },
-      { icon: I.trash, label: 'Sil', danger: true, onClick: () => app.delSel() },
     ],
     render: (body, tab) => {
       if (tab === 'Renk') {
@@ -541,9 +539,12 @@ export function fxLayerInspector(L) {
         return colorTab(body, L);
       }
       if (tab === 'Efekt') {
-        const chips = h('div', { class: 'chips' });
-        FX_LIST.forEach(([id, name]) => chips.append(h('button', { class: L.effect === id ? 'on' : '', onclick: () => { L.effect = id; app.change(true); refreshSheet(); } }, name)));
-        body.append(h('div', { class: 'field full' }, h('label', {}, 'Efekt'), chips));
+        // v1.9: ayar ekranında yalnızca bu efektin ayarları; başka efekt seçmek isteğe bağlı açılır
+        const cur = FX_LIST.find((f) => f[0] === L.effect)?.[1] || 'Efekt';
+        const chips = h('div', { class: 'chips fx-swap' + (FX_SWAP.has(L.id) ? '' : ' hidden') });
+        FX_LIST.forEach(([id, name]) => chips.append(h('button', { class: L.effect === id ? 'on' : '', onclick: () => { L.effect = id; FX_SWAP.delete(L.id); app.change(true); refreshSheet(); } }, name)));
+        body.append(h('div', { class: 'fx-cur' }, h('span', { class: 'fx-cur-ic', html: I.fx }), h('b', {}, cur),
+          h('button', { class: 'btn sm', onclick: () => { if (FX_SWAP.has(L.id)) FX_SWAP.delete(L.id); else FX_SWAP.add(L.id); chips.classList.toggle('hidden', !FX_SWAP.has(L.id)); } }, 'Değiştir')), chips);
       }
       const dmax = Math.max(app.engine.duration() + 5, L.end + 5);
       body.append(fields(L, [
