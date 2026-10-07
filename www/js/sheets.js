@@ -19,6 +19,7 @@ import { transBody, TR_CATS } from './transitions.js';
 import { GL_LIST, transGL } from './gltrans.js';
 import { SOCIAL_TEMPLATES, drawSocial, SOCIAL_FIELDS, SOCIAL_TEMPLATES3, FIELD_META3 } from './social.js';
 import { FULL4 } from './motion4.js';
+import { kutupSVG, kutupTip } from './kutup.js';
 import { fontPickerBody, isBundled, fontWeights, ensureProjectFonts } from './fonts.js';
 import { colorTab, chromaTab, audioFxTab, audioToolsTab, slipControl, fxLayerInspector, openStickers, renderCover } from './ui3.js';
 
@@ -1101,6 +1102,7 @@ export function openExport() {
   const renderOpts = () => {
     card.textContent = '';
     card.append(h('h3', {}, 'Dışa Aktar'));
+    card.append(h('div', { class: 'kutup-tip' }, h('span', { class: 'kt-wrap', html: kutupSVG({ mood: 'peek' }) }), h('div', {}, h('b', {}, 'Kutup diyor ki'), h('p', {}, kutupTip(app.P, dur)))));
     card.append(h('p', { class: 'hint', html: `Süre <b>${fmt(dur)}</b> · Format <b>${fmtName}</b> · Oran <b>${app.P.ratio}</b>` }));
     card.append(h('div', { class: 'field full' }, h('label', {}, 'Çözünürlük'), chips([[1080, '1080p'], [720, '720p'], [540, '540p (hızlı)']], 'q')));
     card.append(h('div', { class: 'field full' }, h('label', {}, 'Kare hızı'), chips([[30, '30 fps'], [60, '60 fps']], 'fps')));

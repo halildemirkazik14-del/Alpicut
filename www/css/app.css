@@ -946,3 +946,25 @@ button, [role="button"], .item, .tpl, .tr-card { touch-action: manipulation; -we
 .tl-scroll { contain: layout paint; will-change: scroll-position; overscroll-behavior-x: contain; }
 .tl-inner { contain: layout style; }
 .tool:active, .opt:active, .tpl:active, .tr-card:active { transform: scale(.96); transition: transform .08s ease; }
+
+/* v1.9 — Kutup (Alpi-co simgesi): hafif süzülme, göz kırpma, yıldız parıltısı */
+.kutup { overflow: visible; }
+.kutup .kt-body { transform-box: fill-box; transform-origin: 50% 60%; animation: ktFloat 3.6s ease-in-out infinite; }
+.kutup .kt-eyes { transform-box: fill-box; transform-origin: 50% 50%; animation: ktBlink 5.2s infinite; }
+.kutup .kt-star { transform-box: fill-box; transform-origin: 50% 50%; animation: ktStar 2.8s ease-in-out infinite; }
+.kutup.peek .kt-body { animation: ktPeek 4.5s cubic-bezier(.2,.8,.2,1) infinite; }
+@keyframes ktFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.6px); } }
+@keyframes ktBlink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.12); } }
+@keyframes ktStar { 0%, 100% { transform: scale(.85) rotate(0deg); opacity: .85; } 50% { transform: scale(1.12) rotate(45deg); opacity: 1; } }
+@keyframes ktPeek { 0% { transform: translateY(6px) rotate(-4deg); } 12% { transform: translateY(0) rotate(0); } 80% { transform: translateY(0) rotate(0); } 88% { transform: translateY(0) rotate(6deg); } 96% { transform: translateY(0) rotate(-3deg); } 100% { transform: translateY(0) rotate(0); } }
+.tool.ai .ti .kutup, .kt-icon { width: 100%; height: 100%; }
+.kutup-tip { display: flex; gap: 12px; align-items: center; padding: 12px 14px; margin: 4px 0 12px; border-radius: 16px; background: color-mix(in srgb, #FFD25A 10%, var(--surface)); border: 1px solid color-mix(in srgb, #FFD25A 30%, var(--line-2)); }
+.kutup-tip .kt-wrap { flex: none; width: 52px; height: 52px; display: grid; place-items: center; }
+.kutup-tip .kt-wrap svg { width: 52px; height: 52px; }
+.kutup-tip b { font-size: 13px; color: #F5C451; letter-spacing: .3px; }
+.kutup-tip p { margin: 2px 0 0; font-size: 13.5px; line-height: 1.4; color: var(--text-2); }
+@media (prefers-reduced-motion: reduce) { .kutup .kt-body, .kutup .kt-eyes, .kutup .kt-star { animation: none; } }
+/* v1.9 — imza */
+.signature { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 28px 0 calc(var(--safe-b, 0px) + 24px); opacity: .72; }
+.signature .sig-mark { font-family: var(--font-sc, inherit); font-weight: 800; font-size: 11px; letter-spacing: 4px; color: var(--muted); }
+.signature .sig-by { font-family: "Source Serif 4", serif; font-style: italic; font-size: 13.5px; color: var(--text-2); }

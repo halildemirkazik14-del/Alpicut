@@ -84,6 +84,7 @@ function init() {
   $('fromTemplate').addEventListener('click', openProjectTemplates);
   $('btnAssets').innerHTML = I.folder; $('btnAssets').addEventListener('click', () => openAssets());
   $('vibeBtn').addEventListener('click', async () => { const v = await import('./vibe.js'); v.openVibe(); });
+  $('signature')?.addEventListener('click', () => toast('Alpicut · Tasarım ve fikir: Halil Demirkazık', 3200));
   $('importPkg').innerHTML = `${I.upload} Yedekten aç (.alpicut)`;
   $('importPkg').addEventListener('click', async () => {
     const files = await pickFiles('', false);
