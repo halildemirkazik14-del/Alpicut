@@ -4,7 +4,7 @@ import { app, $, h, uid, clone, fmt, toast, busy, selected } from './state.js';
 import { I, LOGO } from './icons.js';
 import { Engine, layoutClips, curvePts } from './engine.js';
 import { RATIOS, DEFAULT_FILTERS, SUB_BASE, FX_BASE, TEXT_BASE, anim } from './presets.js';
-import { renderTimeline, bindTimeline, syncScroll, setZoom } from './timeline.js';
+import { renderTimeline, bindTimeline, syncScroll, setZoom, markSelection } from './timeline.js';
 import { layerAt, hasKeys, setKey, writeProp, splitKeys } from './kf.js';
 import { renderSfx } from './sfx.js';
 import { lutStore } from './gl.js';
@@ -888,7 +888,7 @@ function select(sel, tab, extra) {
   app.sel = sel;
   app.engine.selectedId = sel.type === 'layer' ? sel.id : null;
   app.engine.requestDraw();
-  renderTimeline();
+  markSelection();
   renderToolbar();
   renderKfBar();
   if (tab !== false) openInspector(tab, extra);
@@ -899,7 +899,7 @@ function deselect() {
   app.engine.selectedId = null;
   closePop();
   app.engine.requestDraw();
-  renderTimeline();
+  markSelection();
   renderToolbar();
   renderKfBar();
   refreshLive();

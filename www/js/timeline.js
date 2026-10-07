@@ -73,7 +73,7 @@ export function renderTimeline() {
     h('span', { class: 'nm' }, `${c.type === 'image' ? '🖼 ' : ''}${L.len.toFixed(1)}s`),
     h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' }));
     vrow.append(it);
-    if (isSel) { const dw = h('div', { style: { position: 'absolute', left: `${H + L.start * pps}px`, top: 0, bottom: 0, width: '0' } }); diamonds(dw, c, pps); vrow.append(dw); }
+    if (isSel) { const dw = h('div', { class: 'kf-dw', style: { position: 'absolute', left: `${H + L.start * pps}px`, top: 0, bottom: 0, width: '0' } }); diamonds(dw, c, pps); vrow.append(dw); }
     if (i > 0) {
       const on = c.trans && c.trans.type !== 'none';
       vrow.append(h('button', {
@@ -98,7 +98,7 @@ export function renderTimeline() {
       style: { left: `${H + l.start * pps}px`, width: `${Math.max(8, (l.end - l.start) * pps - 2)}px`, backgroundImage: m?.thumb ? `url(${m.thumb})` : '' },
     }, h('span', { class: 'nm', html: `${l.locked ? I.lock : l.hidden ? I.eyeOff : KIND_ICON[l.kind] || ''}` }, itemLabel(l)),
     h('div', { class: 'h l', 'data-h': 'l' }), h('div', { class: 'h r', 'data-h': 'r' })));
-    if (isSel) { const dw = h('div', { style: { position: 'absolute', left: `${H + l.start * pps}px`, top: 0, bottom: 0, width: '0' } }); diamonds(dw, l, pps); row.append(dw); }
+    if (isSel) { const dw = h('div', { class: 'kf-dw', style: { position: 'absolute', left: `${H + l.start * pps}px`, top: 0, bottom: 0, width: '0' } }); diamonds(dw, l, pps); row.append(dw); }
     inner.append(row);
   });
 
@@ -136,6 +136,26 @@ export function renderTimeline() {
   syncScroll(engine.t, true);
 }
 
+// v1.9: seçim değişince tüm zaman çizelgesini yeniden kurmadan yalnızca vurguyu ve keyframe işaretlerini güncelle
+export function markSelection() {
+  const inner = $('tlInner'); const P = app.P;
+  if (!inner || !P) return;
+  const sel = app.sel, pps = app.pps, H = half();
+  inner.querySelectorAll('.item.sel').forEach((el) => el.classList.remove('sel'));
+  inner.querySelectorAll('.item.selsub').forEach((el) => el.classList.remove('selsub'));
+  inner.querySelectorAll('.kf-dw').forEach((el) => el.remove());
+  if (!sel) return;
+  if (sel.type === 'subs') { inner.querySelectorAll('.item.k-sub').forEach((el) => el.classList.add('selsub')); return; }
+  const it = inner.querySelector(`.item[data-type="${sel.type}"][data-id="${CSS.escape(sel.id)}"]`);
+  if (!it) { renderTimeline(); return; }
+  it.classList.add('sel');
+  const o = findItem(sel.type, sel.id);
+  if (o && (sel.type === 'clip' || sel.type === 'layer')) {
+    const start = sel.type === 'clip' ? (layoutClips(P.clips).find((x) => x.clip === o)?.start ?? 0) : o.start;
+    const dw = h('div', { class: 'kf-dw', style: { position: 'absolute', left: `${H + start * pps}px`, top: 0, bottom: 0, width: '0' } }); diamonds(dw, o, pps); it.parentElement.append(dw);
+  }
+}
+
 export function syncScroll(t, force = false) {
   const sc = $('tlScroll');
   if (drag) return;
@@ -168,7 +188,10 @@ function hidePanelsOverTimeline() {
 export function bindTimeline() {
   const sc = $('tlScroll'), inner = $('tlInner');
 
-  sc.addEventListener('scroll', () => {
+  // v1.9: kaydırma akıcılığı — her kaydırma olayında değil, kare başına bir kez ara (rAF birleştirme)
+  let scrollRaf = 0;
+  const onScrollFrame = () => {
+    scrollRaf = 0;
     if (drag) return;
     const t = Math.max(0, Math.min(app.engine.duration(), sc.scrollLeft / app.pps));
     const E = app.engine;
@@ -179,7 +202,8 @@ export function bindTimeline() {
     if (Math.abs(t - E.t) * app.pps < 0.5) return;
     E.seek(t);
     app.updateTime();
-  }, { passive: true });
+  };
+  sc.addEventListener('scroll', () => { if (!scrollRaf) scrollRaf = requestAnimationFrame(onScrollFrame); }, { passive: true });
 
   sc.addEventListener('touchstart', (e) => {
     touching = true;

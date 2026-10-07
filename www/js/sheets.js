@@ -832,6 +832,38 @@ const HIDDEN_MOTION = ['Abone & etkileşim', 'Geri sayım', 'Nostalji', 'Düğü
 const MOTION_CATS = () => ['★', 'Geri sayım', 'Nostalji', 'Düğün & nişan', ...new Set(SOCIAL_TEMPLATES3.map((t) => t.cat).filter((c) => !c.startsWith('Sosyal · ') && !HIDDEN_MOTION.includes(c)))];
 const motionList = (tb) => (tb === '★' ? SOCIAL_TEMPLATES3.filter((t) => favIds('motion').includes(t.id) && !t.cat.startsWith('Sosyal · ')) : SOCIAL_TEMPLATES3.filter((t) => t.cat === tb));
 
+// küçük canlı önizleme — v1.9: yalnızca ekranda görünen kartlar oynar (yüzlerce önizleme aynı anda çalışıp arayüzü yavaşlatmasın)
+const motionIO = new IntersectionObserver((ents) => ents.forEach((e) => e.target._vis?.(e.isIntersecting)), { rootMargin: '60px' });
+function motionPreview(L, dur) {
+  const c = h('canvas', { width: 360, height: 300 });
+  const ctx = c.getContext('2d');
+  const env0 = { W: 1080, H: 1920, S: 0.3, img: (id) => app.engine.imgForMedia(id) };
+  const m = document.createElement('canvas').getContext('2d');
+  const box = drawSocial(m, L, Math.min(dur * 0.7, dur - 0.3), env0) || { w: 600, h: 200 };
+  const full = /^(tunnel|starfield)$/.test(L.type) || FULL4.has(L.type);
+  const k = full ? 300 / 1920 : Math.min(0.5, 330 / box.w, 270 / box.h);
+  const t0 = performance.now(); let last = 0, raf = 0, vis = false;
+  const paint = (t) => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, 360, 300);
+    ctx.fillStyle = '#0E0D11'; ctx.fillRect(0, 0, 360, 300);
+    ctx.translate(180, 150); ctx.scale(k, k);
+    try { drawSocial(ctx, L, Math.min(t, dur - 0.05), { ...env0, S: k }); } catch (_) { /* yoksay */ }
+  };
+  const frame = (now) => {
+    raf = 0;
+    if (!c.isConnected && now - t0 > 500) { motionIO.unobserve(c); return; }
+    if (!vis) return;
+    raf = requestAnimationFrame(frame);
+    if (now - last < 66) return; // ~15 fps yeter
+    last = now;
+    paint(((now - t0) / 1000) % (dur + 0.6));
+  };
+  c._vis = (v) => { vis = v; if (v && !raf) raf = requestAnimationFrame(frame); };
+  paint(Math.min(dur * 0.7, dur - 0.3));
+  motionIO.observe(c);
+  return c;
+}
+
 function motionGrid(body, list) {
   const grid = h('div', { class: 'grid-tpl motion-grid' });
   if (!list.length) body.append(h('p', { class: 'hint' }, 'Henüz favori yok. Kartlardaki ☆ ile ekle.'));

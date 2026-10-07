@@ -923,7 +923,7 @@ html[data-scheme=light] .play-btn { background: var(--primary); color: var(--on-
 
 /* v1.9 — seçim çubuğu: oynatıcı altında ayrı satır, yumuşak açılır */
 .sel-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 0; overflow: hidden; opacity: 0; background: var(--bg); border-bottom: 1px solid transparent;
-  transition: height .28s cubic-bezier(.2,.8,.2,1), opacity .2s ease, border-color .2s ease; }
+  transition: opacity .18s ease; }
 .sel-bar.on { height: 52px; opacity: 1; border-bottom-color: var(--line-2); }
 .sb-btn { flex: 1 1 0; min-width: 0; height: 38px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-2); color: var(--text); font-size: 13.5px; font-weight: 600; transition: transform .12s ease, background .15s ease; }
 .sb-btn .sb-ic { display: grid; place-items: center; }
@@ -940,3 +940,9 @@ html[data-scheme=light] .play-btn { background: var(--primary); color: var(--on-
 .fx-cur b { flex: 1; font-size: 15px; }
 .fx-cur-ic svg { width: 20px; height: 20px; color: var(--primary-2); }
 .fx-swap.hidden { display: none; }
+
+/* v1.9 akıcılık: dokunmada gecikme ve çift dokunma yakınlaştırması yok; zaman çizelgesi ayrı katmanda */
+button, [role="button"], .item, .tpl, .tr-card { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.tl-scroll { contain: layout paint; will-change: scroll-position; overscroll-behavior-x: contain; }
+.tl-inner { contain: layout style; }
+.tool:active, .opt:active, .tpl:active, .tr-card:active { transform: scale(.96); transition: transform .08s ease; }
