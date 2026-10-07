@@ -2,6 +2,8 @@
 // Zaman çizelgesini parmakla kaydırırken ya da geri alırken telefonun asıl videoda kareyi araması zaman alır.
 // Bu modül her videodan küçük önizleme kareleri (saniyede 1–5 kare, ~160 px) çıkarır; arama sürerken
 // en yakın kare anında gösterilir, asıl kare gelince net görüntüye geçilir.
+import { waitIdle } from './bgwork.js';
+import { proxyPending } from './proxy.js';
 const caches = new Map(); // mediaId -> { step, frames: ImageBitmap[]|canvas[] }
 const queue = [];
 let busy = false;
@@ -34,6 +36,9 @@ async function pump() {
 
 async function build(m) {
   if (typeof VideoDecoder === 'undefined') return;
+  // v1.10: hafif kopya üretiliyorsa onu bekle — ağır orijinali ikinci kez çözmeyelim
+  for (let i = 0; i < 1200 && proxyPending(m.id); i++) await new Promise((r) => setTimeout(r, 500));
+  await waitIdle();
   const MB = await import('./lib/mediabunny.js');
   const blob = m.proxyBlob || m.blob;
   const input = new MB.Input({ source: new MB.BlobSource(blob), formats: MB.ALL_FORMATS });
@@ -58,7 +63,7 @@ async function build(m) {
         entry.frames[i] = c;
       }
       i++;
-      if (i % 20 === 0) await new Promise((res) => setTimeout(res, 0)); // arayüzü kilitleme
+      if (i % 10 === 0) { await new Promise((res) => setTimeout(res, 0)); await waitIdle(); } // arayüzü kilitleme, oynatmaya öncelik
     }
   } finally { try { input.dispose(); } catch (_) { /* yoksay */ } }
 }

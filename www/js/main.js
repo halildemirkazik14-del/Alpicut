@@ -31,7 +31,8 @@ import {
 } from './sheets.js';
 import { store, lsGet, lsSet, isNative } from './storage.js';
 import { parseSRT } from './srt.js';
-import { queueProxy, onProxyChange } from './proxy.js';
+import { queueProxy, onProxyChange, proxyState } from './proxy.js';
+import { setPlayingProbe } from './bgwork.js';
 import { queueScrub } from './scrubcache.js';
 import { enterFull, exitFull, isFull } from './fullscreen.js';
 import { addToAssets, inAssets, openAssets } from './assets.js';
@@ -132,7 +133,8 @@ function init() {
   if (document.fonts) document.fonts.addEventListener('loadingdone', () => app.engine.requestDraw());
   loadFonts();
   getCatalog();
-  onProxyChange((m, p) => { if (p >= 1 && m.purl) { toast(`Hafif önizleme hazır: ${m.name || 'video'}`); app.engine.requestDraw(); } });
+  setPlayingProbe(() => app.engine?.playing); // arka plan işleri oynatırken bekler
+  onProxyChange(proxyPill);
   renderHome();
 }
 
@@ -1125,13 +1127,35 @@ function thumbOf(src, w, h) {
   return c.toDataURL('image/jpeg', 0.8);
 }
 
+// v1.10: hafif kopya ilerlemesi önizlemenin üstünde küçük bir hap olarak görünür
+function proxyPill(m, p) {
+  const wrap = document.getElementById('previewWrap');
+  if (!wrap) return;
+  let el = document.getElementById('proxyPill');
+  if (!el) { el = document.createElement('div'); el.id = 'proxyPill'; el.className = 'proxy-pill'; wrap.appendChild(el); }
+  const active = [...proxyState.values()].filter((s) => !s.done && !s.err);
+  if (active.length) {
+    const avg = active.reduce((a, s) => a + (s.p || 0), 0) / active.length;
+    el.innerHTML = `<i></i><span>Akıcı önizleme hazırlanıyor · %${Math.round(avg * 100)}${active.length > 1 ? ` · ${active.length} video` : ''}</span>`;
+    el.style.setProperty('--p', avg.toFixed(3));
+    el.classList.add('on');
+    return;
+  }
+  el.classList.remove('on');
+  if (p >= 1) {
+    const st = proxyState.get(m.id);
+    if (st?.done) { toast('Akıcı önizleme hazır ✓'); app.engine.requestDraw(); }
+    else if (st?.err) toast('Bu video için hafif kopya üretilemedi; önizleme orijinalden oynar.');
+  }
+}
+
 function registerMedia(rec) {
   if (app.P && rec.kind !== 'lut') { app.P.mediaNames = app.P.mediaNames || {}; app.P.mediaNames[rec.id] = rec.name; }
   const url = URL.createObjectURL(rec.blob);
   const purl = rec.proxyBlob ? URL.createObjectURL(rec.proxyBlob) : null;
   app.engine.media.set(rec.id, { ...rec, url, purl });
   const m = app.engine.media.get(rec.id);
-  if (!purl) setTimeout(() => queueProxy(m), 1500); // v1.6: ağır videoya hafif önizleme kopyası
+  if (!purl) queueProxy(m); // v1.10: ağır (telefon kamerası) videoya hemen hafif önizleme kopyası
   queueScrub(m); // v1.7: anlık kaydırma önizlemesi
   return m;
 }

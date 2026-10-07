@@ -969,3 +969,10 @@ button, [role="button"], .item, .tpl, .tr-card { touch-action: manipulation; -we
 .signature { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 28px 0 calc(var(--safe-b, 0px) + 24px); opacity: .72; }
 .signature .sig-mark { font-family: var(--font-sc, inherit); font-weight: 800; font-size: 11px; letter-spacing: 4px; color: var(--muted); }
 .signature .sig-by { font-family: "Source Serif 4", serif; font-style: italic; font-size: 13.5px; color: var(--text-2); }
+
+/* v1.10: hafif kopya (proxy) ilerleme hapı */
+.proxy-pill{position:absolute;left:50%;top:10px;transform:translate(-50%,-8px);z-index:6;display:flex;align-items:center;gap:8px;padding:6px 12px 6px 10px;border-radius:999px;background:rgba(14,10,23,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font-size:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;overflow:hidden;white-space:nowrap}
+.proxy-pill.on{opacity:1;transform:translate(-50%,0)}
+.proxy-pill::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:calc(var(--p,0)*100%);background:linear-gradient(90deg,#FFD25A,#E9A21F);transition:width .3s}
+.proxy-pill i{width:8px;height:8px;border-radius:50%;background:#FFD25A;box-shadow:0 0 8px #FFD25A;animation:ppulse 1.1s ease-in-out infinite}
+@keyframes ppulse{50%{opacity:.35;transform:scale(.7)}}
