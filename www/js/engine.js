@@ -346,6 +346,7 @@ export class Engine {
       }
       return img;
     }
+    if (this._share?.has(item.id)) { const he = this.els.get(this._share.get(item.id)); if (he) return he; }
     let el = this.els.get(item.id);
     // v1.6: proxy hazırsa önizlemede hafif kopya; dışa aktarmada her zaman orijinal
     const src = (m.purl && m.kind === 'video' && !this.exporting && proxyMode() !== 'off') ? m.purl : m.url;
@@ -426,6 +427,17 @@ export class Engine {
   sync(t) {
     const P = this.P;
     const lay = layoutClips(P.clips);
+    // v1.11: bindirme kopyası (aynı medya, aynı başlangıç ve kaynak noktası) ana klibin video çözücüsünü paylaşır —
+    // telefon aynı videoyu iki kez çözmez, iki eleman birbirini bekletip donmaz
+    const share = new Map();
+    if (!this.exporting) {
+      for (const l of flatLayers(P)) {
+        if (l.kind !== 'media' || l.loop) continue;
+        const host = lay.find((L) => L.clip.mediaId === l.mediaId && L.clip.type === 'video' && (L.clip.speed || 1) === 1 && !curvePts(L.clip) && !L.clip.freeze && Math.abs(L.start - l.start) < 1e-3 && Math.abs(L.start + L.len - l.end) < 0.05 && Math.abs((L.clip.in || 0) - (l.in || 0)) < 1e-3);
+        if (host) share.set(l.id, host.clip.id);
+      }
+    }
+    this._share = share;
     lay.forEach((L, i) => {
       const c = L.clip;
       const el = this.elFor(c);
@@ -460,6 +472,7 @@ export class Engine {
       const local = t - l.start;
       const srcLen = Math.max(0.1, (l.out ?? el.duration ?? 1) - (l.in || 0));
       const srcT = (l.in || 0) + (l.loop ? local % srcLen : Math.min(local, srcLen - 0.05));
+      if (this._share.has(l.id)) { const own = this.els.get(l.id); if (own && own !== el && !own.paused) own.pause(); return; } // ana klibin elemanı kullanılıyor; onu ana klip yönetir
       this._syncEl(el, active, srcT, 1, (l.mute || l.hidden) ? 0 : (l.volume ?? 0), l, 'voice');
       if (!active && t < l.start && l.start - t < 1.5) this._prepare(el, l.in || 0);
     });

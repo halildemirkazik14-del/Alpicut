@@ -300,6 +300,21 @@ await step('detachAudio', async () => {
   return r;
 });
 
+// v1.11: bindirme kopyası ana klibin video çözücüsünü paylaşır (tek eleman oynar)
+await step('overlayShare', async () => {
+  await pg.evaluate(() => { const app = window.__alpicut; app.pause(); app.engine.seek ? app.engine.seek(0.2) : (app.engine.t = 0.2); app.select({ type: 'clip', id: app.P.clips[0].id }); });
+  await pg.waitForTimeout(400);
+  const clicked = await pg.evaluate(() => { const b = [...document.querySelectorAll('#selBar .sb-btn')].find((x) => x.textContent.includes('Bindir')); if (b) b.click(); return !!b; });
+  if (!clicked) throw new Error('Bindir düğmesi yok');
+  await pg.waitForTimeout(300);
+  await pg.evaluate(() => window.__alpicut.play());
+  await pg.waitForTimeout(1500);
+  const r = await pg.evaluate(() => { const app = window.__alpicut; const els = [...app.engine.els.values()].filter((e) => e.tagName === 'VIDEO'); const playing = els.filter((e) => !e.paused).length; const layer = app.P.layers[app.P.layers.length - 1]; app.pause(); return { videos: els.length, playing, shared: app.engine._share?.has(layer.id) || false }; });
+  if (!r.shared || r.playing > 1) throw new Error(`bindirme paylaşmıyor: ${JSON.stringify(r)}`);
+  await pg.evaluate(() => document.getElementById('btnUndo').click());
+  return r;
+});
+
 R.errors = errs.slice(0, 50);
 fs.writeFileSync(`${OUT}/smoke.json`, JSON.stringify(R, null, 1));
 console.log('HATALAR', errs.length, errs.slice(0, 15).join('\n'));
