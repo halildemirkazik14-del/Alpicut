@@ -381,6 +381,9 @@ export function bgRemoveTab(body, o) {
   ]));
   if (B.target === 'object') body.append(h('button', { class: 'btn block', html: `🎯 ${B.point ? 'Nesneyi yeniden seç' : 'Nesneyi seç'}`, onclick: () => pickObject(o) }));
   if (!B.on) return;
+  // v1.12: elle düzeltme — kalan arka planı fırçayla sil, yanlış silineni geri getir, renk seçerek sil
+  const nS = o.brush?.s?.length || 0;
+  body.append(h('button', { class: 'btn block primary', html: `🖌️ Fırçayla düzelt${nS ? ` · ${nS} çizgi` : ''}`, onclick: () => import('./brush.js').then((m) => m.openBrushEditor(o)) }));
   body.append(fields(o, [
     { label: 'Yerine', path: 'bgr.mode', type: 'chips', options: isClip ? [['blur', 'Bulanık arka plan'], ['color', 'Renk'], ['transparent', 'Siyah']] : [['transparent', 'Saydam'], ['color', 'Renk'], ['blur', 'Bulanık']], rerender: true },
     { label: 'Renk', path: 'bgr.color', type: 'color', hide: B.mode !== 'color' },

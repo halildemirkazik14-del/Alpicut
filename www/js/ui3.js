@@ -204,6 +204,14 @@ export function chromaTab(body, o) {
       toast('Önizlemede saydam yapmak istediğin renge dokun', 3000);
       app.pickColor(o, (hex) => { o.key.color = hex; app.change(true); refreshSheet(); toast(`Renk: ${hex}`); });
     } }));
+    // v1.12: birden fazla renk + fırçayla düzeltme
+    const cols = o.key.colors || [];
+    if (cols.length) {
+      const row = h('div', { class: 'chips', style: { margin: '6px 0' } });
+      cols.forEach((c, i) => row.append(h('button', { style: { background: c, color: '#fff', textShadow: '0 1px 2px #000' }, onclick: () => { o.key.colors.splice(i, 1); app.change(true); refreshSheet(); } }, `${c} ✕`)));
+      body.append(h('div', { class: 'sub-title' }, 'Ek silinen renkler'), row);
+    }
+    body.append(h('button', { class: 'btn block primary', html: `🖌️ Fırçayla düzelt / renk ekle${o.brush?.s?.length ? ` · ${o.brush.s.length} çizgi` : ''}`, onclick: () => import('./brush.js').then((m) => m.openBrushEditor(o)) }));
     body.append(fields(o, [
       { label: 'Tolerans', path: 'key.tol', type: 'range', min: 0, max: 0.5, step: 0.005, fmt: pct },
       { label: 'Kenar yumuşaklığı', path: 'key.soft', type: 'range', min: 0, max: 0.3, step: 0.005, fmt: pct },

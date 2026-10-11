@@ -315,6 +315,46 @@ await step('overlayShare', async () => {
   return r;
 });
 
+// v1.12: katmanı bindir + fırçayla düzelt (sil / geri getir) + çok renkli chroma
+await step('layerBrush', async () => {
+  const r = await pg.evaluate(async () => {
+    const app = window.__alpicut;
+    app.pause();
+    const c = app.P.clips[0];
+    app.P.layers.push({ id: 'Lb1', kind: 'media', mediaId: c.mediaId, start: 0, end: 3, in: 0, out: 3, x: 0.5, y: 0.5, w: 1, rot: 0, opacity: 1, crop: 'none', radius: 0, borderW: 0, borderColor: '#fff', shadowOn: false, kenburns: false, volume: 0, loop: false, filters: {}, filterPreset: 'none', anim: { in: 'none', out: 'none' } });
+    app.commit();
+    app.select({ type: 'layer', id: 'Lb1' });
+    await new Promise((r) => setTimeout(r, 300));
+    const b = [...document.querySelectorAll('#selBar .sb-btn')].find((x) => x.textContent.includes('Bindir'));
+    const n0 = app.P.layers.length; b?.click(); await new Promise((r) => setTimeout(r, 200));
+    const added = app.P.layers.length - n0;
+    const L = app.P.layers[app.P.layers.length - 1];
+    // fırça: sol yarıyı sil, ortada küçük bir yeri geri getir; chroma iki renk
+    L.brush = { v: 1, s: [{ m: 'e', r: 0.5, p: [0.2, 0.2, 0.2, 0.8] }, { m: 'k', r: 0.08, p: [0.25, 0.5] }] };
+    L.key = { on: true, color: '#ff0000', colors: ['#00ff00', '#0000ff'], tol: 0.1, soft: 0.08, spill: 0.5 };
+    app.commit();
+    const { applyBrush } = await import('./js/brush.js');
+    const cv = document.createElement('canvas'); cv.width = 200; cv.height = 200; const x = cv.getContext('2d'); x.fillStyle = '#888'; x.fillRect(0, 0, 200, 200);
+    const out = applyBrush(cv, cv, L.brush);
+    const px = (u, v) => out.getContext('2d').getImageData(u, v, 1, 1).data[3];
+    app.engine.seek ? app.engine.seek(1) : (app.engine.t = 1); app.engine.draw(1);
+    return { added, erased: px(30, 100), kept: px(50, 100), untouched: px(180, 100) };
+  });
+  if (r.added !== 1) throw new Error(`katman bindirilmedi ${JSON.stringify(r)}`);
+  if (r.erased !== 0 || r.kept !== 255 || r.untouched !== 255) throw new Error(`fırça yanlış ${JSON.stringify(r)}`);
+  return r;
+});
+
+await step('brushEditor', async () => {
+  await pg.evaluate(async () => { const app = window.__alpicut; const L = app.P.layers[app.P.layers.length - 1]; await (await import('./js/brush.js')).openBrushEditor(L); });
+  await pg.waitForTimeout(500);
+  const ok = await pg.isVisible('.br-ov canvas');
+  await shot('12-brush-editor');
+  await pg.evaluate(() => [...document.querySelectorAll('.br-ov .btn')].find((b) => b.textContent === 'Bitti')?.click());
+  if (!ok) throw new Error('fırça düzenleyici açılmadı');
+  return { ok };
+});
+
 R.errors = errs.slice(0, 50);
 fs.writeFileSync(`${OUT}/smoke.json`, JSON.stringify(R, null, 1));
 console.log('HATALAR', errs.length, errs.slice(0, 15).join('\n'));

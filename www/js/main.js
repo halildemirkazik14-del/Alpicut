@@ -298,7 +298,19 @@ function aiReframe() { const o = targetClip(); if (!o || app.sel.type !== 'clip'
 // v1.9: bindirme — seçili klibin aynısını tam ekran üst katman olarak ekler (arka planı silip üstünde çalışmak için)
 function overlaySel() {
   const s = app.sel, o = selected();
-  if (!s || !o || s.type !== 'clip') return;
+  if (!s || !o) return;
+  // v1.12: seçili katmanı da bindir — kopyası hemen bir üst katmana çıkar (arka plan silme, fırça, efektler dahil)
+  if (s.type === 'layer') {
+    if (o.kind !== 'media') return;
+    const l = { ...clone(o), id: uid() };
+    const i = app.P.layers.indexOf(o);
+    if (i >= 0) app.P.layers.splice(i + 1, 0, l); else app.P.layers.push(l);
+    commit();
+    select({ type: 'layer', id: l.id }, false);
+    undoToast('Katman bindirildi — kopyası üstte');
+    return;
+  }
+  if (s.type !== 'clip') return;
   const L = layoutClips(app.P.clips).find((x) => x.clip === o);
   if (!L) return;
   const m = app.engine.media.get(o.mediaId);
@@ -328,7 +340,7 @@ function updateQuick() {
   if (!on) return;
   const btn = (ic, label, fn, cls = '') => h('button', { class: `sb-btn ${cls}`, onclick: () => { app.pause(); fn(); } }, h('span', { class: 'sb-ic', html: I[ic] || I.edit }), h('span', { class: 'sb-lb' }, label));
   if (s.type !== 'subs') bar.append(btn('split', 'Böl', () => splitSel()), btn('copy', 'Kopyala', dupSel));
-  if (s.type === 'clip') bar.append(btn('layer', 'Bindir', overlaySel));
+  if (s.type === 'clip' || (s.type === 'layer' && o.kind === 'media')) bar.append(btn('layer', 'Bindir', overlaySel));
   if (s.type === 'clip' && o.type === 'video' && !o.mute) bar.append(btn('audio', 'Sesi ayır', () => import('./audiostudio.js').then((m) => m.detachAudio(o))));
   bar.append(btn('trash', 'Sil', delSel, 'danger'));
   const more = btn('more', 'Tümü', () => { const r = more.getBoundingClientRect(); itemMenu({ x: r.left + r.width / 2, y: bar.getBoundingClientRect().top }); }, 'ghost');

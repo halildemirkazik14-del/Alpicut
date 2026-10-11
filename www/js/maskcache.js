@@ -8,7 +8,7 @@ import { waitIdle } from './bgwork.js';
 import { diskTarget, persistFile } from './opfs.js';
 import { store } from './storage.js';
 
-const FPS = 15, LONG = 512, WORK = 320;
+const FPS = 15, LONG = 720, WORK = 512; // v1.12: daha yüksek çözünürlüklü maske (temiz kenar)
 export const maskState = new Map(); // key -> {p, done, err}
 const files = new Map();            // key -> File
 const players = new Map();          // key -> {el, url, cv, ctx, lastT, lastKey}
@@ -22,7 +22,7 @@ const r3 = (x) => (x == null ? '' : (+x).toFixed(3));
 export function maskKey(o, m) {
   const b = o.bgr || {};
   const a = o.in || 0, z = o.out ?? m?.duration ?? 0;
-  return [m?.id, r3(a), r3(z), b.target || 'person', b.quality || 'hq', r3(b.smooth ?? 0.35), r3(b.point?.x), r3(b.point?.y)].join('|');
+  return ['v2', m?.id, r3(a), r3(z), b.target || 'person', b.quality || 'hq', r3(b.smooth ?? 0.35), r3(b.point?.x), r3(b.point?.y)].join('|');
 }
 const fname = (key) => `mask-${Array.from(key).reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 7).toString(36).replace('-', 'n')}.mp4`;
 
@@ -64,8 +64,34 @@ async function pump() {
   running = false;
 }
 
+// v1.12: kopuk küçük parçaları (arkadaki eşya, renkli lekeler) temizle: en büyük parçaya göre küçük adaları sil
+function cleanIslands(q, w, h, boxBlur) {
+  const n = w * h, lab = new Int32Array(n), stack = new Int32Array(n), sizes = [0];
+  let id = 0;
+  for (let i = 0; i < n; i++) {
+    if (q[i] <= 0.5 || lab[i]) continue;
+    id++; let sp = 0, cnt = 0; stack[sp++] = i; lab[i] = id;
+    while (sp) {
+      const j = stack[--sp]; cnt++;
+      const x = j % w;
+      if (x > 0 && !lab[j - 1] && q[j - 1] > 0.5) { lab[j - 1] = id; stack[sp++] = j - 1; }
+      if (x < w - 1 && !lab[j + 1] && q[j + 1] > 0.5) { lab[j + 1] = id; stack[sp++] = j + 1; }
+      if (j >= w && !lab[j - w] && q[j - w] > 0.5) { lab[j - w] = id; stack[sp++] = j - w; }
+      if (j < n - w && !lab[j + w] && q[j + w] > 0.5) { lab[j + w] = id; stack[sp++] = j + w; }
+    }
+    sizes.push(cnt);
+  }
+  if (id <= 1) return q;
+  const big = Math.max(...sizes);
+  const keep = new Float32Array(n);
+  for (let i = 0; i < n; i++) if (lab[i] && sizes[lab[i]] >= big * 0.06) keep[i] = 1;
+  const near = boxBlur(keep, w, h, Math.max(2, Math.round(Math.max(w, h) / 120)));
+  for (let i = 0; i < n; i++) if (near[i] < 0.02) q[i] *= 0.1; // kalan parçaya uzak her şey arka plan
+  return q;
+}
+
 async function pickCodec(MB, W, H) {
-  for (const c of ['avc', 'vp9']) { try { if (await MB.canEncodeVideo(c, { width: W, height: H, bitrate: 6e5 })) return c; } catch (_) { /* sıradaki */ } }
+  for (const c of ['avc', 'vp9']) { try { if (await MB.canEncodeVideo(c, { width: W, height: H, bitrate: 1.5e6 })) return c; } catch (_) { /* sıradaki */ } }
   return null;
 }
 
@@ -75,6 +101,8 @@ async function build({ o, m, key }) {
   const b = o.bgr;
   await seg.initSegmenter(b.target === 'object' ? 'object' : (b.quality === 'hq' ? 'hq' : 'person'));
   const MB = await import('./lib/mediabunny.js');
+  // hafif kopya hazırlanıyorsa onu bekle: telefon çekimi (HEVC) doğrudan çözülemeyebilir, kopya hem çözülür hem hızlıdır
+  try { const { proxyPending } = await import('./proxy.js'); for (let w = 0; w < 1800 && proxyPending(m.id); w++) await new Promise((r) => setTimeout(r, 500)); } catch (_) { /* yoksay */ }
   const src = m.proxyBlob || m.blob;
   const input = new MB.Input({ source: new MB.BlobSource(src), formats: MB.ALL_FORMATS });
   try {
@@ -93,7 +121,7 @@ async function build({ o, m, key }) {
     if (!ts.length) return null;
     const disk = await diskTarget(MB, fname(key), { folder: 'alpicut-media' });
     const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: disk ? false : 'in-memory' }), target: disk ? disk.target : new MB.BufferTarget() });
-    const vsrc = new MB.VideoSampleSource({ codec, bitrate: 6e5, keyFrameInterval: 1 });
+    const vsrc = new MB.VideoSampleSource({ codec, bitrate: 1.5e6, keyFrameInterval: 1 });
     output.addVideoTrack(vsrc, { frameRate: FPS });
     await output.start();
     const sink = new MB.CanvasSink(vt, { width: W, height: H, fit: 'fill', poolSize: 2 });
@@ -106,7 +134,8 @@ async function build({ o, m, key }) {
       const t = ts[i] - first;
       if (r?.canvas) {
         seg.personMask(r.canvas, W, H, { ...b, _t: t, _key: keyObj, wantQ: true, _work: Math.max(ww, wh) });
-        const q = seg.lastQ(keyObj);
+        let q = seg.lastQ(keyObj);
+        if (q && q.length === ww * wh && b.target !== 'object') q = cleanIslands(Float32Array.from(q), ww, wh, seg.boxBlur);
         if (q && q.length === ww * wh) { for (let p = 0, j = 0; p < q.length; p++, j += 4) { const v = q[p] * 255; img.data[j] = img.data[j + 1] = img.data[j + 2] = v; img.data[j + 3] = 255; } }
         else img.data.fill(0);
         ex.putImageData(img, 0, 0);

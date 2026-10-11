@@ -1,4 +1,5 @@
 // Alpicut — çizim fonksiyonları (klip, katman, yazı, CTA, skor, altyazı, efektler)
+import { applyBrush } from './brush.js';
 import { scrubFrame } from './scrubcache.js';
 import { filterString } from './presets.js';
 import { layerAt, clipAt } from './kf.js';
@@ -180,7 +181,7 @@ export function drawClip(ctx, clip, el, localT, len, env) {
   const raw = el;
   const gp = gradeParams(clip);
   if (gp) { const [sw, sh] = mediaSize(el); el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280); }
-  if ((clip.bgr?.on && env.seg) || (clip.mask && clip.mask.type && clip.mask.type !== 'none')) {
+  if ((clip.bgr?.on && env.seg) || clip.brush?.s?.length || (clip.mask && clip.mask.type && clip.mask.type !== 'none')) {
     return drawClipComposite(ctx, clip, el, raw, localT, len, env);
   }
   const fit = clip.fit || 'cover';
@@ -232,6 +233,7 @@ function drawClipComposite(ctx, clip, el, raw, localT, len, env) {
   } else if (fit === 'contain' && clip.bgMode === 'blur') {
     o.save(); o.filter = `blur(${40 * S}px) brightness(0.7)`; drawFit(o, el, -40, -40, W + 80, H + 80, 'cover'); o.restore();
   }
+  if (clip.brush?.s?.length) src = applyBrush(src, raw || el, clip.brush); // v1.12: fırçayla düzelt
   o.save();
   const fs = filterString(clip.filters, S);
   if (fs !== 'none') o.filter = fs;
@@ -935,6 +937,7 @@ function drawMediaLayer(ctx, L, t, env, el, st) {
   { const o0 = el; el = stableSource(el); if (el === o0) { if (!isReady(el)) return { w, h: w }; rememberFrame(el); } }
   const [sw, sh] = mediaSize(el);
   const srcT0 = el.currentTime;
+  const el0 = el;
   const gp = gradeParams(L);
   if (gp) el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280);
   if (L.bgr?.on && env.seg) {
@@ -950,6 +953,7 @@ function drawMediaLayer(ctx, L, t, env, el, st) {
       } else el = cut;
     }
   }
+  if (L.brush?.s?.length) el = applyBrush(el, el0, L.brush); // v1.12: fırçayla düzelt
   const h = cropH(L, w, sw, sh, env);
   let zoom = L.zoom || 1;
   if (L.kenburns) zoom *= 1 + 0.15 * clamp((t - L.start) / Math.max(0.1, L.end - L.start));

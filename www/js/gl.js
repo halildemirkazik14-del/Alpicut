@@ -8,7 +8,7 @@ varying vec2 v;
 uniform sampler2D t; uniform sampler2D curve; uniform sampler2D lut;
 uniform float exposure, contrast, sat, vib, temp, tint, shadows, highlights, lutMix, lutSize, smoothAmt, sharpAmt;
 uniform int curveOn, lutOn, keyOn, fx;
-uniform vec3 keyColor; uniform float keyTol, keySoft, keySpill;
+uniform vec3 keyColor, keyColor2, keyColor3, keyColor4; uniform int keyN; uniform float keyTol, keySoft, keySpill;
 uniform float fxAmt, time, uvZoom, uvRot; uniform vec2 res, uvOff;
 const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
 float rnd(vec2 co){ return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -74,6 +74,9 @@ void main(){
   float a = s.a;
   if (keyOn == 1) {
     float d = distance(cbcr(c), cbcr(keyColor));
+    if (keyN > 1) d = min(d, distance(cbcr(c), cbcr(keyColor2)));
+    if (keyN > 2) d = min(d, distance(cbcr(c), cbcr(keyColor3)));
+    if (keyN > 3) d = min(d, distance(cbcr(c), cbcr(keyColor4)));
     float k = smoothstep(keyTol, keyTol + keySoft + 0.0001, d);
     float sp = keySpill * (1.0 - smoothstep(keyTol, keyTol + keySoft * 3.0 + 0.05, d));
     c = mix(c, vec3(dot(c, LUM)), sp);
@@ -106,7 +109,7 @@ class Grader {
     gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     this.u = {};
     ['t', 'curve', 'lut', 'smoothAmt', 'sharpAmt', 'exposure', 'contrast', 'sat', 'vib', 'temp', 'tint', 'shadows', 'highlights', 'lutMix', 'lutSize', 'curveOn', 'lutOn', 'keyOn', 'fx',
-      'keyColor', 'keyTol', 'keySoft', 'keySpill', 'fxAmt', 'time', 'uvZoom', 'uvRot', 'res', 'uvOff'].forEach((n) => { this.u[n] = gl.getUniformLocation(pr, n); });
+      'keyColor', 'keyColor2', 'keyColor3', 'keyColor4', 'keyN', 'keyTol', 'keySoft', 'keySpill', 'fxAmt', 'time', 'uvZoom', 'uvRot', 'res', 'uvOff'].forEach((n) => { this.u[n] = gl.getUniformLocation(pr, n); });
     this.tex = this._tex(0);
     this.curveTex = this._tex(1);
     this.lutTex = this._tex(2);
@@ -178,6 +181,9 @@ class Grader {
     gl.uniform1i(u.keyOn, k ? 1 : 0);
     if (k) {
       gl.uniform3f(u.keyColor, k.rgb[0], k.rgb[1], k.rgb[2]);
+      const ex = k.extra || [];
+      gl.uniform1i(u.keyN, 1 + Math.min(3, ex.length));
+      [u.keyColor2, u.keyColor3, u.keyColor4].forEach((loc, i) => { const c = ex[i] || k.rgb; gl.uniform3f(loc, c[0], c[1], c[2]); });
       gl.uniform1f(u.keyTol, k.tol ?? 0.1); gl.uniform1f(u.keySoft, k.soft ?? 0.08); gl.uniform1f(u.keySpill, k.spill ?? 0.5);
     }
     gl.uniform1i(u.fx, p.fx || 0);
@@ -388,7 +394,7 @@ export function gradeParams(o) {
     const L = o.lut.id.startsWith('b:') ? builtinLut(o.lut.id.slice(2)) : lutStore.get(o.lut.id);
     if (L) { p.lut = { key: o.lut.id, size: L.size, data: L.data, mix: o.lut.mix ?? 1 }; any = true; }
   }
-  if (o.key && o.key.on) { p.key = { rgb: hexToRgb(o.key.color), tol: o.key.tol ?? 0.1, soft: o.key.soft ?? 0.08, spill: o.key.spill ?? 0.5 }; any = true; }
+  if (o.key && o.key.on) { p.key = { rgb: hexToRgb(o.key.color), extra: (o.key.colors || []).slice(0, 3).map(hexToRgb), tol: o.key.tol ?? 0.1, soft: o.key.soft ?? 0.08, spill: o.key.spill ?? 0.5 }; any = true; }
   return any ? p : null;
 }
 
