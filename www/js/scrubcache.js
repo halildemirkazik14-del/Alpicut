@@ -9,7 +9,11 @@ const queue = [];
 let busy = false;
 const MAX_FRAMES = 240;
 
+const MAX_MEDIA = 3; // v1.11: bellek bütçesi — en son kullanılan 3 videonun kareleri tutulur
+function touch(id) { const c = caches.get(id); if (c) { caches.delete(id); caches.set(id, c); } }
+function trim() { while (caches.size > MAX_MEDIA) caches.delete(caches.keys().next().value); }
 export function scrubFrame(mediaId, t) {
+  touch(mediaId);
   const c = caches.get(mediaId);
   if (!c || !c.frames.length) return null;
   const i = Math.max(0, Math.min(c.frames.length - 1, Math.round(t / c.step)));
@@ -53,7 +57,7 @@ async function build(m) {
     const k = 160 / Math.min(w, h);
     const sink = new MB.CanvasSink(vt, { width: Math.round(w * k / 2) * 2, height: Math.round(h * k / 2) * 2, fit: 'fill', poolSize: 2 });
     const entry = { step, frames: new Array(n) };
-    caches.set(m.id, entry);
+    caches.set(m.id, entry); trim();
     const ts = []; for (let i = 0; i < n; i++) ts.push(first + Math.min(dur - 0.01, i * step));
     let i = 0;
     for await (const r of sink.canvasesAtTimestamps(ts)) {

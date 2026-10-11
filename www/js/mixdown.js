@@ -15,6 +15,8 @@ const wholeCache = new Map(); // mediaId -> Promise<AudioBuffer|null> (yedek yol
 async function decodeWhole(m, sr) {
   if (!wholeCache.has(m.id)) {
     wholeCache.set(m.id, (async () => {
+      // v1.11: büyük dosyayı tümüyle belleğe okuma (uygulamayı kapatır)
+      if (m.blob && m.blob.size > 250 * 1048576) return null;
       try { const ab = await m.blob.arrayBuffer(); return await new (OAC())(2, 1, sr).decodeAudioData(ab); } catch (_) { return null; }
     })());
   }
@@ -302,8 +304,117 @@ export async function mixdown(engine, P, dur, { sampleRate = 48000, onProgress, 
   return out;
 }
 
+// ---------- v1.11: pencereli (akışlı) karışım — 1 saatlik projede bellek sabit kalır ----------
+// Tüm zaman çizelgesini tek OfflineAudioContext'te üretmek (1 saat ≈ 1,4 GB) telefonda uygulamayı kapatıyordu.
+// Burada [w0, w1) pencereleri sırayla üretilir; her kaynak yalnızca o pencere için çözülür.
+async function prepWin(engine, s, sr, a0, a1, cache) {
+  const a = Math.max(a0, s.start), b = Math.min(a1, s.start + s.len);
+  if (b - a < 1 / sr) return null;
+  const lt0 = a - s.start;
+  if (s.curve || s.loop) { // hız eğrisi / döngü: kaynak bir kez hazırlanır, dilimlenir
+    let full = cache.get(s);
+    if (full === undefined) { full = await prepare(engine, s, sr); cache.set(s, full); }
+    if (!full) return null;
+    const i0 = Math.round(lt0 * sr), i1 = Math.min(full[0].length, Math.round((b - s.start) * sr));
+    if (i1 <= i0) return null;
+    return { off: a - a0, lt0, data: [full[0].subarray(i0, i1), full[1].subarray(i0, i1)] };
+  }
+  const sp = s.speed || 1;
+  const sa = s.srcA + lt0 * sp, sb = s.srcA + (b - s.start) * sp;
+  const raw = await decodeRange(engine.media.get(s.mediaId), sa, Math.min(s.srcB ?? Infinity, sb + 0.05 * sp), sr);
+  if (!raw) return null;
+  const chs = Math.abs(sp - 1) > 0.005 ? stretch(raw, sp, sr) : raw;
+  const n = Math.min(chs[0].length, Math.round((b - a) * sr));
+  return { off: a - a0, lt0, data: [chs[0].subarray(0, n), chs[1].subarray(0, n)] };
+}
+
+export function mixdownStream(engine, P, dur, { sampleRate = 48000, win = 10, pre = 0.5 } = {}) {
+  const sr = sampleRate;
+  const M = engine.mix();
+  const srcs = collect(engine, P);
+  const cache = new Map();
+  const duckOn = M.duck.on && srcs.some((s) => s.role === 'music') && srcs.some((s) => s.role === 'voice');
+  let lvl = 1;
+  const render = async (A, B, roles, duckCurve, parts) => {
+    const len = Math.max(1, Math.round((B - A) * sr));
+    const ctx = new (OAC())(2, len, sr);
+    const master = ctx.createGain(); master.gain.value = M.master;
+    const limiter = ctx.createDynamicsCompressor(); setLimiter(limiter, M.limiter);
+    master.connect(limiter); limiter.connect(ctx.destination);
+    const buses = {};
+    ['voice', 'music', 'sfx'].forEach((r) => { const g = ctx.createGain(); g.gain.value = M[r]; buses[r] = g; });
+    buses.voice.connect(master); buses.sfx.connect(master);
+    const duck = ctx.createGain(); buses.music.connect(duck); duck.connect(master);
+    if (duckCurve) duck.gain.setValueCurveAtTime(duckCurve, 0, Math.max(0.02, (duckCurve.length - 1) / CR));
+    parts.forEach(({ s, d }) => {
+      const role = buses[s.role] ? s.role : 'voice';
+      if (roles && !roles.includes(role)) return;
+      const L = d.data[0].length; if (!L) return;
+      const bb = ctx.createBuffer(2, L, sr); bb.copyToChannel(d.data[0], 0); bb.copyToChannel(d.data[1], 1);
+      const bs = ctx.createBufferSource(); bs.buffer = bb;
+      const g = ctx.createGain();
+      const n = Math.max(2, Math.ceil((L / sr) * CR) + 1), cv = new Float32Array(n);
+      for (let i = 0; i < n; i++) cv[i] = s.gain(Math.min(s.len, d.lt0 + i / CR));
+      g.gain.value = cv[0];
+      if (!cv.every((v) => Math.abs(v - cv[0]) < 1e-6)) g.gain.setValueCurveAtTime(cv, d.off, Math.max(0.02, L / sr));
+      bs.connect(g); chain(ctx, s.o, g, buses[role]); bs.start(d.off);
+    });
+    return ctx.startRendering();
+  };
+  return {
+    sr, win,
+    windows: Math.ceil(dur / win),
+    // [w0, w1) penceresinin karışımı (AudioBuffer). Önceki pencerelerden bağımsız; ducking durumu taşınır.
+    async mix(w0, w1) {
+      const A = Math.max(0, w0 - pre), B = w1;
+      const parts = [];
+      for (const s of srcs) {
+        try { const d = await prepWin(engine, s, sr, A, B, cache); if (d) parts.push({ s, d }); } catch (e) { console.warn('ses kaynağı atlandı', e); }
+      }
+      let duckCurve = null;
+      if (duckOn && parts.some((p) => p.s.role === 'voice') && parts.some((p) => p.s.role === 'music')) {
+        const vb = await render(A, B, ['voice'], null, parts);
+        const L = vb.getChannelData(0), R = vb.getChannelData(1), total = L.length;
+        const hop = Math.round(sr / CR), n = Math.ceil(total / hop) + 1, win2 = Math.round(sr * 0.023), dt = 1 / CR;
+        duckCurve = new Float32Array(n);
+        let l2 = lvl;
+        for (let k = 0; k < n; k++) {
+          const c = k * hop; let q = 0, m = 0;
+          for (let i = Math.max(0, c - win2); i < Math.min(total, c + win2); i++) { const v = (L[i] + R[i]) / 2; q += v * v; m++; }
+          const db = 20 * Math.log10(Math.sqrt(q / Math.max(1, m)) + 1e-9);
+          const target = db > M.duck.threshold ? Math.pow(10, -M.duck.amount / 20) : 1;
+          const tau = target < l2 ? M.duck.attack : M.duck.release;
+          l2 += (target - l2) * (1 - Math.exp(-dt / Math.max(0.01, tau)));
+          duckCurve[k] = l2;
+          if (c / sr <= (w1 - A)) lvl = l2;
+        }
+      }
+      const out = await render(A, B, null, duckCurve, parts);
+      const skip = Math.round((w0 - A) * sr), n = Math.max(1, Math.round((w1 - w0) * sr));
+      const res = new AudioBuffer({ length: n, numberOfChannels: 2, sampleRate: sr });
+      res.copyToChannel(out.getChannelData(0).subarray(skip, skip + n), 0);
+      res.copyToChannel(out.getChannelData(1).subarray(skip, skip + n), 1);
+      return res;
+    },
+  };
+}
+
+// Pencereli analizör: dışa aktarmada ses dalgası katmanları için, yalnızca güncel pencereyi tutar
+export function rollingAnalyser() {
+  const none = { sampleRate: 48000, numberOfChannels: 1, getChannelData: () => new Float32Array(0) };
+  let a = fakeAnalyser(none, 0), t = 0;
+  return {
+    set(buf, offsetSec) { a = fakeAnalyser(buf || none, Math.round(offsetSec * ((buf || none).sampleRate))); a.setTime(t); },
+    get frequencyBinCount() { return a.frequencyBinCount; },
+    get fftSize() { return a.fftSize; },
+    setTime(x) { t = x; a.setTime(x); },
+    getByteFrequencyData(arr) { a.getByteFrequencyData(arr); },
+    getFloatTimeDomainData(arr) { a.getFloatTimeDomainData(arr); },
+  };
+}
+
 // ---------- dalga katmanı için sahte analizör (dışa aktarmada sesle senkron) ----------
-export function fakeAnalyser(buf) {
+export function fakeAnalyser(buf, off = 0) {
   const N = 1024, bins = N / 2;
   const re = new Float32Array(N), im = new Float32Array(N), smooth = new Float32Array(bins);
   const win = new Float32Array(N);
@@ -329,7 +440,7 @@ export function fakeAnalyser(buf) {
     fftSize: N,
     setTime(tt) { t = tt; },
     getByteFrequencyData(arr) {
-      const end = Math.floor(t * buf.sampleRate), st = end - N;
+      const end = Math.floor(t * buf.sampleRate) - off, st = end - N;
       for (let i = 0; i < N; i++) { const j = st + i; const v = j >= 0 && j < L.length ? (L[j] + R[j]) / 2 : 0; re[i] = v * win[i]; im[i] = 0; }
       fft();
       for (let k = 0; k < bins && k < arr.length; k++) {
@@ -339,6 +450,6 @@ export function fakeAnalyser(buf) {
         arr[k] = Math.max(0, Math.min(255, Math.round(((db + 100) / 70) * 255)));
       }
     },
-    getFloatTimeDomainData(arr) { const end = Math.floor(t * buf.sampleRate); for (let i = 0; i < arr.length; i++) { const j = end - arr.length + i; arr[i] = j >= 0 && j < L.length ? L[j] : 0; } },
+    getFloatTimeDomainData(arr) { const end = Math.floor(t * buf.sampleRate) - off; for (let i = 0; i < arr.length; i++) { const j = end - arr.length + i; arr[i] = j >= 0 && j < L.length ? L[j] : 0; } },
   };
 }

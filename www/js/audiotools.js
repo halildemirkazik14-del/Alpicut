@@ -3,22 +3,66 @@ const SR = 8000;
 const cache = new Map();
 
 // Medyanın sesini tek kanal, düşük örnekleme hızıyla çöz
-export async function decodeMono(media, sr = SR) {
-  const ck = `${media.id}@${sr}`;
+// v1.11: mediabunny ile parça parça (akışlı) — dosyanın tamamı belleğe okunmaz; 1 saatlik videoda da çalışır.
+// Yalnızca WebCodecs çözemezse eski yol (küçük dosyalarda) kullanılır.
+export async function decodeMono(media, sr = SR, { from = 0, to = Infinity, onProgress } = {}) {
+  const ck = `${media.id}@${sr}@${from}-${to}`;
   if (cache.has(ck)) return cache.get(ck);
-  if (media.blob && media.blob.size > 400 * 1048576) throw new Error('Dosya çok büyük (400 MB üstü) — telefonda ses analizi yapılamıyor');
-  const buf = await (media.blob || await (await fetch(media.url)).blob()).arrayBuffer();
-  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-  const ctx = new OAC(1, sr, sr);
-  let ab;
-  try { ab = await ctx.decodeAudioData(buf); } catch (e) { throw new Error('Bu dosyanın sesi çözülemedi (ses kanalı olmayabilir)'); }
-  const n = ab.length, ch = ab.numberOfChannels;
-  const out = new Float32Array(n);
-  for (let c = 0; c < ch; c++) { const d = ab.getChannelData(c); for (let i = 0; i < n; i++) out[i] += d[i] / ch; }
-  const res = { data: out, sr: ab.sampleRate, dur: n / ab.sampleRate };
+  let res = null;
+  try { res = await streamMono(media, sr, from, to, onProgress); } catch (e) { console.warn('akışlı çözme olmadı', e); }
+  if (!res) {
+    if (media.blob && media.blob.size > 400 * 1048576) throw new Error('Bu dosyanın sesi telefonda çözülemedi');
+    const buf = await (media.blob || await (await fetch(media.url)).blob()).arrayBuffer();
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const ctx = new OAC(1, sr, sr);
+    let ab;
+    try { ab = await ctx.decodeAudioData(buf); } catch (e) { throw new Error('Bu dosyanın sesi çözülemedi (ses kanalı olmayabilir)'); }
+    const n = ab.length, ch = ab.numberOfChannels;
+    const out = new Float32Array(n);
+    for (let c = 0; c < ch; c++) { const d = ab.getChannelData(c); for (let i = 0; i < n; i++) out[i] += d[i] / ch; }
+    res = { data: out, sr: ab.sampleRate, dur: n / ab.sampleRate };
+  }
   if (cache.size > 6) cache.delete(cache.keys().next().value);
   cache.set(ck, res);
   return res;
+}
+
+async function streamMono(media, sr, from, to, onProgress) {
+  if (typeof AudioDecoder === 'undefined' || !media.blob) return null;
+  const MB = await import('./lib/mediabunny.js');
+  const input = new MB.Input({ source: new MB.BlobSource(media.blob), formats: MB.ALL_FORMATS });
+  try {
+    const at = await input.getPrimaryAudioTrack();
+    if (!at || !(await at.canDecode())) return null;
+    const first = (await at.getFirstTimestamp().catch(() => 0)) || 0;
+    const dur = Math.min(to, (await at.computeDuration().catch(() => media.duration)) || media.duration || 0) - from;
+    if (!(dur > 0)) return null;
+    const out = new Float32Array(Math.ceil(dur * sr) + 16);
+    const sink = new MB.AudioSampleSink(at);
+    let filled = 0;
+    for await (const smp of sink.samples(first + from, first + from + dur)) {
+      try {
+        const n = smp.numberOfFrames, ch = smp.numberOfChannels, rate = smp.sampleRate;
+        const mono = new Float32Array(n);
+        const tmp = new Float32Array(n);
+        for (let c = 0; c < ch; c++) { smp.copyTo(tmp, { planeIndex: c, format: 'f32-planar' }); for (let i = 0; i < n; i++) mono[i] += tmp[i] / ch; }
+        // basit ortalamalı örnek düşürme (analiz için yeterli)
+        const t0 = smp.timestamp - first - from, k = rate / sr;
+        let j = Math.round(t0 * sr);
+        for (let x = 0; x < n; x += k, j++) {
+          if (j < 0) continue; if (j >= out.length) break;
+          let acc = 0, m = 0; const x1 = Math.min(n, x + k);
+          for (let q = Math.floor(x); q < x1; q++) { acc += mono[q]; m++; }
+          out[j] = m ? acc / m : 0;
+        }
+        filled = Math.max(filled, j);
+      } finally { smp.close(); }
+      onProgress?.(Math.min(1, filled / out.length));
+    }
+    if (!filled) return null;
+    const data = out.subarray(0, Math.min(out.length, Math.ceil(dur * sr)));
+    return { data, sr, dur: data.length / sr };
+  } finally { try { input.dispose(); } catch (_) { /* yoksay */ } }
 }
 
 // pencere RMS (dB)

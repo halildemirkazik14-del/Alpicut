@@ -7,7 +7,8 @@
 //   • Sonuç her cihazda aynı, kare atlamasız MP4
 import * as MB from './lib/mediabunny.js';
 import { layoutClips, curvePts, curveSrc, flatLayers, projectDuration } from './engine.js';
-import { mixdown, fakeAnalyser } from './mixdown.js';
+import { mixdownStream, rollingAnalyser } from './mixdown.js';
+import { diskTarget } from './opfs.js';
 
 export function offlineSupported() {
   return typeof window.VideoEncoder === 'function' && typeof window.VideoDecoder === 'function' && typeof window.AudioEncoder === 'function' && typeof window.VideoFrame === 'function';
@@ -144,7 +145,7 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
   const vcodec = await pickVideoCodec(W, H, bitrate);
   if (!vcodec) throw new Error('NO_VIDEO_CODEC');
   const acodec = await pickAudioCodec(abr);
-  let output = null;
+  let output = null, disk = null;
   const feeds = new Map();
   const imgs = [];
   const stage = (s) => onStage?.(s);
@@ -160,38 +161,41 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
     }
     await Promise.all(imgs);
 
-    // 1) ses
-    stage('Ses karıştırılıyor…');
-    let mix = null;
-    try { mix = await mixdown(engine, P, dur, { sampleRate: 48000, shouldCancel, onProgress: (p) => onProgress?.(p * 0.12) }); } catch (e) { console.warn('ses karışımı başarısız', e); }
+    // 1) ses: v1.11 — pencere pencere (10 sn) karıştırılır, kareyle birlikte kodlanır; bellek sabit kalır
+    stage('Hazırlanıyor…');
+    let mixer = null;
+    try { mixer = mixdownStream(engine, P, dur, { sampleRate: 48000, win: 10 }); } catch (e) { console.warn('ses karışımı hazırlanamadı', e); }
     if (shouldCancel?.()) return null;
 
     // 2) çıktı
     engine.resize(res);
     const canvas = engine.canvas;
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
-    output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
+    // v1.11: çıktı diske akar (1 saatlik video RAM'de birikmez); disk yoksa eski bellek yolu
+    disk = await diskTarget(MB, `export-${Date.now()}.mp4`);
+    output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: disk ? false : 'in-memory' }), target: disk ? disk.target : new MB.BufferTarget() });
     const vsrc = new MB.CanvasSource(canvas, { codec: vcodec, quality: new MB.Quality({ bitrate }), keyFrameInterval: 2, latencyMode: 'quality' });
     output.addVideoTrack(vsrc, { frameRate: fps });
     let asrc = null;
-    if (acodec && mix) { asrc = new MB.AudioBufferSource({ codec: acodec, quality: new MB.Quality({ bitrate: abr }) }); output.addAudioTrack(asrc); }
+    if (acodec && mixer) { asrc = new MB.AudioBufferSource({ codec: acodec, quality: new MB.Quality({ bitrate: abr }) }); output.addAudioTrack(asrc); }
     await output.start();
-
-    if (asrc && mix) {
-      stage('Ses kodlanıyor…');
-      const step = 48000 * 2; // 2 sn'lik parçalar
-      const a0 = Math.round((F0 / fps) * 48000), a1 = Math.min(mix.length, Math.round((F1 / fps) * 48000));
-      for (let o = a0; o < a1; o += step) {
-        const n = Math.min(step, a1 - o);
-        const b = new AudioBuffer({ length: n, numberOfChannels: 2, sampleRate: 48000 });
-        b.copyToChannel(mix.getChannelData(0).subarray(o, o + n), 0);
-        b.copyToChannel((mix.numberOfChannels > 1 ? mix.getChannelData(1) : mix.getChannelData(0)).subarray(o, o + n), 1);
-        await asrc.add(b);
-        if (shouldCancel?.()) { await output.cancel(); return null; }
+    const ra = rollingAnalyser();
+    engine.offAnalyser = ra;
+    const T0 = F0 / fps, T1 = F1 / fps;
+    let mixedTo = T0, audioDead = !asrc;
+    // ses, kareleri hep bir pencere önden takip eder
+    const mixAhead = async (t) => {
+      while (!audioDead && mixedTo < T1 && mixedTo <= t + 0.5) {
+        const w1 = Math.min(T1, mixedTo + mixer.win);
+        try {
+          const buf = await mixer.mix(mixedTo, w1);
+          await asrc.add(buf);
+          ra.set(buf, mixedTo);
+        } catch (e) { console.warn('ses penceresi başarısız', e); audioDead = true; break; }
+        mixedTo = w1;
       }
-      asrc.close();
-    }
-    engine.offAnalyser = mix ? fakeAnalyser(mix) : null;
+      if (mixedTo >= T1 && asrc && !asrc._closedByUs) { asrc._closedByUs = true; try { asrc.close(); } catch (_) { /* yoksay */ } }
+    };
 
     // 3) kareler
     stage('Kareler oluşturuluyor…');
@@ -199,8 +203,9 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
     const cur = new Map(); // öğe id -> tuval
     engine.frameFor = (it) => cur.get(it.id) || null;
     for (let f = F0; f < F1; f++) {
-      if (shouldCancel?.()) { await output.cancel(); return null; }
+      if (shouldCancel?.()) { await output.cancel(); disk?.remove(); return null; }
       const t = f / fps;
+      await mixAhead(t);
       for (const v of items) {
         if (f < v.f0 || f > v.f1) continue;
         let feed = feeds.get(v);
@@ -217,14 +222,17 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
       await vsrc.add((f - F0) / fps, 1 / fps);
       onProgress?.(0.12 + 0.86 * ((f - F0 + 1) / N));
     }
+    await mixAhead(T1 + 1);
+    if (asrc && !asrc._closedByUs) { asrc._closedByUs = true; try { asrc.close(); } catch (_) { /* yoksay */ } }
     vsrc.close();
     stage('Dosya tamamlanıyor…');
     await output.finalize();
     onProgress?.(1);
-    const buf = output.target.buffer;
-    return { blob: new Blob([buf], { type: 'video/mp4' }), ext: 'mp4', codec: vcodec, audio: acodec, frames: N };
+    const blob = disk ? new File([await disk.file()], 'alpicut.mp4', { type: 'video/mp4' }) : new Blob([output.target.buffer], { type: 'video/mp4' });
+    return { blob, ext: 'mp4', codec: vcodec, audio: acodec, frames: N, onDisk: !!disk };
   } catch (e) {
     try { if (output && output.state !== 'finalized' && output.state !== 'canceled') await output.cancel(); } catch (_) { /* yoksay */ }
+    disk?.remove();
     throw e;
   } finally {
     for (const f of feeds.values()) await f.close();

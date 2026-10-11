@@ -2,6 +2,7 @@
 import { h } from './state.js';
 import { lsGet, lsSet } from './storage.js';
 import { proxyMode, setProxyMode } from './proxy.js';
+import { perfOn, setPerf } from './perf.js';
 
 export const THEMES = {
   amethyst: { name: 'Ametist', desc: 'Sıcak grafit, yumuşak mor (varsayılan)', scheme: 'dark',
@@ -113,6 +114,12 @@ export function themePickerBody(body, refresh) {
   const prow = h('div', { class: 'chips' });
   [['auto', 'Otomatik'], ['always', 'Her videoda'], ['off', 'Kapalı']].forEach(([v, n]) => prow.append(h('button', { class: proxyMode() === v ? 'on' : '', onclick: () => { setProxyMode(v); refresh(); } }, n)));
   body.append(prow);
+  // v1.11: performans göstergesi
+  body.append(h('div', { class: 'sub-title' }, 'Performans göstergesi'));
+  body.append(h('p', { class: 'hint' }, 'Sol üstte kare hızı, çizim süresi, düşen kareler ve bellek görünür. Kasma olursa ekran görüntüsünü gönder.'));
+  const vrow = h('div', { class: 'chips' });
+  [[true, 'Açık'], [false, 'Kapalı']].forEach(([v, n]) => vrow.append(h('button', { class: perfOn() === v ? 'on' : '', onclick: () => { setPerf(v); refresh(); } }, n)));
+  body.append(vrow);
 }
 
 applyTheme();

@@ -9,6 +9,7 @@
 // Kullanıcı oynatırken üretim bekler (bgwork.waitIdle), önizlemeyle yarışmaz.
 import { lsGet, lsSet, store } from './storage.js';
 import { waitIdle, isPlaying } from './bgwork.js';
+import { diskTarget } from './opfs.js';
 
 export const proxyMode = () => lsGet('alpicut.proxy', 'auto'); // auto | always | off
 export const setProxyMode = (v) => lsSet('alpicut.proxy', v);
@@ -86,7 +87,10 @@ export async function makeProxy(m, onProgress) {
     const [W, H] = fitSize(await vt.getDisplayWidth(), await vt.getDisplayHeight());
     const codec = await pickCodec(MB, W, H);
     if (!codec) return null;
-    const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
+    // v1.11: uzun videoda kopya RAM'de birikmesin — diske akar
+    const disk = await diskTarget(MB, `proxy-${m.id}-${Date.now()}.mp4`);
+    const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: disk ? false : 'in-memory' }), target: disk ? disk.target : new MB.BufferTarget() });
+    const done = async () => { if (disk) { const f = await disk.file(); return f.size > 1000 ? new File([f], 'proxy.mp4', { type: 'video/mp4' }) : null; } const buf = output.target.buffer; return buf && buf.byteLength > 1000 ? new Blob([buf], { type: 'video/mp4' }) : null; };
     const conv = await MB.Conversion.init({
       input, output,
       video: {
@@ -101,8 +105,7 @@ export async function makeProxy(m, onProgress) {
     if (!conv.isValid || !conv.utilizedTracks.some((t) => t.isVideoTrack?.() || t.type === 'video')) return null;
     conv.onProgress = (p) => onProgress?.(p * 0.98);
     await conv.execute();
-    const buf = output.target.buffer;
-    return buf && buf.byteLength > 1000 ? new Blob([buf], { type: 'video/mp4' }) : null;
+    return done();
   } finally { try { input.dispose(); } catch (_) { /* yoksay */ } }
 }
 
@@ -126,7 +129,10 @@ export async function makeProxyViaElement(m, onProgress) {
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
 
-    const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
+    // v1.11: uzun videoda kopya RAM'de birikmesin — diske akar
+    const disk = await diskTarget(MB, `proxy-${m.id}-${Date.now()}.mp4`);
+    const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: disk ? false : 'in-memory' }), target: disk ? disk.target : new MB.BufferTarget() });
+    const done = async () => { if (disk) { const f = await disk.file(); return f.size > 1000 ? new File([f], 'proxy.mp4', { type: 'video/mp4' }) : null; } const buf = output.target.buffer; return buf && buf.byteLength > 1000 ? new Blob([buf], { type: 'video/mp4' }) : null; };
     const codec = await pickCodec(MB, W, H);
     if (!codec) return null;
     const vsrc = new MB.VideoSampleSource({ codec, bitrate: MB.QUALITY_MEDIUM, keyFrameInterval: 0.5 });
@@ -190,8 +196,7 @@ export async function makeProxyViaElement(m, onProgress) {
     if (failed || count < 2 || last < dur * 0.8) { if (failed) console.warn('proxy kodlama hatası', failed); try { await output.cancel(); } catch (_) { /* yoksay */ } return null; }
     vsrc.close();
     await output.finalize();
-    const buf = output.target.buffer;
-    return buf && buf.byteLength > 1000 ? new Blob([buf], { type: 'video/mp4' }) : null;
+    return done();
   } finally {
     try { input?.dispose(); } catch (_) { /* yoksay */ }
     v.pause(); v.removeAttribute('src'); try { v.load(); } catch (_) { /* yoksay */ }

@@ -75,11 +75,20 @@ jobs:
           node lab/smoke.mjs lab/out/smoke | tee smoke.txt
           cat smoke.txt >> e2e.txt
 
+      # v1.11: 1 saatlik video ile bellek/çökme testi (içe aktarma, ses analizi, sesi ayırma, tüm saatin karışımı, dışa aktarma)
+      - name: Uzun video dayanıklılık testi (60 dk)
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          set -o pipefail
+          ffmpeg -loglevel error -y -f lavfi -i "testsrc2=size=160x284:rate=15" -f lavfi -i "aevalsrc='0.3*sin(2*PI*220*t)*(1+sin(2*PI*3*t))*gt(mod(t,7),1.5)':s=48000:c=stereo" -t 3600 -c:v libvpx-vp9 -deadline realtime -cpu-used 8 -row-mt 1 -b:v 60k -g 60 -c:a libopus -b:a 32k /tmp/long.webm
+          node lab/long.mjs /tmp/long.webm lab/out/long | tee long.txt
+
       # Güvenlik: testler başarısızsa (CSP ihlali dahil) APK üretilmez
       - name: Sürüm kapısı
         run: |
           set -o pipefail
-          node lab/gate.mjs lab/out/e2e.json smoke.txt | tee gate.txt
+          node lab/gate.mjs lab/out/e2e.json smoke.txt long.txt | tee gate.txt
 
       - name: Test dosyalarını APK dışında bırak
         run: rm -rf www/labmedia
@@ -143,7 +152,7 @@ jobs:
       - name: Test sonuçlarını kaydet
         if: always()
         run: |
-          mkdir -p /tmp/res; cp -r lab/out/* /tmp/res/ 2>/dev/null || true; for f in www/data/assets-report.json e2e.txt smoke.txt gate.txt sign.txt; do cp "$f" /tmp/res/ 2>/dev/null || true; done; cd /tmp/res
+          mkdir -p /tmp/res; cp -r lab/out/* /tmp/res/ 2>/dev/null || true; for f in www/data/assets-report.json e2e.txt smoke.txt long.txt gate.txt sign.txt; do cp "$f" /tmp/res/ 2>/dev/null || true; done; cd /tmp/res
           echo "${{ job.status }} ${GITHUB_REF_NAME} ${GITHUB_SHA}" > status.txt
           git init -q && git checkout -q -b ci-results && git config user.name ci && git config user.email ci@alpicut.local
           git add -A && git commit -qm "ci $GITHUB_RUN_NUMBER" && git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-results || true

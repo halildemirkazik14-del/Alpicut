@@ -123,26 +123,34 @@ export async function detachAudio(o) {
   if (o.mute && app.P.audio.some((a) => a.linked === o.id && a.detached)) { toast('Bu klibin sesi zaten ayrılmış'); return; }
   const b = busy('Ses videodan ayrılıyor…');
   try {
-    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-    let ab2;
-    try { ab2 = await new OAC(2, SR, SR).decodeAudioData(await t.m.blob.arrayBuffer()); } catch (_) { throw new Error('Bu videonun sesi okunamadı'); }
+    // v1.11: 30 sn'lik parçalarla akışlı çözülür ve diske WAV olarak yazılır — 1 saatlik klipte de bellek sabit
+    const { decodeRange, stretch } = await import('./mixdown.js');
+    const { wavWriter } = await import('./opfs.js');
     const speed = o.speed || 1;
-    const a0 = Math.max(0, t.inn), a1 = Math.min(ab2.duration, t.out ?? ab2.duration);
-    if (a1 - a0 < 0.05) throw new Error('Bu klipte ses yok');
-    const outLen = Math.max(1, Math.round(((a1 - a0) / speed) * SR));
-    const ctx = new OAC(Math.min(2, ab2.numberOfChannels), outLen, SR);
-    const src = ctx.createBufferSource(); src.buffer = ab2; src.playbackRate.value = speed;
-    src.connect(ctx.destination); src.start(0, a0, a1 - a0);
-    const r = await ctx.startRendering();
-    // mono karışım (konuşma için yeterli, dosya yarı boyut)
-    const x = new Float32Array(r.length);
-    for (let c = 0; c < r.numberOfChannels; c++) { const d = r.getChannelData(c); for (let i = 0; i < x.length; i++) x[i] += d[i] / r.numberOfChannels; }
-    let peak = 0; for (let i = 0; i < x.length; i += 32) peak = Math.max(peak, Math.abs(x[i]));
+    const a0 = Math.max(0, t.inn), a1 = Math.min(t.m.duration || Infinity, t.out ?? t.m.duration);
+    if (!(a1 - a0 > 0.05)) throw new Error('Bu klipte ses yok');
+    const name = `${(t.m.name || 'video').replace(/\.\w+$/, '')}_ses.wav`;
+    const w = await wavWriter(`detach-${Date.now()}.wav`, { sr: SR, ch: 1 });
+    const STEP = 30;
+    let peak = 0, gotAny = false;
+    for (let x = a0; x < a1; x += STEP) {
+      const y = Math.min(a1, x + STEP);
+      b.set(`Ses videodan ayrılıyor… %${Math.round(((x - a0) / (a1 - a0)) * 100)}`);
+      const raw = await decodeRange(t.m, x, y, SR);
+      let chs = raw;
+      const need = Math.round(((y - x) / speed) * SR);
+      if (chs && Math.abs(speed - 1) > 0.005) chs = stretch(chs, speed, SR);
+      const mono = new Float32Array(need);
+      if (chs) { gotAny = true; const n = Math.min(need, chs[0].length); for (let i = 0; i < n; i++) { const v = (chs[0][i] + chs[1][i]) / 2; mono[i] = v; const av = v < 0 ? -v : v; if (av > peak) peak = av; } }
+      await w.add(mono);
+    }
+    const file = await w.close();
+    if (!gotAny) throw new Error('Bu videonun sesi okunamadı');
     if (peak < 1e-4) throw new Error('Bu klipte duyulur bir ses yok');
-    const file = new File([toWav(x)], `${(t.m.name || 'video').replace(/\.\w+$/, '')}_ses.wav`, { type: 'audio/wav' });
-    const recs = await app.importFiles([file], true);
+    const named = new File([file], name, { type: 'audio/wav' });
+    const recs = await app.importFiles([named], true);
     if (!recs[0]) throw new Error('Kaydedilemedi');
-    app.P.audio.push({ id: uid(), mediaId: recs[0].id, start: t.start, in: 0, out: x.length / SR, volume: o.volume ?? 1, fadeIn: 0, fadeOut: 0, role: 'voice', linked: o.id, detached: true });
+    app.P.audio.push({ id: uid(), mediaId: recs[0].id, start: t.start, in: 0, out: w.frames / SR, volume: o.volume ?? 1, fadeIn: 0, fadeOut: 0, role: 'voice', linked: o.id, detached: true });
     o.mute = true;
     app.commit();
     toast(speed !== 1 ? 'Ses ayrıldı (klip hızı sese de uygulandı)' : 'Ses ayrıldı — artık ayrı bir iz: kes, kaydır, temizle');

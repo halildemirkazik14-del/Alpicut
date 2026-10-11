@@ -5,7 +5,7 @@
 // - Hızlı arayüz testinde (smoke) hata sayısı 0 değilse → başarısız
 import fs from 'node:fs';
 
-const [e2ePath = 'lab/out/e2e.json', smokePath = 'smoke.txt'] = process.argv.slice(2);
+const [e2ePath = 'lab/out/e2e.json', smokePath = 'smoke.txt', longPath = 'long.txt'] = process.argv.slice(2);
 // Dış sitelere bağlı, internet dalgalanmasından düşebilen adımlar: uyarı verir, sürümü durdurmaz
 const SOFT = new Set(['googleFont', 'musicHead']);
 const bad = [];
@@ -29,6 +29,13 @@ else {
   else if (+m[1] > 0) bad.push(`arayüz testinde ${m[1]} hata:\n${txt.slice(txt.indexOf('HATALAR')).slice(0, 1500)}`);
 }
 
+// v1.11: 1 saatlik video dayanıklılık testi (varsa): hata olmamalı
+if (fs.existsSync(longPath)) {
+  const txt = fs.readFileSync(longPath, 'utf8');
+  const m = txt.match(/HATALAR (\d+)/);
+  if (!m) bad.push('uzun video testi bitmedi (çökme ya da zaman aşımı)');
+  else if (+m[1] > 0) bad.push(`uzun video testinde ${m[1]} hata:\n${txt.slice(txt.indexOf('HATALAR')).slice(0, 1200)}`);
+} else warn.push('uzun video testi çalışmadı');
 warn.forEach((w) => console.log(`::warning::${w}`));
 if (bad.length) {
   bad.forEach((b) => console.log(`::error::${b.replace(/\n/g, ' | ')}`));

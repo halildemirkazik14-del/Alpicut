@@ -69,6 +69,8 @@ function init() {
   renderRatioPick();
 
   app.engine = new Engine($('preview'));
+  import('./perf.js').then((m) => m.attachPerf(app.engine)).catch(() => {}); // v1.11: performans göstergesi
+  import('./opfs.js').then((m) => m.cleanTmp()).catch(() => {}); // önceki oturumun geçici disk dosyaları
   app.engine.onTime = (t) => {
     updateTime();
     syncScroll(t);
@@ -1485,12 +1487,14 @@ async function reverseClip(c) {
     // ses: ters çevrilmiş AudioBuffer
     let audioBuf = null;
     try {
-      const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-      const dec = await new OAC(2, 48000, 48000).decodeAudioData(await m.blob.arrayBuffer());
-      const s0 = Math.floor(c.in * dec.sampleRate), s1 = Math.min(dec.length, Math.floor(c.out * dec.sampleRate));
-      const ac0 = new OAC(dec.numberOfChannels, Math.max(1, s1 - s0), dec.sampleRate);
-      audioBuf = ac0.createBuffer(dec.numberOfChannels, Math.max(1, s1 - s0), dec.sampleRate);
-      for (let ch = 0; ch < dec.numberOfChannels; ch++) { const src = dec.getChannelData(ch).subarray(s0, s1); const dst = audioBuf.getChannelData(ch); for (let i = 0; i < src.length; i++) dst[i] = src[src.length - 1 - i]; }
+      // v1.11: yalnızca klibin bölümü akışlı çözülür (tüm dosya belleğe okunmaz)
+      const { decodeRange } = await import('./mixdown.js');
+      const dec = await decodeRange(m, c.in, c.out, 48000);
+      if (dec) {
+        const n = Math.max(1, dec[0].length);
+        audioBuf = new AudioBuffer({ length: n, numberOfChannels: 2, sampleRate: 48000 });
+        for (let ch = 0; ch < 2; ch++) { const src = dec[ch]; const dst = audioBuf.getChannelData(ch); for (let i = 0; i < src.length; i++) dst[i] = src[src.length - 1 - i]; }
+      }
     } catch (_) { audioBuf = null; }
     // kaydet
     const stream = cv.captureStream(0);
