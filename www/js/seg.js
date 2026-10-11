@@ -140,7 +140,8 @@ export function personMask(el, sw, sh, opt = {}) {
   if (!model) return null;
   const tk = opt._t != null ? opt._t.toFixed(3) : (el.currentTime ?? 0);
   const key = `${tk}|${sw}x${sh}|${opt.threshold}|${opt.edge}|${tgt}|${opt.quality}|${opt.point?.x},${opt.point?.y}|${opt.smooth}`;
-  let c = cache.get(el);
+  const ck = opt._key || el;
+  let c = cache.get(ck);
   if (c && c.key === key) return c.canvas;
   // v1.10: oynatırken maske her karede hesaplanmaz; hesaplama süresine göre seyreltilir ve arada son maske
   // yeni kareye uygulanır. Böylece video akıcı oynar, maske kısa süre geriden gelir. Dışa aktarmada her kare hesaplanır.
@@ -149,7 +150,7 @@ export function personMask(el, sw, sh, opt = {}) {
     if (since < Math.min(450, Math.max(33, (c.cost || 0) * 2.2))) return c.canvas;
   }
   const t0 = performance.now();
-  if (!c) { c = { canvas: document.createElement('canvas'), key: '', prev: null, pt: null, lastT: null, bbox: null, frame: 0 }; cache.set(el, c); }
+  if (!c) { c = { canvas: document.createElement('canvas'), key: '', prev: null, pt: null, lastT: null, bbox: null, frame: 0 }; cache.set(ck, c); }
   const tnum = +tk;
   const cont = c.lastT != null && Math.abs(tnum - c.lastT) < 0.25 && tnum >= c.lastT - 0.001;
   if (!cont) { c.prev = null; c.pt = null; c.bbox = null; c.frame = 0; }
@@ -203,6 +204,7 @@ export function personMask(el, sw, sh, opt = {}) {
     const r = Math.max(2, Math.round(Math.max(ww, wh) / 110));
     q = guidedFilter(I, p, ww, wh, r, 0.0025);
   } catch (_) { /* çapraz köken vb.: filtresiz devam */ }
+  if (opt.wantQ) c.q = q; // v1.11: önbellek üretimi ham olasılığı saklar
   // 4) eşik + yumuşak kenar → alfa; 5) takip kutusu ve nesne noktası
   const mc = c.canvas;
   if (mc.width !== ww || mc.height !== wh) { mc.width = ww; mc.height = wh; }
@@ -225,10 +227,13 @@ export function personMask(el, sw, sh, opt = {}) {
   return mc;
 }
 
+export function lastQ(key) { return cache.get(key)?.q || null; }
+
 // Kaynağı kişiye/nesneye göre kırp: arka planı saydam yapılmış tuval
 const outCache = new WeakMap();
 export function removeBackground(el, sw, sh, opt = {}, maxSide = 1280) {
-  const m = personMask(el, sw, sh, { ...opt, _work: maxSide > 1280 ? WMAX : (opt.live ? 256 : 320) });
+  // v1.11: önceden işlenmiş maske varsa model hiç çalışmaz
+  const m = opt._mask || personMask(el, sw, sh, { ...opt, _work: maxSide > 1280 ? WMAX : (opt.live ? 256 : 320) });
   if (!m) return null;
   const k = Math.min(1, maxSide / Math.max(sw, sh));
   const w = Math.max(2, Math.round(sw * k)), h = Math.max(2, Math.round(sh * k));

@@ -480,7 +480,7 @@ export class Engine {
   }
 
   // ---------- çizim ----------
-  env() { return { W: this.W, H: this.H, S: this.scale, exporting: this.exporting, img: (id) => this.imgForMedia(id), seg: this.seg, elFor: (it) => this.elFor(it), analyser: this.offAnalyser || this.preMeter, playing: this.playing }; }
+  env() { return { W: this.W, H: this.H, S: this.scale, exporting: this.exporting, img: (id) => this.imgForMedia(id), seg: this.seg, elFor: (it) => this.elFor(it), analyser: this.offAnalyser || this.preMeter, playing: this.playing, maskFor: this.maskFor || null }; }
 
   imgForMedia(id) {
     const m = this.media.get(id);

@@ -70,6 +70,10 @@ function init() {
 
   app.engine = new Engine($('preview'));
   import('./perf.js').then((m) => m.attachPerf(app.engine)).catch(() => {}); // v1.11: performans göstergesi
+  import('./maskcache.js').then((mc) => {
+    app.engine.maskFor = (o, srcT, b, rate) => { const m = app.engine.media.get(o.mediaId); return m ? mc.cachedMask(o, m, srcT, b, app.engine.playing, rate) : null; };
+    mc.onMask((k, p) => { proxyPill({}, -1); if (p >= 1 && mc.maskState.get(k)?.done) { toast('Arka plan hazır ✓ — artık donmadan oynar'); app.engine.requestDraw(); } });
+  }).catch(() => {});
   import('./opfs.js').then((m) => m.cleanTmp()).catch(() => {}); // önceki oturumun geçici disk dosyaları
   app.engine.onTime = (t) => {
     updateTime();
@@ -650,6 +654,7 @@ function commit() {
     app.redo = [];
     journal(P);
     scheduleSave();
+    clearTimeout(commit._mk); commit._mk = setTimeout(() => import('./maskcache.js').then((mc) => mc.ensureMasks()).catch(() => {}), 600); // v1.11: arka plan önbelleği
   }
   app.engine.applyMix();
   app.engine.sync(app.engine.t);
@@ -1143,6 +1148,14 @@ function proxyPill(m, p) {
   let el = document.getElementById('proxyPill');
   if (!el) { el = document.createElement('div'); el.id = 'proxyPill'; el.className = 'proxy-pill'; wrap.appendChild(el); }
   const active = [...proxyState.values()].filter((s) => !s.done && !s.err);
+  const masks = proxyPill.mc ? proxyPill.mc.maskBusy() : [];
+  if (!proxyPill.mc) import('./maskcache.js').then((mc) => { proxyPill.mc = mc; }).catch(() => {});
+  if (masks.length && !active.length) {
+    const avg = masks.reduce((a, s) => a + (s.p || 0), 0) / masks.length;
+    el.innerHTML = `<i></i><span>Arka plan hazırlanıyor · %${Math.round(avg * 100)} — bitince donmadan oynar</span>`;
+    el.style.setProperty('--p', avg.toFixed(3)); el.classList.add('on');
+    return;
+  }
   if (active.length) {
     const avg = active.reduce((a, s) => a + (s.p || 0), 0) / active.length;
     el.innerHTML = `<i></i><span>Akıcı önizleme hazırlanıyor · %${Math.round(avg * 100)}${active.length > 1 ? ` · ${active.length} video` : ''}</span>`;
@@ -1151,6 +1164,7 @@ function proxyPill(m, p) {
     return;
   }
   el.classList.remove('on');
+  if (p === -1) return;
   if (p >= 1) {
     const st = proxyState.get(m.id);
     if (st?.done) { toast('Akıcı önizleme hazır ✓'); app.engine.requestDraw(); }

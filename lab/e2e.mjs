@@ -201,6 +201,51 @@ await step('segVideo', async () => {
   return r;
 });
 
+// v1.11: arka plan önbelleği (CapCut yaklaşımı) — klip bir kez işlenir, oynatmada model çalışmaz
+await step('maskCache', async () => pg.evaluate(async () => {
+  const app = window.__alpicut;
+  const MB = await import('./js/lib/mediabunny.js');
+  const urls = ['https://storage.googleapis.com/mediapipe-assets/portrait.jpg', 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Pierre-Person.jpg/480px-Pierre-Person.jpg'];
+  let img = null;
+  for (const u of urls) { try { const b = await (await fetch(u)).blob(); img = await createImageBitmap(b); break; } catch (_) { /* sonraki */ } }
+  if (!img) throw new Error('örnek fotoğraf yok');
+  // 3 sn'lik, kişinin kaydığı bir video üret (VP9)
+  const W = 360, H = 640, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d');
+  const out = new MB.Output({ format: new MB.WebMOutputFormat(), target: new MB.BufferTarget() });
+  const vs = new MB.CanvasSource(cv, { codec: 'vp9', bitrate: 1e6 }); out.addVideoTrack(vs, { frameRate: 30 }); await out.start();
+  const k = Math.max(W / img.width, H / img.height) * 1.1;
+  for (let f = 0; f < 90; f++) { x.fillStyle = '#556'; x.fillRect(0, 0, W, H); x.drawImage(img, (W - img.width * k) / 2 + (f - 45) * 2, (H - img.height * k) / 2, img.width * k, img.height * k); await vs.add(f / 30, 1 / 30); }
+  vs.close(); await out.finalize();
+  if (!document.getElementById('editor') || document.getElementById('editor').classList.contains('hidden')) { document.getElementById('newProject')?.click(); await new Promise((r) => setTimeout(r, 600)); }
+  const recs = await app.importFiles([new File([out.target.buffer], 'kisi.webm', { type: 'video/webm' })]);
+  const m = recs[0];
+  const clip = { id: 'mk1', mediaId: m.id, type: 'video', in: 0, out: m.duration, dur: 3, speed: 1, volume: 1, mute: false, fit: 'cover', bgMode: 'blur', bgColor: '#000', zoom: 1, panX: 0, panY: 0, filters: {}, filterPreset: 'none', trans: { type: 'none', dur: 0.5 }, kf: {},
+    bgr: { on: true, target: 'person', quality: 'fast', threshold: 0.5, edge: 0.12, feather: 1.5, choke: true, smooth: 0.35, mode: 'color', color: '#00B140', blur: 30 } };
+  app.P.clips = [clip]; app.commit();
+  const mc = await import('./js/maskcache.js');
+  const t0 = performance.now();
+  await mc.ensureMasks();
+  const key = mc.maskKey(clip, app.engine.media.get(m.id));
+  while (!(mc.maskState.get(key)?.done || mc.maskState.get(key)?.err) && performance.now() - t0 < 180000) await new Promise((r) => setTimeout(r, 300));
+  const st = mc.maskState.get(key);
+  if (!st?.done) throw new Error(`önbellek üretilmedi: ${JSON.stringify(st)}`);
+  const buildMs = Math.round(performance.now() - t0);
+  // oynatma maliyeti: hazır maske okunur (model çalışmaz)
+  let ms = 0, got = 0, cov = 0;
+  for (let i = 0; i < 20; i++) {
+    const tt = 0.2 + i * 0.12;
+    let mk = null; const until = performance.now() + 1500;
+    while (!mk && performance.now() < until) { mk = mc.cachedMask(clip, app.engine.media.get(m.id), tt, clip.bgr, false, 1); if (!mk) await new Promise((r) => setTimeout(r, 50)); }
+    await new Promise((r) => setTimeout(r, 120));
+    const a0 = performance.now(); mk = mc.cachedMask(clip, app.engine.media.get(m.id), tt, clip.bgr, false, 1); ms += performance.now() - a0;
+    if (mk) { got++; const d = mk.getContext('2d').getImageData(0, 0, mk.width, mk.height).data; let s2 = 0; for (let j = 3; j < d.length; j += 16) s2 += d[j]; cov += s2 / (d.length / 16) / 255; }
+  }
+  const covAvg = got ? cov / got : 0;
+  if (got < 15) throw new Error(`maske okunamadı (${got}/20)`);
+  if (covAvg < 0.12 || covAvg > 0.92) throw new Error(`maske kapsamı tutarsız ${covAvg.toFixed(3)}`);
+  return { buildMs, perFrameMs: +(ms / 20).toFixed(2), coverage: +covAvg.toFixed(3), frames: got };
+}));
+
 // arayüz: şablon ve geçiş ekranları
 await step('ui', async () => {
   // v1.8: alt sayfalar artık panel (wm.js) — kapatmak için closeAll; eksik araç adı testi düşürmez, ekran görüntüsü atlanır
