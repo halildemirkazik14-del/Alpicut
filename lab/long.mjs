@@ -93,4 +93,4 @@ await step('disaAktar20sn', () => pg.evaluate(async () => {
 R.errors = errs;
 fs.writeFileSync(`${OUT}/long.json`, JSON.stringify(R, null, 1));
 console.log('HATALAR', errs.length, errs.join('\n'));
-await b.close(); srv.close();
+await Promise.race([b.close(), new Promise((r) => setTimeout(r, 15000))]); srv.close(); process.exit(0);

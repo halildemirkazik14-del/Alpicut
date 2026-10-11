@@ -337,8 +337,9 @@ await step('layerBrush', async () => {
     const cv = document.createElement('canvas'); cv.width = 200; cv.height = 200; const x = cv.getContext('2d'); x.fillStyle = '#888'; x.fillRect(0, 0, 200, 200);
     const out = applyBrush(cv, cv, L.brush);
     const px = (u, v) => out.getContext('2d').getImageData(u, v, 1, 1).data[3];
+    const res = { added, erased: px(30, 100), kept: px(50, 100), untouched: px(180, 100) }; // çizimden önce oku (önbellek tuvali paylaşılır)
     app.engine.seek ? app.engine.seek(1) : (app.engine.t = 1); app.engine.draw(1);
-    return { added, erased: px(30, 100), kept: px(50, 100), untouched: px(180, 100) };
+    return res;
   });
   if (r.added !== 1) throw new Error(`katman bindirilmedi ${JSON.stringify(r)}`);
   if (r.erased !== 0 || r.kept !== 255 || r.untouched !== 255) throw new Error(`fırça yanlış ${JSON.stringify(r)}`);
