@@ -452,6 +452,10 @@ function showExitConfirm(onExit) {
 }
 
 // ---------- ana ekran ----------
+// v1.12: şablon ikonları — emoji yerine ince çizgi ikonlar (premium kimlik)
+const TPL_IC = { aitool: 'ai', devlog: 'edit', vlog: 'film', product: 'brand', recipe: 'heart', travel: 'marker', aicompare: 'versions', paperstory: 'sticker', podcast: 'mic', edu: 'text', wedding: 'heart', fitness: 'beat', hotel: 'star', gaming: 'play', motivation: 'wand', football: 'score' };
+function tplIcon(t) { return I[TPL_IC[t.id]] || I.template; }
+
 function renderRatioPick() {
   const box = $('ratioPick');
   box.textContent = '';
@@ -463,7 +467,7 @@ function renderRatioPick() {
   const q = $('quickTpl');
   if (q && !q.childElementCount) {
     const pick = ['aitool', 'devlog', 'vlog', 'product', 'recipe', 'travel', 'aicompare', 'paperstory', 'podcast', 'edu', 'wedding', 'fitness', 'hotel', 'gaming', 'motivation', 'football'];
-    pick.map((id) => PROJECT_TEMPLATES.find((t) => t.id === id)).filter(Boolean).forEach((t, i) => q.append(h('button', { class: 'qt', style: { '--i': String(i) }, onclick: () => newProject(t) }, h('span', { class: 'qt-ic' }, t.icon), h('b', {}, t.name))));
+    pick.map((id) => PROJECT_TEMPLATES.find((t) => t.id === id)).filter(Boolean).forEach((t, i) => q.append(h('button', { class: 'qt', style: { '--i': String(i) }, onclick: () => newProject(t) }, h('span', { class: 'qt-ic', html: tplIcon(t) }), h('b', {}, t.name))));
     q.append(h('button', { class: 'qt more', onclick: openProjectTemplates }, h('span', { class: 'qt-ic', html: I.template }), h('b', {}, `Tümü · ${PROJECT_TEMPLATES.length}`)));
   }
 }

@@ -1,10 +1,14 @@
-// Alpicut — tema sistemi: hazır temalar (Obsidyen mor, Altın, Gümüş, Gece, Beyaz) + kendi vurgu rengin
+// Alpicut — tema sistemi: Grafit (varsayılan, v1.12) + hazır temalar + kendi vurgu rengin
 import { h } from './state.js';
 import { lsGet, lsSet } from './storage.js';
 import { proxyMode, setProxyMode } from './proxy.js';
 import { perfOn, setPerf } from './perf.js';
 
 export const THEMES = {
+  grafit: { name: 'Grafit', desc: 'Grafit siyah, altın vurgu — premium (varsayılan)', scheme: 'dark',
+    bg: '#0C0C0E', bg2: '#101012', surface: '#141417', surface2: '#1B1B1F', surface3: '#26262B', line: '#26262B', line2: '#1A1A1D',
+    primary: '#E8B04A', primary2: '#F0C673', primary3: '#F2EEE6', accent: '#E8B04A', text: '#F2EEE6', text2: '#D6D2CB', muted: '#8C8A86', onPrimary: '#0C0C0E',
+    grad: 'linear-gradient(#F2EEE6, #F2EEE6)', preview: '#070708' },
   amethyst: { name: 'Ametist', desc: 'Sıcak grafit, yumuşak mor (varsayılan)', scheme: 'dark',
     bg: '#0E0D11', bg2: '#131217', surface: '#1A1920', surface2: '#222129', surface3: '#2D2B35', line: '#34313E', line2: '#1E1D24',
     primary: '#9D8CF2', primary2: '#B9ACF7', primary3: '#DCD5FB', accent: '#E9C7A1', text: '#F3F1F5', text2: '#D2CED9', muted: '#8F8A99', onPrimary: '#16112B',
@@ -51,11 +55,13 @@ function lum(hx) { const [r, g, b] = hexToRgb(hx).map((v) => { v /= 255; return 
 export function currentTheme() {
   // v1.6: eski varsayılan (Obsidyen) bir kez yeni varsayılana (Ametist) taşınır
   if (!lsGet('alpicut.v16theme', '')) { lsSet('alpicut.v16theme', '1'); if (lsGet('alpicut.theme', 'obsidian') === 'obsidian') lsSet('alpicut.theme', 'amethyst'); }
-  return { id: lsGet('alpicut.theme', 'amethyst'), accent: lsGet('alpicut.accent', '') };
+  // v1.12: yeni premium kimlik — herkes bir kez Grafit'e geçer (Ayarlar'dan eskisi seçilebilir)
+  if (!lsGet('alpicut.v112theme', '')) { lsSet('alpicut.v112theme', '1'); lsSet('alpicut.theme', 'grafit'); lsSet('alpicut.accent', ''); }
+  return { id: lsGet('alpicut.theme', 'grafit'), accent: lsGet('alpicut.accent', '') };
 }
 
 export function applyTheme(id = currentTheme().id, accent = currentTheme().accent) {
-  const T = { ...(THEMES[id] || THEMES.amethyst) };
+  const T = { ...(THEMES[id] || THEMES.grafit) };
   if (accent && /^#[0-9a-f]{6}$/i.test(accent)) {
     const light = T.scheme === 'light';
     T.primary = accent;
@@ -74,6 +80,7 @@ export function applyTheme(id = currentTheme().id, accent = currentTheme().accen
   set('--glow', `rgba(${pr},${pg},${pb},.35)`); set('--tint', `rgba(${pr},${pg},${pb},.14)`);
   set('--scrim', T.scheme === 'light' ? 'rgba(255,255,255,.86)' : `${T.surface}e6`);
   document.documentElement.dataset.scheme = T.scheme;
+  document.documentElement.dataset.theme = THEMES[id] ? id : 'grafit';
   document.documentElement.style.colorScheme = T.scheme;
   const meta = document.querySelector('meta[name=theme-color]');
   if (meta) meta.setAttribute('content', T.bg);
@@ -88,7 +95,7 @@ export function setTheme(id, accent) {
   applyTheme(id, accent || '');
 }
 
-const ACCENTS = ['', '#9D8CF2', '#8B5CF6', '#D4AF37', '#C3C9D2', '#3B82F6', '#22D3EE', '#10B981', '#84CC16', '#FACC15', '#F97316', '#E11D48', '#EC4899', '#A855F7', '#FFFFFF'];
+const ACCENTS = ['', '#E8B04A', '#9D8CF2', '#8B5CF6', '#D4AF37', '#C3C9D2', '#3B82F6', '#22D3EE', '#10B981', '#84CC16', '#FACC15', '#F97316', '#E11D48', '#EC4899', '#A855F7', '#FFFFFF'];
 
 // Tema seçici paneli içeriği
 export function themePickerBody(body, refresh) {

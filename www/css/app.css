@@ -988,3 +988,47 @@ button, [role="button"], .item, .tpl, .tr-card { touch-action: manipulation; -we
 .br-tools .chips .chip.on{border-color:var(--primary,#8467F4);background:rgba(132,103,244,.25)}
 .br-size{display:flex;align-items:center;gap:10px;color:#fff;font-size:13px}
 .br-size input{flex:1}
+
+/* =================== v1.12: premium kimlik — Grafit =================== */
+@font-face { font-family: "Geist"; src: url(../fonts-ui/Geist.ttf) format("truetype"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url(../fonts-ui/GeistMono.ttf) format("truetype"); font-weight: 100 900; font-display: swap; }
+:root {
+  --font: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-c: "Geist", system-ui, sans-serif;
+  --font-sc: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+}
+html[data-theme=grafit] { --font-serif: "Geist", system-ui, sans-serif; --r-sm: 8px; --r-md: 10px; --r-lg: 12px; --glow: rgba(0,0,0,0); --hair: rgba(255,255,255,.03); }
+/* ana ekran */
+html[data-theme=grafit] #home { background: var(--bg); }
+.brand-logo svg { width: 36px; height: 36px; }
+.brand-name { font-family: var(--font); font-weight: 600; font-size: 23px; letter-spacing: -.6px; line-height: 1; display: inline-flex; flex-direction: row; }
+html[data-theme=grafit] .new-project { border-radius: 12px; box-shadow: none; padding: 16px 18px; gap: 14px; }
+html[data-theme=grafit] .np-plus { width: 28px; height: 28px; background: transparent; border-radius: 0; }
+html[data-theme=grafit] .np-plus svg { width: 24px; height: 24px; }
+html[data-theme=grafit] .np-text b { font-family: var(--font); font-size: 18px; font-weight: 600; letter-spacing: -.2px; }
+html[data-theme=grafit] .np-text small { font-family: var(--font); font-size: 13px; opacity: .7; }
+html[data-theme=grafit] .ratio-pick button { border-radius: 8px; font-family: var(--font-mono); font-weight: 500; font-size: 13px; border-color: var(--line); background: transparent; }
+html[data-theme=grafit] .ratio-pick button.on { background: rgba(232,176,74,.08); border-color: var(--primary); color: var(--text); }
+html[data-theme=grafit] .section-title { font-family: var(--font); font-size: 12px; font-weight: 500; letter-spacing: 2px; color: var(--muted); }
+html[data-theme=grafit] .qt { border-radius: 12px; background: var(--surface); border-color: var(--line-2); box-shadow: none; animation: none; }
+html[data-theme=grafit] .qt-ic { background: transparent; border: 1px solid var(--line); border-radius: 10px; color: var(--text-2); }
+html[data-theme=grafit] .qt-ic svg { width: 20px; height: 20px; }
+html[data-theme=grafit] .qt:active .qt-ic { transform: none; }
+html[data-theme=grafit] .qt.more .qt-ic { background: transparent; color: var(--primary); border-color: rgba(232,176,74,.4); }
+html[data-theme=grafit] .vibe-btn { background: var(--surface); border: 1px solid var(--line-2); box-shadow: none; }
+html[data-theme=grafit] .vibe-btn .vb-ic { background: transparent; color: var(--primary); border: 1px solid rgba(232,176,74,.35); box-shadow: none; }
+html[data-theme=grafit] .pcard { border-radius: 10px; border-color: var(--line-2); }
+html[data-theme=grafit] .pcard .dur { font-family: var(--font-mono); }
+html[data-theme=grafit] .empty-projects { border-radius: 12px; }
+.signature .sig-mark { font-family: var(--font); font-weight: 600; letter-spacing: 3px; }
+.signature .sig-by { font-family: var(--font); font-style: normal; font-size: 12.5px; color: var(--muted); }
+/* editör */
+html[data-theme=grafit] .export-btn { background: var(--text); color: var(--bg); box-shadow: none; border-radius: 10px; font-family: var(--font); font-weight: 600; letter-spacing: 0; }
+html[data-theme=grafit] .play-btn { background: var(--text); color: var(--bg); box-shadow: none; }
+html[data-theme=grafit] .tc, html[data-theme=grafit] #timeCode { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0; }
+html[data-theme=grafit] .vibe-btn { border-radius: 12px; }
+html[data-theme=grafit] .vibe-btn::before { display: none; }
+html[data-theme=grafit] .vibe-btn { background: var(--surface); border-color: var(--line-2); }
+html[data-theme=grafit] .vb-ic { animation: none; font-size: 18px; }
+html[data-theme=grafit] .vibe-btn b { font-weight: 600; }
