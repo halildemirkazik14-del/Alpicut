@@ -1,0 +1,187 @@
+{
+ "assets": {
+  "ok": true,
+  "sfx": 2074,
+  "sfxCats": {
+   "Darbe & boom": 212,
+   "Arayüz & tık": 165,
+   "Müzik vuruşları": 134,
+   "Teknoloji": 85,
+   "Bilim kurgu": 152,
+   "Oyun & retro": 555,
+   "Ev & günlük": 140,
+   "Para & kasa": 91,
+   "Seslendirme": 98,
+   "Çeşitli": 129,
+   "Doğa": 57,
+   "Yaratık": 80,
+   "Whoosh": 22,
+   "Bildirim & zil": 33,
+   "Komik & meme": 5,
+   "Kalabalık & alkış": 6,
+   "Spor": 8,
+   "Hayvanlar": 27,
+   "Ulaşım": 29,
+   "İnsan sesleri": 37,
+   "Ortam": 9
+  },
+  "music": 1166,
+  "musicSample": [
+   "Akustik & folk: Lijepa nasa domovino instrumental cijeli [Public domain]",
+   "Akustik & folk: Soviet Anthem Instrumental 1955 [Public domain]",
+   "Anton Dmytrovych Lebedynets, Pavlo Tychyna: Anthem of the Ukrainian Soviet Socialist Republic (Instrumental) [Public domain]"
+  ],
+  "gfonts": 1740,
+  "fontsOk": "lazy",
+  "ms": 29
+ },
+ "fontsBundled": {
+  "ok": true,
+  "Barlow Condensed": true,
+  "Anton": true,
+  "Bebas Neue": true,
+  "Montserrat": true,
+  "Pacifico": true,
+  "Bangers": true,
+  "ms": 53
+ },
+ "googleFont": {
+  "ok": true,
+  "check": true,
+  "ms": 69
+ },
+ "tts": {
+  "ok": true,
+  "size": 156204,
+  "dur": 3.541043,
+  "ms": 4546
+ },
+ "whisper": {
+  "ok": true,
+  "lang": "turkish",
+  "text": " Merhaba bu bir alt yazı testidir. Gold çok güzeldi.",
+  "words": [
+   " Merhaba@0.44",
+   " bu@0.84",
+   " bir@1.04",
+   " alt@1.38",
+   " yazı@1.44",
+   " testidir.@1.88",
+   " Gold@2.64",
+   " çok@2.84",
+   " güzeldi.@3.18"
+  ],
+  "segment": false,
+  "msgs": [
+   "Model hazırlanıyor: onnx-community/whisper-tiny_timestamped",
+   "Model: onnx-community/whisper-tiny_timestamped",
+   "Konuşma metne çevriliyor…"
+  ],
+  "ms": 5846
+ },
+ "studio": {
+  "ok": true,
+  "outSize": 339984,
+  "rnnoise": "ok vad=0.873 frame=480",
+  "ms": 790
+ },
+ "segmenter": {
+  "ok": true,
+  "personCoverage": 0.514,
+  "faces": 1,
+  "face0": {
+   "x": 0.48927875243664715,
+   "y": 0.2265625,
+   "w": 0.2884990253411306,
+   "h": 0.23125,
+   "score": 0.9230531454086304
+  },
+  "liveMs": 0.9,
+  "fullMs": 26.2,
+  "ms": 913
+ },
+ "sfxDecode": {
+  "ok": true,
+  "res": [
+   "Footstep carpet 000:0.17",
+   "PowerUp11:0.68",
+   "Jingles NES00:1.76",
+   "Sfx exp short hard12:0.43",
+   "Sfx sound poweron:1.61",
+   "Switch 01:0.23",
+   "Swish 8:0.15",
+   "Airplane Chime Sound Effect:2.12"
+  ],
+  "ms": 56
+ },
+ "musicHead": {
+  "ok": true,
+  "status": 206,
+  "cors": null,
+  "first": "Lijepa nasa domovino instrumental cijeli",
+  "ms": 112
+ },
+ "pipeline": {
+  "ok": true,
+  "n": 7,
+  "tCap": 7540,
+  "cues": [
+   "0.16 Mephaba kataslar.",
+   "2.38 Bugün çok güzel bir",
+   "3.84 maciz edik.",
+   "5.08 İkinci yaradaharik abi gol",
+   "7.48 geldi."
+  ],
+  "before": 13,
+  "after": 11.5,
+  "jumpcut": "1 boşluk kesildi, video 1.5 sn kısaldı",
+  "denoise": "1 konuşma sesi temizlendi (Hışırtı giderici (güçlü))",
+  "issues": [
+   "İlk 2 saniyede dikkat çeken bir başlık (hook) yok — izleyici kaydırıp geçebilir."
+  ],
+  "ms": 9968
+ },
+ "segVideo": {
+  "ok": true,
+  "covMin": 0.706,
+  "covMax": 0.772,
+  "jitter": 0.0086,
+  "msPerFrame": 23.3,
+  "work": "180x320",
+  "ms": 725
+ },
+ "maskCache": {
+  "ok": true,
+  "buildMs": 2197,
+  "perFrameMs": 2.09,
+  "coverage": 0.726,
+  "frames": 20,
+  "ms": 5231
+ },
+ "ui": {
+  "ok": true,
+  "shots": {
+   "Yapay zekâ": true,
+   "Ses efekti": false,
+   "Müzik": false,
+   "Şablon": false
+  },
+  "ms": 25116
+ },
+ "logs": [
+  "warning: env.wasm.numThreads is set to 4, but this will not work unless you enable crossOriginIsolated mode. See https://web.dev/cross-origin-isolation-guide/ for more info.",
+  "warning: W1011 20:03:00.388999 2136208 gl_context.cc:1118] OpenGL error checking is disabled",
+  "warning: W1011 20:03:00.540999 2136208 gl_context.cc:1118] OpenGL error checking is disabled",
+  "error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.",
+  "warning: W1011 20:03:00.670000 2136208 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.",
+  "error: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.",
+  "warning: W1011 20:03:00.828999 2136208 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.",
+  "warning: [.WebGL-0x297c3d2d0800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+  "warning: [.WebGL-0x297c3d2d5c00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+  "warning: [.WebGL-0x297c3d2d0800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+  "warning: [.WebGL-0x297c3d2d0800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+  "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+  "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently"
+ ],
+ "totalMs": 55707
+}

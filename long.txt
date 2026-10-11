@@ -1,0 +1,8 @@
+baslangic {"s":0,"heapMB":4}
+iceAktar {"dur":3600,"mb":51,"s":0,"heapMB":5}
+kaydirma {"worstDrawMs":0,"s":2,"heapMB":5}
+sesAnalizi {"dur":3600,"silences":515,"s":26,"heapMB":183}
+sesiAyir {"audioLen":3600,"toast":"Ses ayrıldı — artık ayrı bir iz: kes, kaydır, temizle","s":31,"heapMB":180}
+karisimTumSaat {"windows":361,"peak":0.668,"maxHeapMB":197,"s":49,"heapMB":120}
+disaAktar20sn {"frames":480,"mb":2.6,"onDisk":true,"aDur":20.02,"vDur":20,"s":1,"heapMB":165}
+HATALAR 0 
