@@ -16,3 +16,6 @@ www/labmedia/
 *.keystore
 *.jks
 *.p12
+
+# Graphify çıktısı
+graphify-out/
