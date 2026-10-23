@@ -47,7 +47,7 @@ function videoItems(engine, P, fps, N) {
 
 // Kaynak video kare sağlayıcısı: önce WebCodecs (mediabunny), olmazsa <video> ile ara-bekle
 class FrameFeed {
-  constructor(v, fps) { this.v = v; this.fps = fps; this.canvas = null; this.it = null; this.input = null; this.el = null; this.mode = null; }
+  constructor(v, fps, cap = 1920) { this.v = v; this.fps = fps; this.cap = cap; this.canvas = null; this.it = null; this.input = null; this.el = null; this.mode = null; }
 
   async open() {
     const { v } = this;
@@ -57,7 +57,7 @@ class FrameFeed {
       if (!vt || !(await vt.canDecode())) throw new Error('çözülemiyor');
       const first = await vt.getFirstTimestamp().catch(() => 0) || 0;
       const dw = vt.displayWidth, dh = vt.displayHeight;
-      const k = Math.min(1, 1920 / Math.max(dw, dh));
+      const k = Math.min(1, this.cap / Math.max(dw, dh));
       const sink = new MB.CanvasSink(vt, { width: Math.round(dw * k / 2) * 2, height: Math.round(dh * k / 2) * 2, fit: 'fill', poolSize: 2 });
       const ts = [];
       for (let f = v.f0; f <= v.f1; f++) ts.push(Math.max(0, Math.min(v.max - 0.001, v.at(f / this.fps))) + first);
@@ -100,7 +100,7 @@ class FrameFeed {
       });
     }
     const c = this.canvas;
-    const k = Math.min(1, 1920 / Math.max(el.videoWidth, el.videoHeight));
+    const k = Math.min(1, this.cap / Math.max(el.videoWidth, el.videoHeight));
     const w = Math.round(el.videoWidth * k), h = Math.round(el.videoHeight * k);
     if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
     c.getContext('2d').drawImage(el, 0, 0, w, h);
@@ -140,7 +140,7 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
   const F0 = Math.round(r0 * fps), F1 = Math.max(F0 + 1, Math.round(r1 * fps));
   const N = F1 - F0;
   if (r0 > 0) coverCanvas = null;
-  const oldScale = engine.scale;
+  const oldScale = engine.baseScale || engine.scale;
   const W = Math.round((engine.W * res) / 2) * 2, H = Math.round((engine.H * res) / 2) * 2;
   const vcodec = await pickVideoCodec(W, H, bitrate);
   if (!vcodec) throw new Error('NO_VIDEO_CODEC');
@@ -209,7 +209,7 @@ export async function exportOffline(engine, { res = 1, fps = 30, bitrate = 10e6,
       for (const v of items) {
         if (f < v.f0 || f > v.f1) continue;
         let feed = feeds.get(v);
-        if (!feed) { feed = new FrameFeed(v, fps); await feed.open(); feeds.set(v, feed); }
+        if (!feed) { feed = new FrameFeed(v, fps, Math.max(1920, W, H)); await feed.open(); feeds.set(v, feed); }
         const c = await feed.frame(f);
         if (c) cur.set(v.item.id, c);
         if (f === v.f1) { await feed.close(); feeds.delete(v); }

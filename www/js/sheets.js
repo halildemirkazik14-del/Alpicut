@@ -1113,7 +1113,7 @@ export function openExport() {
     card.append(h('h3', {}, 'Dışa Aktar'));
     card.append(h('div', { class: 'kutup-tip' }, h('span', { class: 'kt-wrap', html: kutupSVG({ mood: 'peek' }) }), h('div', {}, h('b', {}, 'Kutup diyor ki'), h('p', {}, kutupTip(app.P, dur)))));
     card.append(h('p', { class: 'hint', html: `Süre <b>${fmt(dur)}</b> · Format <b>${fmtName}</b> · Oran <b>${app.P.ratio}</b>` }));
-    card.append(h('div', { class: 'field full' }, h('label', {}, 'Çözünürlük'), chips([[1080, '1080p'], [720, '720p'], [540, '540p (hızlı)']], 'q')));
+    card.append(h('div', { class: 'field full' }, h('label', {}, 'Çözünürlük'), chips([[2160, '4K'], [1440, '2K'], [1080, '1080p'], [720, '720p'], [540, '540p (hızlı)']], 'q')));
     card.append(h('div', { class: 'field full' }, h('label', {}, 'Kare hızı'), chips([[30, '30 fps'], [60, '60 fps']], 'fps')));
     card.append(h('div', { class: 'field full' }, h('label', {}, 'Dosya boyutu sınırı'), chips([[0, 'Yok'], [10, '10 MB'], [30, '30 MB'], [50, '50 MB'], [100, '100 MB']], 'limit')));
     // v1.9: yalnızca bir aralığı dışa aktar (giriş-çıkış)
@@ -1128,6 +1128,7 @@ export function openExport() {
       card.append(h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: setT('r0') }, '⇤ Oynatıcı = giriş'), h('button', { class: 'btn', onclick: setT('r1') }, 'Oynatıcı = çıkış ⇥')));
       card.append(h('p', { class: 'hint', html: `Dışa aktarılacak: <b>${fmt(opt.r0)} – ${fmt(opt.r1)}</b> (${(opt.r1 - opt.r0).toFixed(1)} sn)` }));
     }
+    if (opt.q > 1080) card.append(h('p', { class: 'hint', html: '<b>4K/2K:</b> en keskin sonuç; dışa aktarma 1080p\'ye göre 2–4 kat uzun sürer. Telefonun bu çözünürlüğü kodlayamıyorsa en yüksek desteklenen çözünürlüğe otomatik inilir.' }));
     if (opt.limit) {
       const vb = targetBitrate(opt.limit, dur);
       const low = vb < 1.2e6;
@@ -1146,7 +1147,7 @@ export function openExport() {
 
   const saveFrame = async () => {
     const E = app.engine;
-    const old = E.scale;
+    const old = E.baseScale || E.scale;
     E.exporting = true; E.resize(opt.q / short); E.draw();
     const blob = await new Promise((r) => E.canvas.toBlob(r, 'image/png'));
     E.exporting = false; E.resize(old); E.requestDraw(); app.fitStage();
@@ -1160,8 +1161,21 @@ export function openExport() {
     if (!fontsOk) toast('Bazı Google fontları indirilemedi; yedek font kullanılacak', 4000);
     let wake = null;
     try { wake = await navigator.wakeLock?.request('screen'); } catch (_) { /* yoksay */ }
+    // v1.8: 4K/2K — telefon bu boyutu kodlayabiliyor mu? Değilse desteklenen en yüksek çözünürlüğe in
+    const QBR = { 2160: 45e6, 1440: 24e6, 1080: 12e6, 720: 7e6, 540: 4e6 };
+    if (opt.q > 1080 && offline) {
+      const { canOffline } = await import('./exporter.js');
+      for (const q of [2160, 1440, 1080]) {
+        if (q > opt.q) continue;
+        const k = q / short;
+        if (q === 1080 || await canOffline(Math.round(W * k / 2) * 2, Math.round(H * k / 2) * 2, QBR[q])) {
+          if (q !== opt.q) toast(`Bu telefon ${opt.q === 2160 ? '4K' : '2K'} kodlayamıyor; ${q === 1440 ? '2K' : '1080p'} olarak oluşturuluyor`, 5000);
+          opt.q = q; break;
+        }
+      }
+    }
     const res = opt.q / short;
-    const qbr = ({ 1080: 12e6, 720: 7e6, 540: 4e6 }[opt.q]) * (opt.fps === 60 ? 1.5 : 1);
+    const qbr = QBR[opt.q] * (opt.fps === 60 ? 1.5 : 1);
     const span = opt.range ? Math.max(0.1, opt.r1 - opt.r0) : dur;
     let br = opt.limit ? Math.min(qbr, targetBitrate(opt.limit, span)) : qbr;
     const abr = opt.limit ? 128000 : 192000;

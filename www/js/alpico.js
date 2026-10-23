@@ -472,7 +472,7 @@ const FAQ = [
   [/keyframe|animasyon egri|egri/, 'Keyframe: öğeye dokun → Keyframe. ◆ ile işaret koy, başka zamana gidip değeri değiştir. Altta hareket eğrisini seç (Otomatik yumuşak, Elastik, Özel eğri…). "Tümünü otomatik yumuşat" tüm hareketleri pürüzsüzleştirir.'],
   [/tema|renk degis|gold|altin|beyaz arayuz/, 'Tema: ana ekrandaki palet simgesi veya Düzen → Tema. Obsidyen, Altın, Gümüş, Gece, Beyaz, Yakut, Zümrüt ve istediğin vurgu rengi var.'],
   [/favori/, 'Favoriler: efekt, filtre, geçiş, şablon, ses, müzik ve fontlarda ☆ simgesine dokun. Hepsi alttaki "Favoriler" düğmesinde toplanır.'],
-  [/disa aktar|kaydet|export|indir/, 'Dışa aktarma: sağ üstteki "Dışa Aktar". 1080p/720p, 30/60 fps veya dosya boyutu sınırı seçebilirsin. Video Galeri/Alpicut klasörüne kaydedilir.'],
+  [/disa aktar|kaydet|export|indir/, 'Dışa aktarma: sağ üstteki "Dışa Aktar". 4K/2K/1080p/720p, 30/60 fps veya dosya boyutu sınırı seçebilirsin. Video Galeri/Alpicut klasörüne kaydedilir.'],
   [/kayit|mikrofon|ses kaydi/, 'Kayıt: Ses → Kayıt stüdyosu. "Doğal stüdyo" modunu kullan, geri sayımda sessiz kal (ortam gürültüsü ölçülür). Kayıttan sonra ham/işlenmiş hâlini dinleyip ekle.'],
   [/seslendir|metinden ses|eleven/, 'Seslendirme: Ses → Seslendirme. Cihazda (ücretsiz), OpenAI veya ElevenLabs motorunu seç, sesi dinle, metni yaz ve oluştur.'],
 ];

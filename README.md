@@ -104,3 +104,9 @@ Teknik: Saf HTML/JS editör (`www/`), Capacitor 7 ile Android'e paketlenir.
 - [HyperFrames](https://github.com/heygen-com/hyperframes) (HeyGen) — Apache License 2.0: sinematik shader geçişleri uyarlandı, motion şablonları blok kataloğundan esinlendi. Lisans: `www/licenses/hyperframes-LICENSE-Apache-2.0.txt`
 - [gl-transitions](https://github.com/gl-transitions/gl-transitions) — MIT
 - Bricolage Grotesque, Source Serif 4 — SIL Open Font License
+
+## v1.8 — akıcılık ve 4K
+- **Akıllı önizleme kalitesi:** oynatırken önizleme, telefonun yetiştiği çözünürlükte çizilir (CapCut gibi); durunca anında keskinleşir. Dışa aktarma her zaman tam kalite.
+- **Daha az boşa iş:** videoların yedek karesi her karede kopyalanmıyordu artık kopyalanmıyor; sabit duran yazılar bir kez görüntüye çevrilip tekrar kullanılıyor (gölge/kontur her karede yeniden hesaplanmıyor); katman gölgeleri hazır görüntü; film greni toplu çiziliyor.
+- Ölçüm (10 katmanlı 1 dk proje, telefon hızına yavaşlatılmış test): çizim süresi 40 ms → 22 ms, oynatma 12 → ~20 fps (test ortamı videoları yazılımla çözüyor; telefonda donanım çözdüğü için fark daha büyük olmalı). Test: `node lab/perf10.mjs`.
+- **4K ve 2K dışa aktarma:** 2160×3840 H.264. Telefon desteklemiyorsa desteklediği en yüksek çözünürlüğe otomatik iner. Kaynak videolar 4K'da 1920 px'e küçültülmeden işlenir.

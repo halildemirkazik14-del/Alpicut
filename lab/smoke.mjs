@@ -22,7 +22,7 @@ const srv = http.createServer((req, res) => {
 
 const errs = [];
 const R = {};
-const b = await chromium.launch({ executablePath: fs.existsSync('/opt/pw-browsers/chromium-1194/chrome-linux/chrome') ? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' : undefined, args: ['--autoplay-policy=no-user-gesture-required'] });
+const b = await chromium.launch({ executablePath: ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome'].find((p) => fs.existsSync(p)), args: ['--autoplay-policy=no-user-gesture-required'] });
 const ctx = await b.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const pg = await ctx.newPage();
 pg.on('pageerror', (e) => errs.push(`PAGEERROR ${e.message}`));

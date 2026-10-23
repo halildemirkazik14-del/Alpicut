@@ -132,6 +132,9 @@ export function isReady(el) {
   return el.complete !== false && (el.naturalWidth || el.width) > 0;
 }
 
+// v1.8: dışa aktarmada kaynak işleme sınırı çıktı boyutuna göre (4K'da 3840)
+const outCap = (env, live) => (env.exporting ? Math.max(1920, Math.round(Math.max(env.W, env.H) * env.S)) : live);
+
 // cover/contain ile kutuya çiz
 export function drawFit(ctx, el, x, y, w, h, fit = 'cover', zoom = 1, panX = 0, panY = 0) {
   const [sw, sh] = mediaSize(el);
@@ -162,9 +165,14 @@ function stableSource(el) {
   }
   return c && c._ok ? c : el;
 }
-function rememberFrame(el) {
+function rememberFrame(el, env) {
   const c = el && el.tagName === 'VIDEO' ? lastFrames.get(el) : null;
-  if (c && c._dirty) { try { c.getContext('2d').drawImage(el, 0, 0, c.width, c.height); c._ok = true; } catch (_) { /* yoksay */ } c._dirty = false; }
+  // v1.8: yedek kare kopyası her karede değil — oynatırken en fazla yarım saniyede bir, dururken yalnız kare değişince
+  if (c && c._dirty && c._ok) {
+    const now = performance.now();
+    if ((env?.playing && !env.exporting && now - (c._at || 0) < 500) || (!env?.playing && c._ct === c._t)) { c._dirty = false; return; }
+  }
+  if (c && c._dirty) { c._at = performance.now(); c._ct = c._t; try { c.getContext('2d').drawImage(el, 0, 0, c.width, c.height); c._ok = true; } catch (_) { /* yoksay */ } c._dirty = false; }
 }
 
 export function drawClip(ctx, clip, el, localT, len, env) {
@@ -177,10 +185,10 @@ export function drawClip(ctx, clip, el, localT, len, env) {
   }
   if (orig) el = stableSource(el);
   // v1.5: duraklatılmışken de son hazır kare saklanır — zaman çizelgesinde kaydırırken önizleme kararmaz
-  if (el !== orig) { /* son kare kullanılıyor */ } else if (!isReady(el)) return; else rememberFrame(el);
+  if (el !== orig) { /* son kare kullanılıyor */ } else if (!isReady(el)) return; else rememberFrame(el, env);
   const raw = el;
   const gp = gradeParams(clip);
-  if (gp) { const [sw, sh] = mediaSize(el); el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280); }
+  if (gp) { const [sw, sh] = mediaSize(el); el = gradeSource(el, sw, sh, gp, outCap(env, 1280)); }
   if ((clip.bgr?.on && env.seg) || clip.brush?.s?.length || (clip.mask && clip.mask.type && clip.mask.type !== 'none')) {
     return drawClipComposite(ctx, clip, el, raw, localT, len, env);
   }
@@ -224,7 +232,7 @@ function drawClipComposite(ctx, clip, el, raw, localT, len, env) {
   if (b?.on && env.seg) {
     const [sw, sh] = mediaSize(el);
     const mk = !env.exporting && env.maskFor ? env.maskFor(clip, el.currentTime, b, clip.speed || 1) : null;
-    const cut = env.seg.removeBackground(el, sw, sh, { ...b, _t: localT, live: env.playing && !env.exporting, _mask: mk }, env.exporting ? 1920 : 960);
+    const cut = env.seg.removeBackground(el, sw, sh, { ...b, _t: localT, live: env.playing && !env.exporting, _mask: mk }, outCap(env, 960));
     if (cut) {
       if (b.mode === 'blur') { o.save(); o.filter = `blur(${(b.blur || 30) * S}px)`; drawFit(o, raw, -40, -40, W + 80, H + 80, 'cover'); o.restore(); }
       else if (b.mode === 'color') { o.fillStyle = b.color || '#00B140'; o.fillRect(0, 0, W, H); }
@@ -509,6 +517,64 @@ export function drawText(ctx, L, st, env) {
   return { w: totalW + pad * 2 + (L.strokeW || 0), h: totalH + pad * 1.4 + (L.strokeW || 0) };
 }
 
+// v1.8: sabit duran yazı (harf/kelime animasyonu yok ya da bitmiş) bir kez görüntüye çevrilir;
+// her karede gölge + kontur + metin ölçümü yeniden yapılmaz. Görünüm birebir aynı.
+const textCache = new Map(); // layer id -> {key, c, w0, h0, box}
+let fontEpoch = 0;
+try { document.fonts?.addEventListener?.('loadingdone', () => { fontEpoch++; }); } catch (_) { /* yoksay */ }
+const TEXT_SKIP = new Set(['id', 'x', 'y', 'rot', 'opacity', 'start', 'end', 'kf', 'anim', 'sc', 'hidden', 'locked', 'blend', 'track', 'name']);
+function drawTextCached(ctx, L, st, env) {
+  const ain = L.anim?.in, aout = L.anim?.out, aloop = L.anim?.loop;
+  const moving = LETTER_IN.has(ain) || LETTER_OUT.has(aout) || LETTER_LOOP.has(aloop)
+    || (st.glow || 0) > 0.001 || ((ain === 'typewriter' || ain === 'words') && st.reveal < 1);
+  if (moving || !ctx.getTransform) return drawText(ctx, L, st, env);
+  const T = ctx.getTransform();
+  const anim = Math.abs(st.sc * (st.sx || 1)) || 1;
+  const k = Math.max(0.05, Math.round((Math.hypot(T.a, T.b) / anim) * 40) / 40);
+  let key = `${k}|${env.S}|${env.W}|${fontEpoch}|`;
+  for (const n in L) if (!TEXT_SKIP.has(n)) { const v = L[n]; key += `${n}:${typeof v === 'object' && v ? JSON.stringify(v) : v};`; }
+  let e = textCache.get(L.id);
+  if (!e || e.key !== key) {
+    const c = e?.c || document.createElement('canvas');
+    const o = c.getContext('2d');
+    o.setTransform(1, 0, 0, 1, 0, 0); o.font = fontStr(L, L.size);
+    const lay = layoutText(o, L, env.W);
+    const pad = L.bgPad || 0;
+    const m = (L.strokeW || 0) + ((L.shadowBlur || 0) + 8) * 2 + 16;
+    const w0 = lay.totalW + pad * 2 + m * 2, h0 = lay.totalH + pad * 1.4 + m * 2;
+    const cw = Math.ceil(w0 * k), ch = Math.ceil(h0 * k);
+    if (cw * ch > 4e6 || cw < 1 || ch < 1) { textCache.delete(L.id); return drawText(ctx, L, st, env); }
+    if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; } else o.clearRect(0, 0, cw, ch);
+    o.setTransform(k, 0, 0, k, cw / 2, ch / 2);
+    o.globalAlpha = 1; o.filter = 'none';
+    const box = drawText(o, L, { ...st, reveal: 1, glow: 0 }, env);
+    if (textCache.size > 64 && !e) textCache.delete(textCache.keys().next().value);
+    e = { key, c, w0, h0, box };
+    textCache.set(L.id, e);
+  }
+  ctx.drawImage(e.c, -e.w0 / 2, -e.h0 / 2, e.w0, e.h0);
+  return e.box;
+}
+
+// v1.8: video/foto katmanı gölgesi — her karede bulanıklık hesaplamak yerine hazır gölge görüntüsü
+const shadowCache = new Map();
+function drawShadowSprite(ctx, w, h, r, S) {
+  const P = 90; // gölgenin taşma payı (proje birimi)
+  const key = `${Math.round(w)}x${Math.round(h)}r${Math.round(r)}s${S.toFixed(3)}`;
+  let c = shadowCache.get(key);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = Math.max(2, Math.ceil((w + P * 2) * S)); c.height = Math.max(2, Math.ceil((h + P * 2) * S));
+    const o = c.getContext('2d');
+    o.setTransform(S, 0, 0, S, P * S, P * S);
+    o.shadowColor = 'rgba(0,0,0,.55)'; o.shadowBlur = 40 * S; o.shadowOffsetY = 10 * S;
+    roundRect(o, 0, 0, w, h, r); o.fillStyle = '#000'; o.fill();
+    if (shadowCache.size > 24) shadowCache.delete(shadowCache.keys().next().value);
+    shadowCache.set(key, c);
+  }
+  ctx.drawImage(c, -w / 2 - P, -h / 2 - P, w + P * 2, h + P * 2);
+}
+
 // ---------- CTA ikonları ----------
 const ICON_PATHS = {
   bell: 'M12 2a1.6 1.6 0 0 0-1.6 1.6v.6A6.2 6.2 0 0 0 5.8 10.3V15l-2 2.2V18.4h16.4v-1.2L18.2 15v-4.7a6.2 6.2 0 0 0-4.6-6.1v-.6A1.6 1.6 0 0 0 12 2zM9.6 19.6a2.4 2.4 0 0 0 4.8 0z',
@@ -726,7 +792,7 @@ export function drawLayer(ctx, L, t, env, el, still = false) {
   ctx.scale(st.sc * kv.s * (st.sx || 1), st.sc * kv.s * (st.sy || 1));
   if (st.blur > 0.5) ctx.filter = `blur(${st.blur * S}px)`;
   let box = null;
-  if (L.kind === 'text') box = drawText(ctx, L, st, env);
+  if (L.kind === 'text') box = drawTextCached(ctx, L, st, env);
   else if (L.kind === 'cta') box = drawCTA(ctx, L, t, env);
   else if (L.kind === 'score') box = drawScore(ctx, L, t, env);
   else if (L.kind === 'shape') box = drawShape(ctx, L, t, env);
@@ -934,15 +1000,15 @@ export function applyMask(o, m, cw, ch, k = 1) {
 function drawMediaLayer(ctx, L, t, env, el, st) {
   const { W, S } = env;
   const w = (L.w || 0.6) * W;
-  { const o0 = el; el = stableSource(el); if (el === o0) { if (!isReady(el)) return { w, h: w }; rememberFrame(el); } }
+  { const o0 = el; el = stableSource(el); if (el === o0) { if (!isReady(el)) return { w, h: w }; rememberFrame(el, env); } }
   const [sw, sh] = mediaSize(el);
   const srcT0 = el.currentTime;
   const el0 = el;
   const gp = gradeParams(L);
-  if (gp) el = gradeSource(el, sw, sh, gp, env.exporting ? 1920 : 1280);
+  if (gp) el = gradeSource(el, sw, sh, gp, outCap(env, 1280));
   if (L.bgr?.on && env.seg) {
     const mk = !env.exporting && env.maskFor && srcT0 != null ? env.maskFor(L, srcT0, L.bgr, 1) : null;
-    const cut = env.seg.removeBackground(el, sw, sh, { ...L.bgr, _t: t - L.start, live: env.playing && !env.exporting, _mask: mk }, env.exporting ? 1920 : 960);
+    const cut = env.seg.removeBackground(el, sw, sh, { ...L.bgr, _t: t - L.start, live: env.playing && !env.exporting, _mask: mk }, outCap(env, 960));
     if (cut) {
       if (L.bgr.mode === 'color' || L.bgr.mode === 'blur') {
         const bg = document.createElement('canvas'); bg.width = cut.width; bg.height = cut.height;
@@ -959,12 +1025,7 @@ function drawMediaLayer(ctx, L, t, env, el, st) {
   if (L.kenburns) zoom *= 1 + 0.15 * clamp((t - L.start) / Math.max(0.1, L.end - L.start));
   const r = L.crop === 'circle' ? w / 2 : (L.radius || 0);
   const m = L.mask && L.mask.type && L.mask.type !== 'none' ? L.mask : null;
-  if (L.shadowOn && !m) {
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 40 * S; ctx.shadowOffsetY = 10 * S;
-    roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.fillStyle = '#000'; ctx.fill();
-    ctx.restore();
-  }
+  if (L.shadowOn && !m) drawShadowSprite(ctx, w, h, r, S);
   const fs = filterString(L.filters, S);
   const blur = st.blur > 0.5 ? ` blur(${st.blur * S}px)` : '';
   const filt = ((fs === 'none' ? '' : fs) + blur).trim() || 'none';

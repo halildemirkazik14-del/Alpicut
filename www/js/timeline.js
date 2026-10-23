@@ -161,6 +161,8 @@ export function syncScroll(t, force = false) {
   if (drag) return;
   if (!force && touching) return;
   const x = Math.round(t * app.pps);
+  if (!force && x === syncScroll._x) return; // v1.8: her karede düzen hesaplatma
+  syncScroll._x = x;
   if (Math.abs(sc.scrollLeft - x) >= 1) sc.scrollLeft = x;
 }
 

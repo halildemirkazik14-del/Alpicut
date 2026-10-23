@@ -107,6 +107,8 @@ export class Engine {
     this.playing = false;
     this.exporting = false;
     this.scale = 0.5;
+    this.baseScale = 0.5; // durunca kullanılan keskin önizleme ölçeği
+    this._pq = 0.75; // v1.8: oynatırken önizleme kalitesi (0.5..1, kare hızına göre kendini ayarlar)
     this.boxes = new Map();
     this.selectedId = null;
     this.guides = null;
@@ -139,7 +141,9 @@ export class Engine {
   get H() { return RATIOS[this.P?.ratio || '9:16'][1]; }
 
   resize(scale) {
-    if (scale) this.scale = scale;
+    if (scale) this.baseScale = scale;
+    // v1.8: oynatırken önizleme biraz düşük çözünürlükte çizilir (CapCut gibi), durunca keskinleşir
+    this.scale = this.playing && !this.exporting ? Math.max(0.25, this.baseScale * this._pq) : this.baseScale;
     const w = Math.round(this.W * this.scale), h = Math.round(this.H * this.scale);
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
     this.requestDraw();
@@ -651,11 +655,28 @@ export class Engine {
     this.playing = true;
     this._t0 = this.t;
     this._n0 = performance.now();
+    this._fq = { last: 0, sum: 0, n: 0, at: performance.now() };
+    this.resize();
     this._startBuf();
+  }
+
+  // v1.8: oynatma kare hızını izle; telefon yetişemiyorsa önizleme çözünürlüğünü düşür, rahatsa yükselt
+  _adaptQuality(now) {
+    const q = this._fq; if (!q) return;
+    if (q.last) { q.sum += now - q.last; q.n++; }
+    q.last = now;
+    if (now - q.at < 1000 || q.n < 10) return;
+    const avg = q.sum / q.n; q.sum = 0; q.n = 0; q.at = now;
+    let pq = this._pq;
+    if (avg > 38 && pq > 0.5) pq = Math.max(0.5, pq * 0.8);
+    else if (avg < 20 && pq < 1) pq = Math.min(1, pq * 1.12);
+    if (pq !== this._pq) { this._pq = pq; this.resize(); }
   }
 
   pause() {
     this.playing = false;
+    this._fq = null;
+    this.resize();
     this._stopBuf();
     this.sync(this.t);
     this.requestDraw();
@@ -763,6 +784,8 @@ export class Engine {
       if (this.t >= d) {
         this.t = d;
         this.playing = false;
+        this._fq = null;
+        this.resize();
         this._stopBuf();
         this.sync(this.t);
         this.draw(Math.max(0, d - 0.001)); // son kare siyah kalmasın
@@ -771,6 +794,7 @@ export class Engine {
         return;
       }
       this.sync(this.t);
+      if (!this.exporting) this._adaptQuality(performance.now());
       if (!this.holdSkip(this.t)) this.draw();
       this._audioTick(1 / 60);
       if (this.onTime) this.onTime(this.t);
@@ -818,7 +842,7 @@ export class Engine {
     if (!window.MediaRecorder || !this.canvas.captureStream) throw new Error('Bu cihaz video kaydını desteklemiyor.');
     this.playing = false;
     this.ensureAudio();
-    const oldScale = this.scale;
+    const oldScale = this.baseScale;
     this.exporting = true;
     this.resize(res);
     const mime = Engine.pickMime();
